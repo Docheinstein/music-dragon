@@ -43,10 +43,12 @@ if __name__ == '__main__':
     exit(0)
 
     print("Getting releases...")
-    result = mb.search_releases("Fear of the Dark", limit=10, primarytype="Album")
+    result = mb.search_release_groups("Shadow of the Moon", limit=10, primarytype="Album")
     print("Got releases")
 
-    # print(j(result))
+    print(j(result))
+    exit(0)
+
     got = False
     for release in result["release-list"]:
         if got:

@@ -1,13 +1,14 @@
 import time
-from typing import Any
+from enum import Enum
+from typing import Any, List
 
 import musicbrainzngs as mb
 import asyncio
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import QRunnable, QThreadPool, QTimer, QThread, QObject, pyqtSignal, pyqtSlot, QAbstractListModel, \
-    QModelIndex, QVariant
-from PyQt5.QtGui import QStandardItemModel, QIcon, QPixmap
+    QModelIndex, QVariant, QRect, Qt, QSize, QPoint
+from PyQt5.QtGui import QStandardItemModel, QIcon, QPixmap, QPainter, QBrush, QColor, QFont
 from PyQt5.QtWidgets import QMainWindow, QItemDelegate, QStyledItemDelegate, QListWidgetItem
 from musicbrainzngs import ResponseError
 
@@ -16,16 +17,37 @@ from ui_mainwindow import Ui_MainWindow
 from utils import j
 
 SEARCH_DEBOUNCE_MS = 800
+DEFAULT_PROXY_IMAGE = "res/questionmark.png"
 
 # https://www.riverbankcomputing.com/static/Docs/PyQt4/new_style_signals_slots.html#the-pyqtslot-decorator
 # https://realpython.com/python-pyqt-qthread/
 # https://gist.github.com/ksvbka/1f26ada0c6201c2cf19f59b100d224a9
 
 
-def make_icon_from_data(data):
+class MBEntity:
+    def __init__(self, info):
+        self.info = info
+        self.image = None
+
+class Artist(MBEntity):
+    def __init__(self, info):
+        super().__init__(info)
+
+class Release(MBEntity):
+    def __init__(self, info):
+        super().__init__(info)
+
+def qrect_to_string(rect: QRect):
+    return f"left={rect.left()} top={rect.top()} right={rect.left() + rect.width()} bottom={rect.top() + rect.height()}"
+
+def make_pixmap_from_data(data):
     pixmap = QPixmap()
-    pixmap.loadFromData(data)
-    return QIcon(pixmap)
+    if data:
+        pixmap.loadFromData(data)
+    return pixmap
+
+def make_icon_from_data(data):
+    return QIcon(make_pixmap_from_data(data))
 
 class ImageFetcherSignals(QObject):
     finished = pyqtSignal(str, bytes)
@@ -77,68 +99,117 @@ class SearchRunnable(QRunnable):
         debug("-----------------------")
 
         print(f"search_artists: '{self.query}'")
-        artists = mb.search_artists(self.query, limit=3)["artist-list"]
+        artists = mb.search_artists(self.query, limit=2)["artist-list"]
         debug(j(artists))
 
         print(f"search_releases: '{self.query}'")
-        releases = mb.search_releases(self.query, limit=3)["release-list"]
+        releases = mb.search_releases(self.query, limit=2)["release-list"]
         debug(j(releases))
 
         self.signals.finished.emit(artists, releases)
 
 
-# class SearchWorker(QObject):
-#     finished = pyqtSignal()
-#     progress = pyqtSignal(int)
-#
-#     def __init__(self):
-#         super().__init__()
-#
-#     def run(self):
-#         debug("-------------------------------------------------")
-#         debug(f"[SearchWorker invoked on thread {QThread.currentThread()}]")
+class ContentItemRole:
+    ICON = Qt.DecorationRole
+    TITLE = Qt.DisplayRole
+    SUBTITLE = Qt.UserRole
 
 
-# class ContentItem(QStyledItemDelegate):
-#     def paint(self, painter: QtGui.QPainter, option: 'QStyleOptionViewItem', index: QtCore.QModelIndex) -> None:
+class ContentItemDelegate(QStyledItemDelegate):
+    def paint(self, painter: QPainter, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
+        ICON_TO_TEXT_SPACING = 10
+        # super(ContentItemDelegate, self).paint(painter, option, index)
 
-#
+        row = index.row()
+        title: str = index.data(ContentItemRole.TITLE)
+        subtitle: str = index.data(ContentItemRole.SUBTITLE)
+        icon: QIcon = index.data(ContentItemRole.ICON)
+
+        # self.initStyleOption(option, index)
+
+        painter.save()
+
+        # Main
+        main_rect = option.rect
+        x = main_rect.x()
+        y = main_rect.y()
+        w = main_rect.width()
+        h = main_rect.height()
+
+        # Icon
+        icon_size = icon.actualSize(QSize(h, h))
+        icon_rect = QRect(x, y, icon_size.width(), icon_size.height())
+        icon.paint(painter, icon_rect)
+
+        # Title
+        title_position = QPoint(icon_rect.right() + ICON_TO_TEXT_SPACING, int(y + h / 2))
+        font = painter.font()
+        font.setBold(True)
+        font.setPointSize(14)
+        painter.setFont(font)
+        painter.drawText(title_position, title)
+
+        # Subtitle
+        subtitle_position = QPoint(icon_rect.right() + ICON_TO_TEXT_SPACING, int(y + h / 2 + 20))
+        font = painter.font()
+        font.setBold(False)
+        font.setPointSize(11)
+        painter.setFont(font)
+        painter.drawText(subtitle_position, subtitle)
+
+        painter.restore()
+
+    def sizeHint(self, option: 'QStyleOptionViewItem', index: QtCore.QModelIndex) -> QSize:
+        # return QSize(400, 80)
+        return super(ContentItemDelegate, self).sizeHint(option, index)
+
+
 # # https://doc.qt.io/qt-5/model-view-programming.html
-# class ContentModel(QAbstractListModel):
-#
-#     def __init__(self):
-#         super().__init__()
-#         self.items = []
-#
-#     def rowCount(self, parent: QModelIndex = ...) -> int:
-#         return len(self.items)
-#
-#     def data(self, index: QModelIndex, role: int = ...) -> Any:
-#         if not index.isValid():
-#             return QVariant()
-#
-#         row = index.row()
-#
-#         if row < 0 or row >= self.rowCount():
-#             return QVariant()
-#
-#         item = self.items[row]
-#
-#         if role == QtCore.Qt.DecorationRole:
-#             print("Asking for DecorationRole")
-#             if item.get("image"):
-#                 print("Returning Image for DecorationRole")
-#                 return item["image"]
-#         if role == QtCore.Qt.DisplayRole:
-#             if item["type"] == "artist":
-#                 return f'{item["name"]} [{item["type"]}]'
-#             elif item["type"] == "release":
-#                 return f'{item["title"]} [{item["type"]}]'
-#
-#
-#         return QVariant()
-#
-#
+class ContentModel(QAbstractListModel):
+
+    def __init__(self):
+        super().__init__()
+        self.items: List[MBEntity] = []
+
+    def rowCount(self, parent: QModelIndex = ...) -> int:
+        return len(self.items)
+
+    def data(self, index: QModelIndex, role: int = ...) -> Any:
+        if not index.isValid():
+            return QVariant()
+
+        row = index.row()
+
+        if row < 0 or row >= self.rowCount():
+            return QVariant()
+
+        item = self.items[row]
+
+        if role == ContentItemRole.TITLE:
+            if isinstance(item, Artist):
+                return f'{item.info["name"]}'
+            if isinstance(item, Release):
+                return f'{item.info["title"]}'
+
+        if role == ContentItemRole.SUBTITLE:
+            if isinstance(item, Artist):
+                return "Artist"
+
+            if isinstance(item, Release):
+                if "artist-credit" in item.info:
+                    by = ", ".join(credit["name"] for credit in item.info["artist-credit"])
+                else:
+                    by = "Unknown"
+                return by
+
+        if role == ContentItemRole.ICON:
+            if item.image:
+                return make_icon_from_data(item.image)
+            return QIcon(DEFAULT_PROXY_IMAGE)
+
+        return QVariant()
+
+
 #     def setData(self, index: QModelIndex, value: Any, role: int = ...) -> bool:
 #         pass
 #
@@ -152,19 +223,18 @@ class MainWindow(QMainWindow):
 
         self.ui.searchBar.textChanged.connect(self.on_search)
 
-        # self.search_thread = QThread()
-        # self.search_worker = SearchWorker()
-        # self.search_worker.moveToThread(self.search_thread)
-        # self.search_thread.started.connect(self.search_worker.run)
-        # self.search_worker.finished.connect(self.search_thread.quit)
-        # self.search_worker.finished.connect(self.search_worker.deleteLater)
-        # self.search_thread.finished.connect(self.search_thread.deleteLater)
-
-
         self.search_debounce_timer = QTimer()
         self.search_debounce_timer.setSingleShot(True)
         self.search_debounce_timer.timeout.connect(self.on_search_debounce_time_elapsed)
 
+        self.content_model = ContentModel()
+        self.content_item_delegate = ContentItemDelegate()
+
+        self.ui.searchResults.setModel(self.content_model)
+        self.ui.searchResults.setItemDelegate(self.content_item_delegate)
+        self.ui.searchResults.clicked.connect(self.on_search_result_clicked)
+
+        self.ui.albumBackButton.clicked.connect(self.on_go_home)
 
         self.query = None
 
@@ -184,34 +254,25 @@ class MainWindow(QMainWindow):
         # self.search_thread.start()
 
         search_runnable = SearchRunnable(self.query)
-        search_runnable.signals.finished.connect(self.on_search_result)
+        search_runnable.signals.finished.connect(self.on_search_finished)
 
         QThreadPool.globalInstance().start(search_runnable)
 
 
-    def on_search_result(self, artists, releases):
+    def on_search_finished(self, artists, releases):
         debug(f"on_search_finished")
 
-        self.ui.listWidget.clear()
+        self.content_model.beginResetModel()
+        self.content_model.items = []
 
-        icon = QIcon("res/questionmark.png")
-
-        # update list
+        # update model
         for artist in artists:
-            text = f'{artist["name"]} [Artist]'
-            item = QListWidgetItem(icon, text)
-            item.setData(QtCore.Qt.UserRole, artist["id"])
-            self.ui.listWidget.addItem(item)
+            self.content_model.items.append(Artist(artist))
 
         for release in releases:
-            if "artist-credit" in release:
-                by = ", ".join(credit["name"] for credit in release["artist-credit"])
-            else:
-                by = "<Unknown>"
-            text = f'{release["title"]} [Album by {by}]'
-            item = QListWidgetItem(icon, text)
-            item.setData(QtCore.Qt.UserRole, release["id"])
-            self.ui.listWidget.addItem(item)
+            self.content_model.items.append(Release(release))
+
+        self.content_model.endResetModel()
 
         # fetch images
         for release in releases:
@@ -219,10 +280,33 @@ class MainWindow(QMainWindow):
             fetch_image_runnable.signals.finished.connect(self.on_image_result)
             QThreadPool.globalInstance().start(fetch_image_runnable)
 
-    def on_image_result(self, mbid, image):
-        for i in range(self.ui.listWidget.count()):
-            item = self.ui.listWidget.item(i)
-            item_id = item.data(QtCore.Qt.UserRole)
-            if item_id == mbid:
-                item.setIcon(make_icon_from_data(image))
 
+    def on_search_result_clicked(self, index: QModelIndex):
+        item = self.content_model.items[index.row()]
+        debug(f"on_search_result_clicked on row {index.row()}: '{item.info['id']}'")
+
+        if isinstance(item, Release):
+            # Title
+            self.ui.albumTitle.setText(item.info["title"])
+
+            # Icon
+            if item.image:
+                self.ui.albumIcon.setPixmap(make_pixmap_from_data(item.image))
+            else:
+                self.ui.albumIcon.setPixmap(QPixmap(DEFAULT_PROXY_IMAGE))
+
+            self.ui.stack.setCurrentWidget(self.ui.albumWidget)
+
+        else:
+            print("WARN: not supported yet")
+
+
+    def on_image_result(self, mbid, image):
+        for idx, item in enumerate(self.content_model.items):
+            if item.info["id"] == mbid:
+                self.content_model.beginRemoveRows(QModelIndex(), idx, idx)
+                item.image = image
+                self.content_model.beginInsertRows(QModelIndex(), idx, idx)
+
+    def on_go_home(self):
+        self.ui.stack.setCurrentWidget(self.ui.searchWidget)
