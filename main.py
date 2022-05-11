@@ -17,9 +17,8 @@ from log import debug
 from mainwindow import MainWindow
 from utils import j
 
+import youtube_dl
 
-def setup():
-    mb.set_useragent("MusicDragon", "0.1")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -32,59 +31,11 @@ def main():
     app = QApplication(sys.argv)
 
     window = MainWindow()
+    window.setup()
     window.show()
 
     sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
-    setup()
     main()
-    exit(0)
-
-    print("Getting releases...")
-    result = mb.search_release_groups("Shadow of the Moon", limit=10, primarytype="Album")
-    print("Got releases")
-
-    print(j(result))
-    exit(0)
-
-    got = False
-    for release in result["release-list"]:
-        if got:
-            break
-        # release_details = mb.get_release_by_id(release["id"])
-        try:
-            print(f"Getting image list for release {release['id']}")
-
-            img = mb.get_image_list(release["id"])
-            print(f"Got image for {release['id']}")
-
-
-            """
-            image_list = mb.get_image_list(release["id"])["images"]
-            print("Got image list")
-            
-            
-            
-            for image in image_list:
-                if image["front"]:
-                    print("Found front image metadata")
-                    image_id = image["id"]
-                    image_url = image["thumbnails"]["small"]
-
-                    print("Fetching image data...")
-                    response = urllib.request.urlopen(image_url)
-                    data = response.read()
-                    print("Fetched image data")
-
-                    print("Writing image data...")
-                    (fd, name) = tempfile.mkstemp(prefix=f"{release['id']}_{image_id}", suffix=".png")
-                    with os.fdopen(fd, "wb") as f:
-                        f.write(data)
-                        print(f"Wrote image data to {name}")
-                        got = True
-                        break
-                """
-        except ResponseError as err:
-            print(f"WARN: failed to retrieve image for {release['id']}: {err}")

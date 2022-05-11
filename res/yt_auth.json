@@ -1,0 +1,22 @@
+{
+    "accept": "*/*",
+    "accept-encoding": "gzip, deflate",
+    "accept-language": "en-US,en;q=0.5",
+    "alt-used": "music.youtube.com",
+    "authorization": "SAPISIDHASH 1652220723_81ed32ec38e480318633545d4217c2a99a667424",
+    "connection": "keep-alive",
+    "content-encoding": "gzip",
+    "content-type": "application/json",
+    "cookie": "VISITOR_INFO1_LIVE=6ZrwR9R8-TU; CONSENT=YES+shp.gws-20210803-0-RC1.it+FX+964; PREF=f6=40000400&tz=Europe.Rome&al=it&f5=30000&volume=100; __Secure-3PSID=JwhfG52QrWwY7rwqra4Hb4MoNcIwQ3_88aS1dwM8AQxbojjPC39yLvovRFvxPQ6QjxRjYg.; __Secure-3PAPISID=L3SLnFPeAESvNZ5_/AezFCSKywS-FWAh67; LOGIN_INFO=AFmmF2swRgIhALSlGCDkeRUSRPyht4i08JDLUytbhJ0k_hNsxDHD4DTbAiEA9huYAVyvMxVymysiOzJnCfnz_iErKCRQcqtjliMCgNk:QUQ3MjNmemhkdjl2dXZmZmJyMGk3RWZjdnA3QTV1SmRsY2tLYUYxMVVDMkF5bTBpZXktd09DVFMyWC16YS16ZUsyUWVxYjRiVDB3d1hneThYa0pqMExZZUU0X1BqWEh2WUtCd0VscGozN2FpT2ducGlManlvTlRVZ1E4R2psb2FEbDdtVFR5VXpCVzdnUDNNSmY2ZWp5TjByYUlPR1N0WWtGckF0VERyVEJRU2k2QWxka1U1eEFB; SID=JwhfG52QrWwY7rwqra4Hb4MoNcIwQ3_88aS1dwM8AQxbojjPWGtqkYUy5xSwA3NWR_YDNg.; HSID=Are4yfG53f1JY4C8h; SSID=Agtvj750SOcQwrEjm; APISID=UqcSMWFXOkxJiGRi/ABN-wUyavMBP8eRzt; SAPISID=L3SLnFPeAESvNZ5_/AezFCSKywS-FWAh67; SIDCC=AJi4QfHn8AunZ50e52YaFX9ERAOhoSrLT94lmv-8WdVinTYkJBNf6xiQlZJjx-sOQt0h6Xb_S6nh; __Secure-3PSIDCC=AJi4QfG4yMcMuGftMiBFGNH74zf3MBlGgYyTayx47Nu9ZbEBAonZYyhhygUE71vpIa9hKPfJuXY5; __Secure-1PSID=JwhfG52QrWwY7rwqra4Hb4MoNcIwQ3_88aS1dwM8AQxbojjP6gQjmoPPFNYrrly4MwwGaQ.; __Secure-1PAPISID=L3SLnFPeAESvNZ5_/AezFCSKywS-FWAh67; YSC=UG3jlIIsGAc",
+    "origin": "https://music.youtube.com",
+    "referer": "https://music.youtube.com/",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "same-origin",
+    "sec-fetch-site": "same-origin",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0",
+    "x-goog-authuser": "0",
+    "x-goog-visitor-id": "Cgs2WnJ3UjlSOC1UVSjSxeuTBg%3D%3D",
+    "x-origin": "https://music.youtube.com",
+    "x-youtube-client-name": "67",
+    "x-youtube-client-version": "1.20220502.01.00"
+}
