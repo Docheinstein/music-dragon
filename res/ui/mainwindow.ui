@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>532</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
-     <widget class="QWidget" name="widget" native="true">
+     <widget class="QWidget" name="pagesButtons" native="true">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
         <horstretch>0</horstretch>
@@ -37,15 +37,13 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_6">
        <property name="spacing">
-        <number>12</number>
+        <number>0</number>
        </property>
        <item>
-        <widget class="QLabel" name="homeButton">
+        <widget class="ClickableLabel" name="homePageButton">
          <property name="font">
           <font>
            <pointsize>13</pointsize>
-           <weight>50</weight>
-           <bold>false</bold>
           </font>
          </property>
          <property name="cursor">
@@ -57,12 +55,10 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="searchButton">
+        <widget class="ClickableLabel" name="searchPageButton">
          <property name="font">
           <font>
            <pointsize>13</pointsize>
-           <weight>75</weight>
-           <bold>true</bold>
           </font>
          </property>
          <property name="cursor">
@@ -70,6 +66,21 @@
          </property>
          <property name="text">
           <string>Search</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="ClickableLabel" name="downloadsPageButton">
+         <property name="font">
+          <font>
+           <pointsize>13</pointsize>
+          </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="text">
+          <string>Downloads</string>
          </property>
         </widget>
        </item>
@@ -90,30 +101,27 @@
      </widget>
     </item>
     <item>
-     <widget class="QStackedWidget" name="stack">
+     <widget class="QStackedWidget" name="pages">
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
-      <widget class="QWidget" name="searchWidget">
+      <widget class="QWidget" name="homePage">
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>WORK IN PROGRESS</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="searchPage">
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
          <widget class="QLineEdit" name="searchBar">
           <property name="placeholderText">
            <string>Search for artist...</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label">
-          <property name="font">
-           <font>
-            <pointsize>16</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Results</string>
           </property>
          </widget>
         </item>
@@ -125,36 +133,29 @@
             <height>80</height>
            </size>
           </property>
+          <property name="spacing">
+           <number>6</number>
+          </property>
          </widget>
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="albumWidget">
+      <widget class="QWidget" name="downloadsPage">
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QListView" name="listView"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="albumPage">
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QToolButton" name="albumBackButton">
-          <property name="text">
-           <string>...</string>
-          </property>
-          <property name="icon">
-           <iconset>
-            <normaloff>../res/back.png</normaloff>../res/back.png</iconset>
-          </property>
-          <property name="iconSize">
-           <size>
-            <width>24</width>
-            <height>24</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="albumHeaderLayout">
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
           <property name="spacing">
-           <number>20</number>
+           <number>0</number>
           </property>
           <item>
-           <widget class="QLabel" name="albumIcon">
+           <widget class="QLabel" name="albumCover">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -171,7 +172,7 @@
              <string/>
             </property>
             <property name="pixmap">
-             <pixmap>../res/questionmark.png</pixmap>
+             <pixmap>../images/questionmark.png</pixmap>
             </property>
             <property name="scaledContents">
              <bool>true</bool>
@@ -179,18 +180,50 @@
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="albumTitle">
-            <property name="font">
-             <font>
-              <pointsize>16</pointsize>
-              <weight>75</weight>
-              <bold>true</bold>
-             </font>
+           <layout class="QVBoxLayout" name="verticalLayout_5">
+            <property name="leftMargin">
+             <number>16</number>
             </property>
-            <property name="text">
-             <string>Fear of the Dark</string>
-            </property>
-           </widget>
+            <item>
+             <widget class="QLabel" name="albumTitle">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>3</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>18</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Fear of the Dark</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="albumArtist">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>2</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Iron Maiden</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <spacer name="horizontalSpacer">
@@ -210,19 +243,28 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <item>
-           <widget class="QToolButton" name="albumDownloadButton">
+           <widget class="QPushButton" name="albumDownloadAllButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">padding: 8px</string>
+            </property>
             <property name="text">
-             <string>...</string>
+             <string>Download All</string>
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../res/download.png</normaloff>../res/download.png</iconset>
+              <normaloff>../images/download.png</normaloff>../images/download.png</iconset>
             </property>
             <property name="iconSize">
              <size>
-              <width>32</width>
-              <height>32</height>
+              <width>26</width>
+              <height>26</height>
              </size>
+            </property>
+            <property name="flat">
+             <bool>false</bool>
             </property>
            </widget>
           </item>
@@ -249,17 +291,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QListView" name="albumSongs">
-          <property name="iconSize">
-           <size>
-            <width>64</width>
-            <height>64</height>
-           </size>
-          </property>
-          <property name="spacing">
-           <number>10</number>
-          </property>
-         </widget>
+         <widget class="AlbumTracksWidget" name="albumTracks"/>
         </item>
        </layout>
       </widget>
@@ -279,6 +311,18 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ClickableLabel</class>
+   <extends>QLabel</extends>
+   <header>clickablelabel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>AlbumTracksWidget</class>
+   <extends>QListWidget</extends>
+   <header>albumtrackswidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
