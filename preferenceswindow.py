@@ -14,7 +14,7 @@ class PreferencesWindow(QDialog):
         self.ui.setupUi(self)
 
 
-        self.ui.downloadDirectoryWidget.clicked.connect(self.on_download_directory_clicked)
+        self.ui.directoryWidget.clicked.connect(self.on_download_directory_clicked)
 
         # OK / CANCEL
         self.accepted.connect(self.on_accepted)
@@ -32,21 +32,21 @@ class PreferencesWindow(QDialog):
 
     def on_download_directory_clicked(self):
         debug("Opening download directory picker")
-        download_directory_picker = QFileDialog()
-        download_directory_picker.setFileMode(QFileDialog.Directory)
-        if download_directory_picker.exec():
-            results = download_directory_picker.selectedFiles()
+        directory_picker = QFileDialog()
+        directory_picker.setFileMode(QFileDialog.Directory)
+        if directory_picker.exec():
+            results = directory_picker.selectedFiles()
             if not results:
-                print("WARN: no download directory has been selected")
+                print("WARN: no directory has been selected")
                 return
 
             result = results[0]
-            debug(f"Selected download directory: {result}")
-            self.ui.downloadDirectory.setText(result)
+            debug(f"Selected directory: {result}")
+            self.ui.directory.setText(result)
 
 
     def load_settings(self):
-        self.ui.downloadDirectory.setText(preferences.download_directory())
+        self.ui.directory.setText(preferences.directory())
 
     def save_settings(self):
-        preferences.set_download_directory(self.ui.downloadDirectory.text())
+        preferences.set_directory(self.ui.directory.text())

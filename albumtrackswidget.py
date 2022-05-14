@@ -11,7 +11,7 @@ from log import debug
 from utils import make_pixmap_from_data
 
 
-class AlbumTrackWidget(QWidget):
+class AlbumTracksItemWidget(QWidget):
     download_track_clicked = pyqtSignal(MbTrack)
 
     class Ui:
@@ -24,7 +24,7 @@ class AlbumTrackWidget(QWidget):
     def __init__(self, track: MbTrack):
         super().__init__()
         self.track = track
-        self.ui = AlbumTrackWidget.Ui()
+        self.ui = AlbumTracksItemWidget.Ui()
 
         # cover
         self.ui.cover = QLabel()
@@ -95,7 +95,7 @@ class AlbumTracksWidget(QListWidget):
         self.tracks.append(track)
 
         item = QListWidgetItem()
-        widget = AlbumTrackWidget(track)
+        widget = AlbumTracksItemWidget(track)
         widget.download_track_clicked.connect(self.on_download_track_clicked)
         item.setSizeHint(widget.sizeHint())
 
@@ -105,7 +105,7 @@ class AlbumTracksWidget(QListWidget):
     def set_cover(self, cover):
         for idx, track in enumerate(self.tracks):
             item = self.item(idx)
-            track_widget: AlbumTrackWidget = self.itemWidget(item)
+            track_widget: AlbumTracksItemWidget = self.itemWidget(item)
             if cover:
                 track_widget.ui.cover.setPixmap(make_pixmap_from_data(cover))
             else:
@@ -115,17 +115,25 @@ class AlbumTracksWidget(QListWidget):
         for idx, track in enumerate(self.tracks):
             if track.id == mbtrack.id:
                 item = self.item(idx)
-                track_widget: AlbumTrackWidget = self.itemWidget(item)
+                track_widget: AlbumTracksItemWidget = self.itemWidget(item)
 
                 track.youtube_track = yttrack
                 track_widget.ui.download_button.setVisible(True)
-                track_widget.ui.download_button.setToolTip(f"Download {yttrack.video['title']}  [{yttrack.video['id']}]")
+                track_widget.ui.download_button.setToolTip(f"Download {yttrack.video_title}  [{yttrack.video_id}]")
+
+    def set_download_enabled(self, mbtrack: MbTrack, enabled):
+        for idx, track in enumerate(self.tracks):
+            if track.id == mbtrack.id:
+                item = self.item(idx)
+                track_widget: AlbumTracksItemWidget = self.itemWidget(item)
+
+                track_widget.ui.download_button.setVisible(enabled)
 
     def set_download_progress_visible(self, mbtrack: MbTrack, visibile):
         for idx, track in enumerate(self.tracks):
             if track.id == mbtrack.id:
                 item = self.item(idx)
-                track_widget: AlbumTrackWidget = self.itemWidget(item)
+                track_widget: AlbumTracksItemWidget = self.itemWidget(item)
 
                 track_widget.ui.download_progress.setVisible(visibile)
 
@@ -133,7 +141,7 @@ class AlbumTracksWidget(QListWidget):
         for idx, track in enumerate(self.tracks):
             if track.id == mbtrack.id:
                 item = self.item(idx)
-                track_widget: AlbumTrackWidget = self.itemWidget(item)
+                track_widget: AlbumTracksItemWidget = self.itemWidget(item)
 
                 track_widget.ui.download_progress.setValue(percentage)
 

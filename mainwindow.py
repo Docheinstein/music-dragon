@@ -28,73 +28,11 @@ from log import debug
 from preferenceswindow import PreferencesWindow
 from ui.ui_mainwindow import Ui_MainWindow
 from utils import j, make_icon_from_data, make_pixmap_from_data
+from ytdownloader import YtDownloader
+
 SEARCH_DEBOUNCE_MS = 800
 
 yt: Optional[YTMusic] = None
-
-class TrackDownloaderSignals(QObject):
-    track_download_started = pyqtSignal(str)
-    track_download_progress = pyqtSignal(str, str)
-    track_download_finished = pyqtSignal(str)
-
-
-class TrackDownloaderRunnable(QRunnable):
-    def __init__(self, artist: str, album: str, tracks):
-        super().__init__()
-        self.artist = artist
-        self.album = album
-        self.tracks = tracks
-        self.signals = TrackDownloaderSignals()
-
-    @pyqtSlot()
-    def run(self) -> None:
-        debug(f"[TrackDownloaderRunnable]")
-        debug("-----------------------")
-
-        for track in self.tracks:
-            track_name = track["title"]
-            duration = track["duration"]
-            video_id = track["videoId"]
-
-            self.signals.track_download_started.emit(track_name)
-
-            debug(f"Going to download {track_name} at {video_id}")
-
-            class YoutubeDLLogger(object):
-                def debug(self, msg):
-                    debug(msg)
-
-                def warning(self, msg):
-                    print(f"WARN: {msg}")
-
-                def error(self, msg):
-                    print(f"ERROR: {msg}", file=sys.stderr)
-
-            def progress_hook(d):
-                if "_percent_str" in d:
-                    self.signals.track_download_progress.emit(track_name, d["_percent_str"])
-
-                # if d['status'] == 'finished':
-                #     self.signals.finished.emit()
-
-            # https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L141
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '320',
-                }],
-                'logger': YoutubeDLLogger(),
-                'progress_hooks': [progress_hook],
-                'outtmpl': f"~/Temp/music/down/{self.artist}/%(title)s.%(ext)s"
-            }
-
-            with YoutubeDL(ydl_opts) as ydl:
-                ydl.download([f'https://youtube.com/watch?v={video_id}'])
-
-            self.signals.track_download_finished.emit(track_name)
-
 
 
 # ======= SEARCH RELEASE GROUP RUNNABLE ======
@@ -222,6 +160,7 @@ class FetchYoutubeTracksRunnable(QRunnable):
 
     @pyqtSlot()
     def run(self) -> None:
+        # TODO: try to fetch the album and its tracks before doing free text query
         debug(f"[FetchYoutubeTracksRunnable (tracks={[t.title for t in self.tracks]}])")
         for track in self.tracks:
             query = track.release.release_group.artists_string() + " " + track.title
@@ -507,6 +446,8 @@ class MainWindow(QMainWindow):
         globals.DOWNLOAD_ICON = QIcon("res/images/download.png")
 
         # Pages
+        self.pages_stack = []
+        self.pages_stack_cursor = -1
 
         self.ui.homePageButton.clicked.connect(self.on_home_page_button_clicked)
         self.ui.searchPageButton.clicked.connect(self.on_search_page_button_clicked)
@@ -517,7 +458,10 @@ class MainWindow(QMainWindow):
             self.ui.searchPageButton,
             self.ui.downloadsPageButton
         ]
-        self.set_search_page()
+        self.set_search_page(root=True)
+
+        self.ui.backButton.clicked.connect(self.on_back_button_clicked)
+        self.ui.forwardButton.clicked.connect(self.on_forward_button_clicked)
 
 
         # Search
@@ -556,29 +500,61 @@ class MainWindow(QMainWindow):
 
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
 
+        # Downloader
+
+        self.downloader = YtDownloader()
+        self.downloader.track_download_started.connect(self.on_track_download_started)
+        self.downloader.track_download_progress.connect(self.on_track_download_progress)
+        self.downloader.track_download_finished.connect(self.on_track_download_finished)
+
     def setup(self):
         global yt
         yt = YTMusic("res/other/yt_auth.json")
         mb.set_useragent("MusicDragon", "0.1")
 
-    def set_home_page(self):
-        self.unselect_pages_buttons()
-        self.select_page_button(self.ui.homePageButton)
-        self.change_page(self.ui.homePage)
+    def set_home_page(self, root=False):
+        self.push_page(self.ui.homePage, root=root)
 
-    def set_search_page(self):
-        self.unselect_pages_buttons()
-        self.select_page_button(self.ui.searchPageButton)
-        self.change_page(self.ui.searchPage)
+    def set_search_page(self, root=False):
+        self.push_page(self.ui.searchPage, root=root)
 
-    def set_downloads_page(self):
-        self.unselect_pages_buttons()
-        self.select_page_button(self.ui.downloadsPageButton)
-        self.change_page(self.ui.downloadsPage)
+    def set_downloads_page(self, root=False):
+        self.push_page(self.ui.downloadsPage, root=root)
 
-    def set_album_page(self):
+    def set_album_page(self, root=False):
+        self.push_page(self.ui.albumPage, root=root)
+
+    def push_page(self, page, root=False):
+        self.pages_stack_cursor = self.pages_stack_cursor + 1
+        self.pages_stack = self.pages_stack[:self.pages_stack_cursor]
+        self.pages_stack.append(page)
+        self._set_page()
+
+    def prev_page(self):
+        self.pages_stack_cursor = self.pages_stack_cursor - 1
+        self._set_page()
+
+    def next_page(self):
+        self.pages_stack_cursor = self.pages_stack_cursor + 1
+        self._set_page()
+
+    def _set_page(self):
         self.unselect_pages_buttons()
-        self.change_page(self.ui.albumPage)
+        page = self.pages_stack[self.pages_stack_cursor]
+
+        if page == self.ui.homePage:
+            self.select_page_button(self.ui.homePageButton)
+        elif page == self.ui.searchPage:
+            self.select_page_button(self.ui.searchPageButton)
+        elif page == self.ui.downloadsPage:
+            self.select_page_button(self.ui.downloadsPageButton)
+        elif page == self.ui.albumPage:
+            pass
+
+        self.ui.pages.setCurrentWidget(page)
+
+        self.ui.backButton.setEnabled(self.pages_stack_cursor > 0)
+        self.ui.forwardButton.setEnabled(self.pages_stack_cursor < len(self.pages_stack) - 1)
 
     def unselect_pages_buttons(self):
         for btn in self.pages_buttons:
@@ -593,8 +569,6 @@ class MainWindow(QMainWindow):
         btn.setFont(font)
         btn.setStyleSheet("padding: 6px; background-color: #565757;")
 
-    def change_page(self, page):
-        self.ui.pages.setCurrentWidget(page)
 
     def open_release_group(self, release_group: MbReleaseGroup):
         if not isinstance(release_group, MbReleaseGroup):
@@ -644,6 +618,12 @@ class MainWindow(QMainWindow):
 
     def on_downloads_page_button_clicked(self):
         self.set_downloads_page()
+
+    def on_back_button_clicked(self):
+        self.prev_page()
+
+    def on_forward_button_clicked(self):
+        self.next_page()
 
     def on_search(self):
         query = self.ui.searchBar.text()
@@ -742,7 +722,7 @@ class MainWindow(QMainWindow):
 
         # fetch youtube videos for tracks
         # youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks)
-        youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks[:2])
+        youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks[:3])
         youtube_track_runnable.signals.track_fetched.connect(self.on_youtube_track_fetched)
         youtube_track_runnable.signals.finished.connect(self.on_youtube_tracks_fetch_finished)
         QThreadPool.globalInstance().start(youtube_track_runnable)
@@ -787,85 +767,112 @@ class MainWindow(QMainWindow):
     #         shown_album.release.info["title"])
 
     def on_download_track_clicked(self, track: MbTrack):
-        debug(f"on_download_track_clicked(track_id{track.id})")
-        self.ui.albumTracks.set_download_progress_visible(track, True)
-        self.ui.albumTracks.set_download_progress(track, 20)
-
-
-
-    def do_album_download(self, artist_query, album_query):
-        debug(f"do_album_download(artist={artist_query}, album={album_query})")
-
-
-        # Find artist
-        result = yt.search(artist_query, filter="artists")
-        debug(j(result))
-
-        artist_found = False
-        album_found = False
-
-        closest_artist_name = get_close_matches(artist_query, [artist["artist"] for artist in result])
-
-        if not closest_artist_name:
-            print(f"WARN: cannot find artist with name {artist_query}")
-            self.ui.albumDownloadStatus.text("Download failed")
+        debug(f"on_download_track_clicked(track_id={track.id})")
+        if not track.youtube_track:
+            print("WARN: no youtube video has been found for this track")
             return
+        self.enqueue_download(track.youtube_track)
+        # TODO: show loader instead of download button
+        self.ui.albumTracks.set_download_enabled(track, False)
 
-        closest_artist_name = closest_artist_name[0]
 
-        for artist in result:
-            if artist["artist"] == closest_artist_name:
-                debug(f"ARTIST FOUND: {artist['browseId']}")
-                artist_found = True
-                artist_details = yt.get_artist(artist["browseId"])
-                artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
-                debug(j(artist_albums))
+    def enqueue_download(self, track: YtTrack):
+        self.downloader.enqueue(track)
+        self.ui.downloads.add_track(track)
 
-                closest_album_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
 
-                if not closest_album_name:
-                    print(f"WARN: cannot find album with title {album_query}")
-                    self.ui.albumDownloadStatus.text("Download failed")
-                    return
+    def on_track_download_started(self, track: YtTrack):
+        debug(f"on_track_download_started(track={track.mb_track.title})")
+        self.ui.albumTracks.set_download_progress_visible(track.mb_track, True)
+        self.ui.albumTracks.set_download_progress(track.mb_track, percentage=0)
 
-                closest_album_name = closest_album_name[0]
+        self.ui.downloads.set_download_progress_visible(track, True)
+        self.ui.downloads.set_download_progress(track, percentage=0)
 
-                for album in artist_albums:
-                    if album["title"] == closest_album_name:
-                        debug(f"ALBUM FOUND: {album['browseId']}")
-                        album_found = True
-                        album_details = yt.get_album(album["browseId"])
-                        debug(j(album_details))
-                        tracks = album_details["tracks"]
-                        for track in tracks:
-                            track_name = track["title"]
-                            duration = track["duration"]
-                            video_id = track["videoId"]
-                            debug(f"- {track_name}: {video_id} [{duration}]")
+    def on_track_download_progress(self, track: YtTrack, progress: float):
+        debug(f"on_track_download_progress(track={track.mb_track.title})")
+        self.ui.albumTracks.set_download_progress(track.mb_track, percentage=int(progress))
+        self.ui.downloads.set_download_progress(track, percentage=int(progress))
 
-                        tracks_downloader = TrackDownloaderRunnable(closest_artist_name, closest_album_name, tracks)
-                        tracks_downloader.signals.track_download_started.connect(self.on_track_download_started)
-                        tracks_downloader.signals.track_download_progress.connect(self.on_track_download_progress)
-                        tracks_downloader.signals.track_download_finished.connect(self.on_track_download_finished)
-                        QThreadPool.globalInstance().start(tracks_downloader)
-                        return
+    def on_track_download_finished(self, track: YtTrack):
+        debug(f"on_track_download_finished(track={track.mb_track.title})")
+        self.ui.albumTracks.set_download_progress_visible(track.mb_track, False)
+        self.ui.downloads.remove_track(track)
 
-        if not artist_found:
-            print(f"WARN: cannot find artist with name {artist_query}")
-            self.ui.albumDownloadStatus.text("Download failed")
-            return
+    #
+    # def do_album_download(self, artist_query, album_query):
+    #     debug(f"do_album_download(artist={artist_query}, album={album_query})")
+    #
+    #
+    #     # Find artist
+    #     result = yt.search(artist_query, filter="artists")
+    #     debug(j(result))
+    #
+    #     artist_found = False
+    #     album_found = False
+    #
+    #     closest_artist_name = get_close_matches(artist_query, [artist["artist"] for artist in result])
+    #
+    #     if not closest_artist_name:
+    #         print(f"WARN: cannot find artist with name {artist_query}")
+    #         self.ui.albumDownloadStatus.text("Download failed")
+    #         return
+    #
+    #     closest_artist_name = closest_artist_name[0]
+    #
+    #     for artist in result:
+    #         if artist["artist"] == closest_artist_name:
+    #             debug(f"ARTIST FOUND: {artist['browseId']}")
+    #             artist_found = True
+    #             artist_details = yt.get_artist(artist["browseId"])
+    #             artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
+    #             debug(j(artist_albums))
+    #
+    #             closest_album_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
+    #
+    #             if not closest_album_name:
+    #                 print(f"WARN: cannot find album with title {album_query}")
+    #                 self.ui.albumDownloadStatus.text("Download failed")
+    #                 return
+    #
+    #             closest_album_name = closest_album_name[0]
+    #
+    #             for album in artist_albums:
+    #                 if album["title"] == closest_album_name:
+    #                     debug(f"ALBUM FOUND: {album['browseId']}")
+    #                     album_found = True
+    #                     album_details = yt.get_album(album["browseId"])
+    #                     debug(j(album_details))
+    #                     tracks = album_details["tracks"]
+    #                     for track in tracks:
+    #                         track_name = track["title"]
+    #                         duration = track["duration"]
+    #                         video_id = track["videoId"]
+    #                         debug(f"- {track_name}: {video_id} [{duration}]")
+    #
+    #                     tracks_downloader = TrackDownloaderRunnable(closest_artist_name, closest_album_name, tracks)
+    #                     tracks_downloader.signals.track_download_started.connect(self.on_track_download_started)
+    #                     tracks_downloader.signals.track_download_progress.connect(self.on_track_download_progress)
+    #                     tracks_downloader.signals.track_download_finished.connect(self.on_track_download_finished)
+    #                     QThreadPool.globalInstance().start(tracks_downloader)
+    #                     return
+    #
+    #     if not artist_found:
+    #         print(f"WARN: cannot find artist with name {artist_query}")
+    #         self.ui.albumDownloadStatus.text("Download failed")
+    #         return
+    #
+    #     if not album_found:
+    #         print(f"WARN: cannot find album with title {album_query}")
+    #         self.ui.albumDownloadStatus.text("Download failed")
+    #         return
 
-        if not album_found:
-            print(f"WARN: cannot find album with title {album_query}")
-            self.ui.albumDownloadStatus.text("Download failed")
-            return
-
-    def on_track_download_started(self, track_name):
-        print(f"Started download of {track_name}")
-
-    def on_track_download_progress(self, track_name, progress_str):
-        self.ui.albumDownloadStatus.setText(f"{track_name}: {progress_str}")
-
-    def on_track_download_finished(self, track_name):
-        print(f"Finished download of {track_name}")
+    # def on_track_download_started(self, track_name):
+    #     print(f"Started download of {track_name}")
+    #
+    # def on_track_download_progress(self, track_name, progress_str):
+    #     self.ui.albumDownloadStatus.setText(f"{track_name}: {progress_str}")
+    #
+    # def on_track_download_finished(self, track_name):
+    #     print(f"Finished download of {track_name}")
 

@@ -8,11 +8,8 @@ from cache import COVER_CACHE
 class YtTrack:
     def __init__(self, mb_track: 'MbTrack', yt_track):
         self.mb_track = mb_track
-        self.video = {
-            "id": yt_track["videoId"],
-            "title": yt_track["title"],
-        }
-        self.title = yt_track["title"]
+        self.video_id = yt_track["videoId"]
+        self.video_title = yt_track["title"]
         self.album = {
             "id": yt_track["album"]["id"],
             "title": yt_track["album"]["name"]

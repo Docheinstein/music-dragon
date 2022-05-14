@@ -21,7 +21,7 @@
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
-       <string>Output</string>
+       <string>General</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
@@ -40,7 +40,7 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_4">
            <item>
-            <widget class="ClickableWidget" name="downloadDirectoryWidget" native="true">
+            <widget class="ClickableWidget" name="directoryWidget" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                <horstretch>0</horstretch>
@@ -70,12 +70,12 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Download Directory</string>
+                 <string>Directory</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QLabel" name="downloadDirectory">
+               <widget class="QLabel" name="directory">
                 <property name="text">
                  <string>~/MusicDragon</string>
                 </property>
