@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QApplication
 
 from mainwindow import MainWindow
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="MusicDragon"

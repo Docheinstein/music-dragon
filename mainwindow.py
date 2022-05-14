@@ -25,6 +25,7 @@ import globals
 from cache import COVER_CACHE
 from entities import MbReleaseGroup, MbRelease, MbTrack, YtTrack
 from log import debug
+from preferenceswindow import PreferencesWindow
 from ui.ui_mainwindow import Ui_MainWindow
 from utils import j, make_icon_from_data, make_pixmap_from_data
 SEARCH_DEBOUNCE_MS = 800
@@ -551,6 +552,10 @@ class MainWindow(QMainWindow):
         # self.ui.albumLoader.setMovie(movie)
         # movie.start()
 
+        # Menu
+
+        self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
+
     def setup(self):
         global yt
         yt = YTMusic("res/other/yt_auth.json")
@@ -626,6 +631,10 @@ class MainWindow(QMainWindow):
         release_fetcher_runnable.signals.finished.connect(self.on_main_release_result)
         QThreadPool.globalInstance().start(release_fetcher_runnable)
 
+    def on_action_preferences(self):
+        debug("on_action_preferences")
+        preferences_window = PreferencesWindow()
+        preferences_window.exec()
 
     def on_home_page_button_clicked(self):
         self.set_home_page()

@@ -162,10 +162,19 @@ class Ui_MainWindow(object):
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 34))
         self.menubar.setObjectName("menubar")
+        self.menuFile = QtWidgets.QMenu(self.menubar)
+        self.menuFile.setObjectName("menuFile")
+        self.menuEdit = QtWidgets.QMenu(self.menubar)
+        self.menuEdit.setObjectName("menuEdit")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
+        self.actionPreferences = QtWidgets.QAction(MainWindow)
+        self.actionPreferences.setObjectName("actionPreferences")
+        self.menuEdit.addAction(self.actionPreferences)
+        self.menubar.addAction(self.menuFile.menuAction())
+        self.menubar.addAction(self.menuEdit.menuAction())
 
         self.retranslateUi(MainWindow)
         self.pages.setCurrentIndex(3)
@@ -182,5 +191,8 @@ class Ui_MainWindow(object):
         self.albumTitle.setText(_translate("MainWindow", "Fear of the Dark"))
         self.albumArtist.setText(_translate("MainWindow", "Iron Maiden"))
         self.albumDownloadAllButton.setText(_translate("MainWindow", "Download All"))
+        self.menuFile.setTitle(_translate("MainWindow", "File"))
+        self.menuEdit.setTitle(_translate("MainWindow", "Edit"))
+        self.actionPreferences.setText(_translate("MainWindow", "Preferences"))
 from albumtrackswidget import AlbumTracksWidget
 from clickablelabel import ClickableLabel
