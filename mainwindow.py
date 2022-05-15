@@ -153,21 +153,83 @@ class FetchYoutubeTracksSignals(QObject):
     finished = pyqtSignal(MbTrack)
 
 class FetchYoutubeTracksRunnable(QRunnable):
-    def __init__(self, tracks: List[MbTrack]):
+    def __init__(self, tracks: List[MbTrack], album_hint: MbReleaseGroup=None):
         super().__init__()
         self.signals = FetchYoutubeTracksSignals()
         self.tracks = tracks
+        self.album_hint = album_hint
 
     @pyqtSlot()
     def run(self) -> None:
-        # TODO: try to fetch the album and its tracks before doing free text query
         debug(f"[FetchYoutubeTracksRunnable (tracks={[t.title for t in self.tracks]}])")
+
+        fetched_tracks = set()
+        # for t in self.tracks:
+        #     tracks_fetch_status[t.title] = False
+
+        # Fetch the video id associated with each track.
+        # Before doing many queries, try to fetch the album from youtube and its tracks,
+        # since it's likely that the album already contains the tracks we need
+        # (if it's not the case something about musicbrainz fetched release
+        # or youtube album is incorrect)
+
+        # 1. Fetch artist -> album -> track
+        if self.album_hint:
+            artist_query = self.album_hint.artists_string()
+            album_query = self.album_hint.title
+
+            debug(f"YOUTUBE: search(artists='{artist_query}')")
+            artists = yt.search(self.album_hint.artists_string(), filter="artists")
+            debug(j(artists))
+
+            closest_artists_name = get_close_matches(artist_query, [artist["artist"] for artist in artists])
+            if closest_artists_name:
+                closest_artist_name = closest_artists_name[0]
+                debug(f"Closest artist found: {closest_artist_name}")
+                artist = [a for a in artists if a["artist"] == closest_artist_name][0]
+
+                debug(f"YOUTUBE: get_artist(artist='{artist['browseId']}')")
+                artist_details = yt.get_artist(artist["browseId"])
+                debug(j(artist_details))
+
+                debug(f"YOUTUBE: get_artist_albums(artist='{artist['browseId']}')")
+                artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
+                debug(j(artist_albums))
+
+                closest_albums_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
+                if closest_albums_name:
+                    closest_album_name = closest_albums_name[0]
+                    debug(f"Closest album found: {closest_album_name}")
+                    album = [a for a in artist_albums if a["title"] == closest_album_name][0]
+
+                    debug(f"YOUTUBE: get_album(album='{album['browseId']}')")
+                    album_details = yt.get_album(album["browseId"])
+                    debug(j(album_details))
+
+                    # Notify only if the mbtrack actually contains the youtube tracks
+                    for yttrack in album_details["tracks"]:
+                        for mbtrack in self.tracks:
+                            if mbtrack.id not in fetched_tracks: # not fetched yet
+                                # TODO: better heuristic for figure out if the video matches the track
+                                if yttrack["title"].startswith(mbtrack.title):
+                                    fetched_tracks.add(mbtrack.id)
+                                    yttrack["album"] = { # hack track, adding album id
+                                        "name": yttrack["album"],
+                                        "id": album["browseId"]
+                                    }
+                                    self.signals.track_fetched.emit(mbtrack, YtTrack(mbtrack, yttrack))
+
+
+        debug(f"Tracks fetched through album retrieval: {len(fetched_tracks)}/{len(self.tracks)}")
+
+        # 2. Fetch track directly
         for track in self.tracks:
-            query = track.release.release_group.artists_string() + " " + track.title
-            yt_songs = yt.search(query, filter="songs")
-            debug(j(yt_songs))
-            if yt_songs:
-                self.signals.track_fetched.emit(track, YtTrack(track, yt_songs[0]))
+            if track.id not in fetched_tracks:
+                query = track.release.release_group.artists_string() + " " + track.title
+                yt_songs = yt.search(query, filter="songs")
+                debug(j(yt_songs))
+                if yt_songs:
+                    self.signals.track_fetched.emit(track, YtTrack(track, yt_songs[0]))
 
         self.signals.finished.emit(track)
         # artist_found = False
@@ -484,6 +546,7 @@ class MainWindow(QMainWindow):
         # Album
         self.current_release_group: Optional[MbReleaseGroup] = None
         self.ui.albumTracks.download_track_clicked.connect(self.on_download_track_clicked)
+        self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
         # self.album_model = AlbumModel()
         # self.ui.albumTracks.setModel(self.album_model)
         # self.ui.albumTracks.setItemDelegate(AlbumItemDelegate())
@@ -722,7 +785,7 @@ class MainWindow(QMainWindow):
 
         # fetch youtube videos for tracks
         # youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks)
-        youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks[:3])
+        youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks, album_hint=release.release_group)
         youtube_track_runnable.signals.track_fetched.connect(self.on_youtube_track_fetched)
         youtube_track_runnable.signals.finished.connect(self.on_youtube_tracks_fetch_finished)
         QThreadPool.globalInstance().start(youtube_track_runnable)
@@ -766,15 +829,23 @@ class MainWindow(QMainWindow):
     #         shown_album.release.info["artist-credit"][0]["name"],
     #         shown_album.release.info["title"])
 
+    def on_download_album_tracks_clicked(self):
+        debug(f"on_download_album_tracks_clicked")
+        for track in self.ui.albumTracks.tracks:
+            self.download_track(track)
+
     def on_download_track_clicked(self, track: MbTrack):
         debug(f"on_download_track_clicked(track_id={track.id})")
-        if not track.youtube_track:
-            print("WARN: no youtube video has been found for this track")
-            return
-        self.enqueue_download(track.youtube_track)
-        # TODO: show loader instead of download button
-        self.ui.albumTracks.set_download_enabled(track, False)
+        self.download_track(track)
 
+    def download_track(self, mbtrack: MbTrack):
+        if not mbtrack.youtube_track:
+            print(f"WARN: no youtube video has been found for track: {mbtrack.title}")
+            return
+
+        self.enqueue_download(mbtrack.youtube_track)
+        # TODO: show loader instead of download button
+        self.ui.albumTracks.set_download_enabled(mbtrack, False)
 
     def enqueue_download(self, track: YtTrack):
         self.downloader.enqueue(track)
@@ -790,7 +861,7 @@ class MainWindow(QMainWindow):
         self.ui.downloads.set_download_progress(track, percentage=0)
 
     def on_track_download_progress(self, track: YtTrack, progress: float):
-        debug(f"on_track_download_progress(track={track.mb_track.title})")
+        debug(f"on_track_download_progress(track={track.mb_track.title}, progress={progress})")
         self.ui.albumTracks.set_download_progress(track.mb_track, percentage=int(progress))
         self.ui.downloads.set_download_progress(track, percentage=int(progress))
 

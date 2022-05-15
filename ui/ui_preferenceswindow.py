@@ -74,7 +74,7 @@ class Ui_PreferencesWindow(object):
 
     def retranslateUi(self, PreferencesWindow):
         _translate = QtCore.QCoreApplication.translate
-        PreferencesWindow.setWindowTitle(_translate("PreferencesWindow", "Dialog"))
+        PreferencesWindow.setWindowTitle(_translate("PreferencesWindow", "Preferences"))
         self.label.setText(_translate("PreferencesWindow", "Directory"))
         self.directory.setText(_translate("PreferencesWindow", "~/MusicDragon"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("PreferencesWindow", "General"))
