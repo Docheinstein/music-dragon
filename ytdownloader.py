@@ -1,13 +1,49 @@
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
 
+import eyed3
+import youtube_dl
 from PyQt5.QtCore import QObject, pyqtSignal, QRunnable, pyqtSlot, QThreadPool
+from eyed3.core import AudioFile
+from eyed3.id3 import Tag
 from youtube_dl import YoutubeDL
 
 import preferences
 from entities import YtTrack
 from log import debug
+from utils import j
+
+FRONT_COVER = 3
+
+
+def youtube_dl_download_extract_info(yt, url_list):
+    """Download a given list of URLs."""
+    info = None
+
+    outtmpl = yt.params.get('outtmpl', youtube_dl.DEFAULT_OUTTMPL)
+    if (len(url_list) > 1
+            and outtmpl != '-'
+            and '%' not in outtmpl
+            and yt.params.get('max_downloads') != 1):
+        raise youtube_dl.SameFileError(outtmpl)
+
+    for url in url_list:
+        try:
+            # It also downloads the videos
+            info = yt.extract_info(
+                url, force_generic_extractor=yt.params.get('force_generic_extractor', False))
+        except youtube_dl.utils.UnavailableVideoError:
+            yt.report_error('unable to download video')
+        except youtube_dl.MaxDownloadsReached:
+            yt.to_screen('[info] Maximum number of downloaded files reached.')
+            raise
+        else:
+            if yt.params.get('dump_single_json', False):
+                yt.to_stdout(json.dumps(info))
+
+    return info
 
 
 class TrackDownloaderSignals(QObject):
@@ -49,7 +85,7 @@ class TrackDownloaderRunnable(QRunnable):
         directory = preferences.directory()
         debug(f"Directory: {directory}")
 
-        output = str(Path(directory,
+        outtmpl = str(Path(directory,
                       f"{self.track.mb_track.release.release_group.artists_string()}",
                       f"{self.track.mb_track.release.release_group.title}",
                       f"{self.track.mb_track.title}.%(ext)s"))
@@ -63,16 +99,46 @@ class TrackDownloaderRunnable(QRunnable):
             }],
             'logger': YoutubeDLLogger(),
             'progress_hooks': [progress_hook],
-            'outtmpl': output
+            'outtmpl': outtmpl
         }
 
         with YoutubeDL(ydl_opts) as ydl:
             yt_url = f'https://youtube.com/watch?v={self.track.video_id}'
-            debug(f"Going to download from '{yt_url}'; destination: '{output}'")
+            debug(f"Going to download from '{yt_url}'; destination: '{outtmpl}'")
+
+            # TODO: download speed up?
+            # aria2c
+            # youtube-dl --external-downloader aria2c --external-downloader-args '-c -j 3 -x 3 -s 3 -k 1M' URL
             ydl.download([yt_url])
 
-        self.signals.finished.emit(self.track)
+            output = outtmpl.replace("%(ext)s", "mp3") # hack
 
+            debug(f"Applying mp3 tags to {output}")
+
+            try:
+                f: AudioFile = eyed3.load(output)
+                if f:
+                    if not f.tag:
+                        f.tag.initTag()
+
+                    tag: eyed3.id3.Tag = f.tag
+                    tag.artist = self.track.mb_track.release.release_group.artists_string()
+                    tag.album = self.track.mb_track.release.release_group.title
+                    tag.title = self.track.mb_track.title
+                    tag.track_num = self.track.mb_track.track_number
+                    # TODO: use better cover
+                    tag.images.set(FRONT_COVER, self.track.mb_track.release.release_group.cover(), "image/jpeg")
+                    tag.save()
+
+                else:
+                    print(f"WARN: failed to apply mp3 tags to {output}")
+
+            except:
+                print(f"WARN: failed to apply mp3 tags to {output}")
+
+
+
+        self.signals.finished.emit(self.track)
 
 
 class YtDownloader(QObject):
