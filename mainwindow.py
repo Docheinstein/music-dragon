@@ -24,7 +24,7 @@ from youtube_dl import YoutubeDL
 import globals
 import preferences
 from cache import COVER_CACHE
-from entities import MbReleaseGroup, MbRelease, MbTrack, YtTrack
+from entities import MbReleaseGroup, MbRelease, MbTrack, YtTrack, MbArtist
 from log import debug
 from preferenceswindow import PreferencesWindow
 from ui.ui_mainwindow import Ui_MainWindow
@@ -36,6 +36,36 @@ SEARCH_DEBOUNCE_MS = 800
 yt: Optional[YTMusic] = None
 
 
+# ======= SEARCH ARTISTS RUNNABLE ======
+# Search the artists for a given query
+# ============================================
+
+class SearchArtistsSignals(QObject):
+    finished = pyqtSignal(str, list)
+
+class SearchArtistsRunnable(QRunnable):
+    def __init__(self, query, limit=8):
+        super().__init__()
+        self.signals = SearchArtistsSignals()
+        self.query = query
+        self.limit = limit
+
+    @pyqtSlot()
+    def run(self) -> None:
+        if not self.query:
+            return
+        debug(f"[SearchArtistsRunnable (query='{self.query}']")
+
+        debug(f"MUSICBRAINZ: search_artists: '{self.query}'")
+        result = mb.search_artists(
+            self.query, limit=self.limit
+        )["artist-list"]
+        debug(j(result))
+
+        artists = [MbArtist(a) for a in result]
+
+        self.signals.finished.emit(self.query, artists)
+
 # ======= SEARCH RELEASE GROUP RUNNABLE ======
 # Search the release groups for a given query
 # ============================================
@@ -44,24 +74,21 @@ class SearchReleaseGroupsSignals(QObject):
     finished = pyqtSignal(str, list)
 
 class SearchReleaseGroupsRunnable(QRunnable):
-    def __init__(self, query):
+    def __init__(self, query, limit=8):
         super().__init__()
         self.signals = SearchReleaseGroupsSignals()
         self.query = query
+        self.limit = limit
 
     @pyqtSlot()
     def run(self) -> None:
         if not self.query:
             return
         debug(f"[SearchReleaseGroupsRunnable (query='{self.query}']")
-        #
-        # debug(f"MUSICBRAINZ: search_artists: '{self.query}'")
-        # artists = mb.search_artists(self.query, limit=8)["artist-list"]
-        # debug(j(artists))
 
         debug(f"MUSICBRAINZ: search_release_groups: '{self.query}'")
         release_group_list = mb.search_release_groups(
-            self.query, limit=8, primarytype="Album", status="Official"
+            self.query, limit=self.limit, primarytype="Album", status="Official"
         )["release-group-list"]
         debug(j(release_group_list))
 
@@ -143,6 +170,30 @@ class FetchReleaseGroupMainReleaseRunnable(QRunnable):
         release = MbRelease(self.release_group, releases[main_release_index])
         self.signals.finished.emit(self.release_group, release)
 
+
+# ======= FETCH ARTIST DETAILS RUNNABLE ========
+# Fetch the details of the given artist
+# ==============================================
+
+class FetchArtistDetailsSignals(QObject):
+    finished = pyqtSignal(MbArtist, MbArtist)
+
+
+class FetchArtistDetailsRunnable(QRunnable):
+    def __init__(self, mb_artist: MbArtist):
+        super().__init__()
+        self.signals = FetchArtistDetailsSignals()
+        self.artist = mb_artist
+
+    @pyqtSlot()
+    def run(self) -> None:
+        debug(f"[FetchArtistRunnable (artist='{self.artist.name}'])")
+
+        # Fetch all the releases and releases tracks for the release groups
+        artist_details = mb.get_artist_by_id(self.artist.id, includes=["release-groups"])
+        debug(j(artist_details))
+
+        self.signals.finished.emit(self.artist, MbArtist(artist_details["artist"]))
 
 
 # ======= FETCH YOUTUBE TRACKS RUNNABLE ===============
@@ -496,16 +547,22 @@ class SearchResultsModel(QAbstractListModel):
         if role == SearchResultsItemRole.TITLE:
             if isinstance(item, MbReleaseGroup):
                 return item.title
+            if isinstance(item, MbArtist):
+                return item.name
 
         if role == SearchResultsItemRole.SUBTITLE:
             if isinstance(item, MbReleaseGroup):
                 return item.artists_string()
+            if isinstance(item, MbArtist):
+                return "Artist"
 
         if role == SearchResultsItemRole.ICON:
             if isinstance(item, MbReleaseGroup):
                 cover = item.cover()
                 if cover:
                     return make_icon_from_data(cover)
+            if isinstance(item, MbArtist):
+                return globals.DEFAULT_PERSON_PLACEHOLDER_ICON
             return globals.DEFAULT_COVER_PLACEHOLDER_ICON
 
         return QVariant()
@@ -528,6 +585,7 @@ class MainWindow(QMainWindow):
         self.ui.setupUi(self)
 
         globals.DEFAULT_COVER_PLACEHOLDER_ICON = QIcon("res/images/questionmark.png")
+        globals.DEFAULT_PERSON_PLACEHOLDER_ICON = QIcon("res/images/person.jpg")
         globals.DOWNLOAD_ICON = QIcon("res/images/download.png")
 
         # Pages
@@ -570,6 +628,11 @@ class MainWindow(QMainWindow):
         self.current_release_group: Optional[MbReleaseGroup] = None
         self.ui.albumTracks.download_track_clicked.connect(self.on_download_track_clicked)
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
+
+        # Artist
+        self.current_artist: Optional[MbArtist] = None
+        self.ui.artistAlbums.album_clicked.connect(self.on_album_clicked)
+
         # self.album_model = AlbumModel()
         # self.ui.albumTracks.setModel(self.album_model)
         # self.ui.albumTracks.setItemDelegate(AlbumItemDelegate())
@@ -610,6 +673,9 @@ class MainWindow(QMainWindow):
     def set_album_page(self, root=False):
         self.push_page(self.ui.albumPage, root=root)
 
+    def set_artist_page(self, root=False):
+        self.push_page(self.ui.artistPage, root=root)
+
     def push_page(self, page, root=False):
         self.pages_stack_cursor = self.pages_stack_cursor + 1
         self.pages_stack = self.pages_stack[:self.pages_stack_cursor]
@@ -636,6 +702,8 @@ class MainWindow(QMainWindow):
             self.select_page_button(self.ui.downloadsPageButton)
         elif page == self.ui.albumPage:
             pass
+        elif page == self.ui.artistPage:
+            pass
 
         self.ui.pages.setCurrentWidget(page)
 
@@ -658,7 +726,7 @@ class MainWindow(QMainWindow):
 
     def open_release_group(self, release_group: MbReleaseGroup):
         if not isinstance(release_group, MbReleaseGroup):
-            raise TypeError("Expected object of type 'Release'")
+            raise TypeError("Expected object of type 'MbReleaseGroup'")
 
         self.current_release_group = release_group
 
@@ -690,6 +758,46 @@ class MainWindow(QMainWindow):
         release_fetcher_runnable = FetchReleaseGroupMainReleaseRunnable(release_group)
         release_fetcher_runnable.signals.finished.connect(self.on_main_release_result)
         QThreadPool.globalInstance().start(release_fetcher_runnable)
+
+    def open_artist(self, artist: MbArtist):
+        if not isinstance(artist, MbArtist):
+            raise TypeError("Expected object of type 'MbArtist'")
+
+        self.current_artist = artist
+
+        # title
+        self.ui.artistName.setText(artist.name)
+        #
+        # # artist
+        # self.ui.artistCover.setText(release_group.artists_string())
+        #
+        # # icon
+        # cover = release_group.cover()
+        # if cover:
+        #     self.ui.albumCover.setPixmap(make_pixmap_from_data(cover))
+        # else:
+        #     self.ui.albumCover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+
+        # albums
+        # self.album_model.beginResetModel()
+        # self.album_model.tracks.clear()
+        # self.album_model.endResetModel()
+        self.ui.artistAlbums.clear()
+
+        # # download
+        # self.ui.albumDownloadAllButton.setEnabled(False)
+
+        self.set_artist_page()
+
+        # fetch the artist details
+        artist_details_fetcher_runnable = FetchArtistDetailsRunnable(artist)
+        artist_details_fetcher_runnable.signals.finished.connect(self.on_artist_details_result)
+        QThreadPool.globalInstance().start(artist_details_fetcher_runnable)
+
+        # fetch the main release (and its tracks) of the release group
+        # release_fetcher_runnable = FetchReleaseGroupMainReleaseRunnable(release_group)
+        # release_fetcher_runnable.signals.finished.connect(self.on_main_release_result)
+        # QThreadPool.globalInstance().start(release_fetcher_runnable)
 
     def on_action_preferences(self):
         debug("on_action_preferences")
@@ -727,8 +835,11 @@ class MainWindow(QMainWindow):
 
         search_release_groups_runnable = SearchReleaseGroupsRunnable(query)
         search_release_groups_runnable.signals.finished.connect(self.on_search_release_groups_finished)
-
         QThreadPool.globalInstance().start(search_release_groups_runnable)
+
+        search_artists_runnable = SearchArtistsRunnable(query)
+        search_artists_runnable.signals.finished.connect(self.on_search_artists_finished)
+        QThreadPool.globalInstance().start(search_artists_runnable)
 
 
     def on_search_release_groups_finished(self, query, release_groups: List[MbReleaseGroup]):
@@ -758,6 +869,34 @@ class MainWindow(QMainWindow):
                 QThreadPool.globalInstance().start(cover_fetcher_runnable)
 
 
+    def on_search_artists_finished(self, query, artists: List[MbArtist]):
+        debug(f"on_search_artists_finished")
+
+        if query != self.last_query:
+            debug("Clearing search results")
+            self.last_query = query
+            self.search_results_model.beginResetModel()
+            self.search_results_model.items.clear()
+            self.search_results_model.endResetModel()
+
+        # update model
+        self.search_results_model.beginInsertRows(QModelIndex(), self.search_results_model.rowCount(), len(artists))
+
+        for artist in artists:
+            self.search_results_model.items.append(artist)
+
+        self.search_results_model.endInsertRows()
+
+        # TODO: fetch covers: from wiki?
+        # fetch covers
+        # for release_group in release_groups:
+        #     if release_group.id not in COVER_CACHE:
+        #         cover_fetcher_runnable = FetchReleaseGroupCoverRunnable(
+        #             release_group, size=preferences.cover_size())
+        #         cover_fetcher_runnable.signals.finished.connect(self.on_release_group_cover_fetched)
+        #         QThreadPool.globalInstance().start(cover_fetcher_runnable)
+
+
     def on_release_group_cover_fetched(self, release_group: MbReleaseGroup, cover: bytes):
         debug(f"on_release_group_cover_fetched (release_group_id='{release_group.id}'): {'OK' if cover else 'NONE'}")
 
@@ -775,6 +914,9 @@ class MainWindow(QMainWindow):
                 # self.album_model.beginResetModel()
                 # self.album_model.endResetModel()
                 self.ui.albumTracks.set_cover(cover)
+        elif self.ui.pages.currentWidget() == self.ui.artistPage:
+            if self.current_artist:
+                self.ui.artistAlbums.set_cover(release_group, cover)
         else:
             pass
 
@@ -787,6 +929,8 @@ class MainWindow(QMainWindow):
 
         if isinstance(item, MbReleaseGroup):
             self.open_release_group(item)
+        elif isinstance(item, MbArtist):
+            self.open_artist(item)
         else:
             print("WARN: not supported yet")
 
@@ -794,9 +938,9 @@ class MainWindow(QMainWindow):
     def on_main_release_result(self, release_group: MbReleaseGroup, release: MbRelease):
         debug(f"on_main_release_result(release_group_id={release_group.id})")
 
-        if not (self.current_release_group and self.current_release_group.id == release_group.id):
-            print("WARN: got release main release result outside of album page")
-            return
+        # if not (self.current_release_group and self.current_release_group.id == release_group.id):
+        #     print("WARN: got release main release result outside of album page")
+        #     return
 
         # self.album_model.beginResetModel()
         self.ui.albumTracks.clear()
@@ -814,6 +958,27 @@ class MainWindow(QMainWindow):
         youtube_track_runnable.signals.finished.connect(self.on_youtube_tracks_fetch_finished)
         QThreadPool.globalInstance().start(youtube_track_runnable)
 
+
+
+    def on_artist_details_result(self, _artist: MbArtist, artist: MbArtist):
+        debug(f"on_artist_details_result(artist={artist.id})")
+
+        # if not (self.current_release_group and self.current_release_group.id == release_group.id):
+        #     print("WARN: got release main release result outside of album page")
+        #     return
+
+        # self.album_model.beginResetModel()
+        self.ui.artistAlbums.clear()
+
+        for release_group in artist.release_groups:
+            self.ui.artistAlbums.add_album(release_group)
+
+        for release_group in artist.release_groups:
+            if release_group.id not in COVER_CACHE:
+                cover_fetcher_runnable = FetchReleaseGroupCoverRunnable(
+                    release_group, size=preferences.cover_size())
+                cover_fetcher_runnable.signals.finished.connect(self.on_release_group_cover_fetched)
+                QThreadPool.globalInstance().start(cover_fetcher_runnable)
 
     def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
         debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")
@@ -875,6 +1040,8 @@ class MainWindow(QMainWindow):
         self.downloader.enqueue(track)
         self.ui.downloads.add_track(track)
 
+    def on_album_clicked(self, mb_release_group: MbReleaseGroup):
+        self.open_release_group(mb_release_group)
 
     def on_track_download_started(self, track: YtTrack):
         debug(f"on_track_download_started(track={track.mb_track.title})")
