@@ -22,6 +22,7 @@ from musicbrainzngs import ResponseError
 from youtube_dl import YoutubeDL
 
 import globals
+import preferences
 from cache import COVER_CACHE
 from entities import MbReleaseGroup, MbRelease, MbTrack, YtTrack
 from log import debug
@@ -163,7 +164,7 @@ class FetchYoutubeTracksRunnable(QRunnable):
     def run(self) -> None:
         debug(f"[FetchYoutubeTracksRunnable (tracks={[t.title for t in self.tracks]}])")
 
-        fetched_tracks = set()
+        fetched_tracks = {}
         # for t in self.tracks:
         #     tracks_fetch_status[t.title] = False
 
@@ -193,34 +194,48 @@ class FetchYoutubeTracksRunnable(QRunnable):
                 debug(j(artist_details))
 
                 debug(f"YOUTUBE: get_artist_albums(artist='{artist['browseId']}')")
-                artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
-                debug(j(artist_albums))
+                if "albums" in artist_details:
+                    if "params" in artist_details["albums"]:
+                        artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
+                        debug(j(artist_albums))
 
-                closest_albums_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
-                if closest_albums_name:
-                    closest_album_name = closest_albums_name[0]
-                    debug(f"Closest album found: {closest_album_name}")
-                    album = [a for a in artist_albums if a["title"] == closest_album_name][0]
+                        closest_albums_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
+                        if closest_albums_name:
+                            closest_album_name = closest_albums_name[0]
+                            debug(f"Closest album found: {closest_album_name}")
+                            album = [a for a in artist_albums if a["title"] == closest_album_name][0]
 
-                    debug(f"YOUTUBE: get_album(album='{album['browseId']}')")
-                    album_details = yt.get_album(album["browseId"])
-                    debug(j(album_details))
+                            debug(f"YOUTUBE: get_album(album='{album['browseId']}')")
+                            album_details = yt.get_album(album["browseId"])
+                            debug(j(album_details))
 
-                    # Notify only if the mbtrack actually contains the youtube tracks
-                    for yttrack in album_details["tracks"]:
-                        for mbtrack in self.tracks:
-                            if mbtrack.id not in fetched_tracks: # not fetched yet
-                                # TODO: better heuristic for figure out if the video matches the track
-                                if yttrack["title"].startswith(mbtrack.title):
-                                    fetched_tracks.add(mbtrack.id)
-                                    yttrack["album"] = { # hack track, adding album id
-                                        "name": yttrack["album"],
-                                        "id": album["browseId"]
-                                    }
-                                    self.signals.track_fetched.emit(mbtrack, YtTrack(mbtrack, yttrack))
-
+                            # Notify only if the mbtrack actually contains the youtube tracks
+                            for yttrack in album_details["tracks"]:
+                                for mbtrack in self.tracks:
+                                    if mbtrack.id not in fetched_tracks: # not fetched yet
+                                        # TODO: better heuristic for figure out if the video matches the track
+                                        if yttrack["title"].startswith(mbtrack.title):
+                                            yttrack["album"] = { # hack track, adding album id
+                                                "name": yttrack["album"],
+                                                "id": album["browseId"]
+                                            }
+                                            y = YtTrack(mbtrack, yttrack)
+                                            fetched_tracks[mbtrack.id] = y
+                                            self.signals.track_fetched.emit(mbtrack, y)
+                                            break
+                                else:
+                                    debug(f"Skipping youtube song '{yttrack['title']}': no match between tracks titles")
+                    else:
+                        print("WARN: no 'params' key for artist albums")
+                else:
+                    print("WARN: no 'albums' for artist")
 
         debug(f"Tracks fetched through album retrieval: {len(fetched_tracks)}/{len(self.tracks)}")
+        for t in self.tracks:
+            if t.id in fetched_tracks:
+                debug(f"FOUND:   {t.title} ({fetched_tracks[t.id].video_title})")
+            else:
+                debug(f"MISSING: {t.title}")
 
         # 2. Fetch track directly
         for track in self.tracks:
@@ -229,7 +244,15 @@ class FetchYoutubeTracksRunnable(QRunnable):
                 yt_songs = yt.search(query, filter="songs")
                 debug(j(yt_songs))
                 if yt_songs:
-                    self.signals.track_fetched.emit(track, YtTrack(track, yt_songs[0]))
+                    y = YtTrack(track, yt_songs[0])
+                    fetched_tracks[track.id] = y
+                    self.signals.track_fetched.emit(track, y)
+
+        for t in self.tracks:
+            if t.id in fetched_tracks:
+                debug(f"FOUND:   {t.title} ({fetched_tracks[t.id].video_title})")
+            else:
+                debug(f"MISSING: {t.title}")
 
         self.signals.finished.emit(track)
         # artist_found = False
@@ -729,7 +752,8 @@ class MainWindow(QMainWindow):
         # fetch covers
         for release_group in release_groups:
             if release_group.id not in COVER_CACHE:
-                cover_fetcher_runnable = FetchReleaseGroupCoverRunnable(release_group)
+                cover_fetcher_runnable = FetchReleaseGroupCoverRunnable(
+                    release_group, size=preferences.cover_size())
                 cover_fetcher_runnable.signals.finished.connect(self.on_release_group_cover_fetched)
                 QThreadPool.globalInstance().start(cover_fetcher_runnable)
 

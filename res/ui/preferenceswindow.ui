@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>445</width>
-    <height>351</height>
+    <width>474</width>
+    <height>642</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -34,11 +34,14 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>409</width>
-            <height>242</height>
+            <width>438</width>
+            <height>533</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_4">
+           <property name="spacing">
+            <number>12</number>
+           </property>
            <item>
             <widget class="ClickableWidget" name="directoryWidget" native="true">
              <property name="sizePolicy">
@@ -78,6 +81,83 @@
                <widget class="QLabel" name="directory">
                 <property name="text">
                  <string>~/MusicDragon</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QWidget" name="widget" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_5">
+              <item>
+               <widget class="QLabel" name="label_2">
+                <property name="font">
+                 <font>
+                  <pointsize>14</pointsize>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Cover size</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="coverSize">
+                <item>
+                 <property name="text">
+                  <string>Small (250)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Medium (500)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Large (1200)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Largest</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QWidget" name="widget_2" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_6">
+              <item>
+               <widget class="QLabel" name="label_3">
+                <property name="font">
+                 <font>
+                  <pointsize>14</pointsize>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Output format</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="outputFormat"/>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_4">
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;{artist}: &lt;/span&gt;&lt;span style=&quot; font-size:10pt; font-style:italic;&quot;&gt;artist name&lt;/span&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;&lt;br/&gt;{album}: &lt;/span&gt;&lt;span style=&quot; font-size:10pt; font-style:italic;&quot;&gt;album title&lt;/span&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;&lt;br/&gt;{song}: &lt;/span&gt;&lt;span style=&quot; font-size:10pt; font-style:italic;&quot;&gt;song name&lt;/span&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;&lt;br/&gt;{ext}: &lt;/span&gt;&lt;span style=&quot; font-size:10pt; font-style:italic;&quot;&gt;extension&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
                 </property>
                </widget>
               </item>
