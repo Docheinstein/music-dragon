@@ -150,7 +150,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>4</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="homePage">
          <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -173,7 +173,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QListView" name="searchResults">
+           <widget class="SearchResultsWidget" name="searchResults">
             <property name="iconSize">
              <size>
               <width>80</width>
@@ -480,6 +480,11 @@
    <class>ArtistAlbumsWidget</class>
    <extends>QListWidget</extends>
    <header>artistalbumswidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SearchResultsWidget</class>
+   <extends>QListWidget</extends>
+   <header>searchresultswidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

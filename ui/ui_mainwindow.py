@@ -95,7 +95,7 @@ class Ui_MainWindow(object):
         self.searchBar = QtWidgets.QLineEdit(self.searchPage)
         self.searchBar.setObjectName("searchBar")
         self.verticalLayout.addWidget(self.searchBar)
-        self.searchResults = QtWidgets.QListView(self.searchPage)
+        self.searchResults = SearchResultsWidget(self.searchPage)
         self.searchResults.setIconSize(QtCore.QSize(80, 80))
         self.searchResults.setObjectName("searchResults")
         self.verticalLayout.addWidget(self.searchResults)
@@ -245,7 +245,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuEdit.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.pages.setCurrentIndex(4)
+        self.pages.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -267,3 +267,4 @@ from albumtrackswidget import AlbumTracksWidget
 from artistalbumswidget import ArtistAlbumsWidget
 from clickablelabel import ClickableLabel
 from downloadswidget import DownloadsWidget
+from searchresultswidget import SearchResultsWidget

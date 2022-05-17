@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayo
     QProgressBar, QListWidgetItem
 
 import globals
-from entities import MbTrack, YtTrack
+from entities import YtTrack
 from log import debug
+from musicbrainz import MbTrack
 from utils import make_pixmap_from_data
 
 
