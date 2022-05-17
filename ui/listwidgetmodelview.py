@@ -6,24 +6,30 @@ from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QWidget
 from log import debug
 
 
-class QListWidgetModel:
+class ListWidgetModel:
     def __init__(self):
         pass
-
-    def item_count(self) -> int:
-        raise NotImplementedError("item_count() must be implemented by QListWidgetModel subclasses")
-
-    def item(self, index: int) -> Optional[Any]:
-        raise NotImplementedError("item() must be implemented by QListWidgetModel subclasses")
-
-    def index(self, item: Any) -> Optional[int]:
-        raise NotImplementedError("index() must be implemented by QListWidgetModel subclasses")
 
     def items(self) -> List:
         raise NotImplementedError("items() must be implemented by QListWidgetModel subclasses")
 
+    def item_count(self) -> int:
+        return len(self.items())
 
-class QListWidgetModelViewItem(QWidget):
+    def item(self, index: int) -> Optional[Any]:
+        items = self.items()
+        if 0 <= index < len(items):
+            return items[index]
+        return None
+
+    def index(self, item: Any) -> Optional[int]:
+        try:
+            return self.items().index(item)
+        except ValueError:
+            pass
+        return None
+
+class ListWidgetModelViewItem(QWidget):
     def __init__(self):
         super().__init__()
 
@@ -34,15 +40,15 @@ class QListWidgetModelViewItem(QWidget):
         raise NotImplementedError("invalidate() must be implemented by QListWidgetModelViewItem subclasses")
 
 
-class QListWidgetModelView(QListWidget):
+class ListWidgetModelView(QListWidget):
     row_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.model: Optional[QListWidgetModel] = None
+        self.model: Optional[ListWidgetModel] = None
         self.itemClicked.connect(self._on_item_clicked)
 
-    def set_model(self, model: QListWidgetModel) -> None:
+    def set_model(self, model: ListWidgetModel) -> None:
         self.model = model
         self.invalidate()
 
@@ -65,18 +71,18 @@ class QListWidgetModelView(QListWidget):
 
     def update_row_at(self, idx: int):
         item = self.item(idx)
-        widget: QListWidgetModelViewItem = self.itemWidget(item)
+        widget: ListWidgetModelViewItem = self.itemWidget(item)
         widget.invalidate()
 
-    def add_row(self, item):
+    def add_row(self, row_item):
         item = QListWidgetItem()
-        widget = self.make_item_widget(item)
+        widget = self.make_item_widget(row_item)
         item.setSizeHint(widget.sizeHint())
 
         self.addItem(item)
         self.setItemWidget(item, widget)
 
-    def make_item_widget(self, item) -> QListWidgetModelViewItem:
+    def make_item_widget(self, item) -> ListWidgetModelViewItem:
         raise NotImplementedError("make_item_widget() must be implemented by QListWidgetModelView subclasses")
 
     def _on_item_clicked(self, item: QListWidgetItem):

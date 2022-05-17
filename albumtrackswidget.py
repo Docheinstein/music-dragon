@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Any
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
@@ -8,12 +8,12 @@ import globals
 import repository
 from log import debug
 from musicbrainz import MbTrack
-from ui.base import QListWidgetModel
+from ui.listwidgetmodelview import ListWidgetModel, ListWidgetModelViewItem, ListWidgetModelView
 from utils import make_pixmap_from_data
 from repository import Track
 
 
-class AlbumTracksItemWidget(QWidget):
+class AlbumTracksItemWidget(ListWidgetModelViewItem):
     download_track_clicked = pyqtSignal(MbTrack)
 
     class Ui:
@@ -100,61 +100,26 @@ class AlbumTracksItemWidget(QWidget):
         pass
         # self.download_track_clicked.emit(self.track)
 
-class AlbumTracksModel(QListWidgetModel):
+class AlbumTracksModel(ListWidgetModel):
     def __init__(self):
         super().__init__()
         self.release_id: Optional[str] = None
 
-class AlbumTracksWidget(QListWidget):
-    row_clicked = pyqtSignal(int)
+    def items(self) -> List:
+        release = repository.get_release(self.release_id)
+        return release.track_ids if release else []
 
+    def item_count(self) -> int:
+        release = repository.get_release(self.release_id)
+        return release.track_count() if release else 0
+
+class AlbumTracksWidget(ListWidgetModelView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.model: Optional[AlbumTracksModel] = None
-        self.itemClicked.connect(self._on_item_clicked)
 
-    def set_model(self, model: AlbumTracksModel) -> None:
-        self.model = model
-        self.invalidate()
+    def make_item_widget(self, item) -> ListWidgetModelViewItem:
+        return AlbumTracksItemWidget(item)
 
-    def invalidate(self):
-        self.clear()
-        debug(f"AlbumTracksWidget.invalidate()")
-        release = repository.get_release(self.model.release_id)
-        if not release:
-            debug(f"AlbumTracksWidget.invalidate(): nothing to do for release {self.model.release_id}")
-            return
-        debug(f"AlbumTracksWidget.invalidate(): adding {release.track_count()} rows")
-        for idx, track_id in enumerate(release.track_ids):
-            self._add_row(track_id)
-
-    def update_row(self, track_id: str):
-        release = repository.get_release(self.model.release_id)
-        if not release:
-            print(f"WARN: track row for id {track_id} not found")
-            return
-
-        for idx, track_id_ in enumerate(release.track_ids):
-            if track_id_ == track_id:
-                self.update_row_at(idx)
-                return
-
-    def update_row_at(self, idx: int):
-        item = self.item(idx)
-        widget: AlbumTracksItemWidget = self.itemWidget(item)
-        widget.invalidate()
-
-    def _add_row(self, track_id):
-        item = QListWidgetItem()
-        widget = AlbumTracksItemWidget(track_id)
-        item.setSizeHint(widget.sizeHint())
-
-        self.addItem(item)
-        self.setItemWidget(item, widget)
-
-    def _on_item_clicked(self, item: QListWidgetItem):
-        debug(f"on_item_clicked at row {self.row(item)}")
-        self.row_clicked.emit(self.row(item))
     #
     # def add_track(self, track: MbTrack):
     #     self.tracks.append(track)

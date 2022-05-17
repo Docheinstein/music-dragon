@@ -9,10 +9,11 @@ import globals
 import repository
 from log import debug
 from repository import Artist, ReleaseGroup
+from ui.listwidgetmodelview import ListWidgetModelViewItem, ListWidgetModel, ListWidgetModelView
 from utils import make_pixmap_from_data
 
 
-class SearchResultsItemWidget(QWidget):
+class SearchResultsItemWidget(ListWidgetModelViewItem):
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
@@ -50,7 +51,6 @@ class SearchResultsItemWidget(QWidget):
 
         # subtitle
         self.ui.subtitle = QLabel()
-        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
         # build
@@ -59,9 +59,9 @@ class SearchResultsItemWidget(QWidget):
         self.ui.layout.addWidget(self.ui.cover)
 
         self.ui.inner_layout = QVBoxLayout()
+        self.ui.inner_layout.setSpacing(0)
         self.ui.inner_layout.addWidget(self.ui.title)
         self.ui.inner_layout.addWidget(self.ui.subtitle)
-        self.ui.inner_layout.setSpacing(0)
         self.ui.layout.addLayout(self.ui.inner_layout)
 
         self.setLayout(self.ui.layout)
@@ -111,48 +111,17 @@ class SearchResultsItemWidget(QWidget):
         else:
             self.ui.subtitle.setVisible(False)
 
-class SearchResultsModel:
+class SearchResultsModel(ListWidgetModel):
     def __init__(self):
+        super().__init__()
         self.results: List[str] = []
 
-class SearchResultsWidget(QListWidget):
-    row_clicked = pyqtSignal(int)
+    def items(self) -> List:
+        return self.results
 
+class SearchResultsWidget(ListWidgetModelView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.model: Optional[SearchResultsModel] = None
-        self.itemClicked.connect(self._on_item_clicked)
 
-    def set_model(self, model: SearchResultsModel):
-        self.model = model
-        self.invalidate()
-
-    def invalidate(self):
-        self.clear()
-        debug(f"SearchResultsWidget.invalidate()")
-        for idx, result in enumerate(self.model.results):
-            self._add_row(result)
-
-    def update_row(self, result: str):
-        try:
-            idx = self.model.results.index(result)
-            self.update_row_at(idx)
-        except ValueError:
-            print(f"WARN: result row for id {result} not found")
-
-    def update_row_at(self, idx: int):
-        item = self.item(idx)
-        widget: SearchResultsItemWidget = self.itemWidget(item)
-        widget.invalidate()
-
-    def _add_row(self, result):
-        item = QListWidgetItem()
-        widget = SearchResultsItemWidget(result)
-        item.setSizeHint(widget.sizeHint())
-
-        self.addItem(item)
-        self.setItemWidget(item, widget)
-
-    def _on_item_clicked(self, item: QListWidgetItem):
-        debug(f"on_item_clicked at row {self.row(item)}")
-        self.row_clicked.emit(self.row(item))
+    def make_item_widget(self, item) -> ListWidgetModelViewItem:
+        return SearchResultsItemWidget(item)

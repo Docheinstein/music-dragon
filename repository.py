@@ -31,12 +31,22 @@ class Artist:
         self.name = mb_artist.name
         self.aliases = mb_artist.aliases
         self.images = Images()
+        self.release_group_ids = [rg.id for rg in mb_artist.release_groups]
 
+        for release_group in mb_artist.release_groups:
+            _add_release_group(ReleaseGroup(release_group))
+
+    def release_groups(self):
+        return [get_release_group(rg) for rg in self.release_group_ids]
+
+    def release_group_count(self):
+        return len(self.release_group_ids)
 
 class ReleaseGroup:
     def __init__(self, mb_release_group: MbReleaseGroup):
         self.id = mb_release_group.id
         self.title = mb_release_group.title
+        self.date = mb_release_group.date
         self.images = Images()
         self.artist_ids = [a["id"] for a in mb_release_group.artists]
         self.release_ids = []
@@ -56,6 +66,12 @@ class ReleaseGroup:
         if not artists or artists.count(None):
             return "Unknown Artist"
         return ", ".join(a.name for a in artists)
+
+    def year(self):
+        try:
+            return self.date.split("-")[0]
+        except:
+            return self.date
 
 class Release:
     def __init__(self, mb_release: MbRelease):
@@ -193,23 +209,14 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
         for a in artists:
             _add_artist(a)
         artists_callback(query_, artists)
-        #
-        # # (eventually) images
-        # if artist_image_callback:
-        #     def artist_image_callback_wrapper(artist_id, artist):
-        #         _artists[artist_id] = artist  # replace since this is more complete
-        #
-        #         def artist_image_callback_wrapper_wikidata(wiki_id, image, artist_id_):
-        #             debug(f"Pushing image for artist {artist_id_}")
-        #             _artists[artist_id_].images.add_image(image)
-        #             artist_image_callback(artist_id_, image)
-        #
-        #         if "wikidata" in artist.urls:
-        #             wiki.fetch_wikidata_image(artist.urls["wikidata"].split("/")[-1], artist_image_callback_wrapper_wikidata, user_data=artist.id)
-        #
-        #
-        #     for a in result:
-        #         musicbrainz.fetch_artist(a.id, artist_image_callback_wrapper)
+
+        # (eventually) images
+        if artist_image_callback:
+            def artist_callback(_1, _2):
+                pass
+
+            for a in result:
+                fetch_artist(a.id, artist_callback, artist_image_callback)
 
     musicbrainz.search_artists(query, artists_callback_wrapper, limit)
 
@@ -217,16 +224,12 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
     def release_groups_callback_wrapper(query_, result: List[MbReleaseGroup]):
         release_groups = [ReleaseGroup(rg) for rg in result]
         for rg in release_groups:
-            _add_release_group(rg)
+            _add_release_group(rg, replace=True) # TODO: ok?
         release_groups_callback(query_, release_groups)
 
         if release_group_image_callback:
-            def release_group_image_callback_wrapper(rg_id, image):
-                _release_groups[rg_id].images.add_image(image)
-                release_group_image_callback(rg_id, image)
-
             for rg in result:
-                musicbrainz.fetch_release_group_cover(rg.id, release_group_image_callback_wrapper)
+                fetch_release_group_cover(rg.id, release_group_image_callback)
 
     musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
 
@@ -245,7 +248,12 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
         #
         # # (eventually) images
 
+def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
+    def release_group_image_callback_wrapper(rg_id, image):
+        _release_groups[rg_id].images.add_image(image)
+        release_group_cover_callback(rg_id, image)
 
+    musicbrainz.fetch_release_group_cover(release_group_id, release_group_image_callback_wrapper)
 
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback):
     def release_group_releases_callback_wrapper(release_group_id_, result: List[MbRelease]):
@@ -271,18 +279,19 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
 
     musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
 
-# def fetch_artist(artist_id, callback, image_callback=None):
-#     def callback_wrapper(param, result: MbArtist):
-#         artists[result.id] = result # replace since this is better
-#         callback(param, result)
-#
-#         if image_callback:
-#             def image_callback_wrapper(wiki_id, artist_id_, image):
-#                 artists[artist_id].images.add_image(image)
-#                 image_callback(artist_id_, image)
-#
-#             if "wikidata" in result.urls:
-#                 wiki.fetch_wikidata_image(result.urls["wikidata"], artist_id, image_callback_wrapper)
-#
-#     musicbrainz.fetch_artist(artist_id, callback_wrapper)
-#
+def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
+    def artist_callback_wrapper(artist_id_, result: MbArtist):
+        artist = Artist(result)
+        _add_artist(artist, replace=True)
+        artist_callback(artist_id_, artist)
+
+        if artist_image_callback:
+            def artist_image_callback_wrapper(wiki_id, image, artist_id__):
+                _artists[artist_id__].images.add_image(image)
+                artist_image_callback(artist_id_, image)
+
+            if "wikidata" in result.urls:
+                wiki_id = result.urls["wikidata"].split("/")[-1]
+                wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
+
+    musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)

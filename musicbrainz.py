@@ -34,10 +34,8 @@ class MbReleaseGroup:
     def __init__(self, mb_release_group):
         self.id: str = mb_release_group["id"]
         self.title: str = mb_release_group["title"]
-        try:
-            self.year: str = mb_release_group["first-release-date"].split("-")[0]
-        except:
-            self.year = "Unknown"
+        self.date = mb_release_group.get("first-release-date", "")
+
         self.score: int = int(mb_release_group.get("ext-score", 0))
         self.artists = []
         self.releases = []

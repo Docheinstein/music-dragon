@@ -29,6 +29,7 @@ import musicbrainzngs as mb
 import repository
 import wiki
 from albumtrackswidget import AlbumTracksModel
+from artistalbumswidget import ArtistAlbumsModel
 from cache import COVER_CACHE
 from entities import YtTrack
 from log import debug
@@ -571,7 +572,8 @@ class MainWindow(QMainWindow):
 
         # Artist
         self.current_artist_id = None
-        # self.ui.artistAlbums.album_clicked.connect(self.on_album_clicked)
+        self.artist_albums_model = ArtistAlbumsModel()
+        self.ui.artistAlbums.set_model(self.artist_albums_model)
 
         # self.album_model = AlbumModel()
         # self.ui.albumTracks.setModel(self.album_model)
@@ -700,6 +702,7 @@ class MainWindow(QMainWindow):
             raise TypeError("Expected object of type 'Artist'")
 
         self.current_artist_id = artist.id
+        self.artist_albums_model.artist_id = artist.id
 
         # title
         self.ui.artistName.setText(artist.name)
@@ -712,6 +715,16 @@ class MainWindow(QMainWindow):
         self.ui.artistAlbums.invalidate()
 
         self.set_artist_page()
+
+        repository.fetch_artist(artist.id, self.on_fetch_artist_result)
+
+
+    def on_fetch_artist_result(self, artist_id, artist: Artist):
+        if self.current_artist_id == artist_id:
+            self.ui.artistAlbums.invalidate()
+
+        for rg in artist.release_group_ids:
+            repository.fetch_release_group_cover(rg, self.on_release_group_image_result)
 
         # fetch the artist details
         # musicbrainz.fetch_artist(artist.id,
@@ -809,6 +822,8 @@ class MainWindow(QMainWindow):
 
 
     def on_search_release_group_releases_result(self, release_group_id: str, releases: List[Release]):
+        # TODO: this is always done asynchronously, but maybe we already
+        # have this information if we already fetched it
         debug(f"on_search_release_group_releases_result")
 
         # self.album_tracks_model.release_id = main_release.id
@@ -821,12 +836,15 @@ class MainWindow(QMainWindow):
         # search page
         self.ui.searchResults.update_row(release_group_id)
 
+        # album page
         if self.current_release_group_id == release_group_id:
             cover = repository.get_release_group(release_group_id).images.preferred_image()
             self.ui.albumCover.setPixmap(make_pixmap_from_data(
                 cover, default=globals.COVER_PLACEHOLDER_PIXMAP)
             )
-            self.ui.albumTracks.invalidate()
+
+        # artist page
+        self.ui.artistAlbums.update_row(release_group_id)
 
         # if self.ui.pages.currentWidget() == self.ui.searchPage:
         # elif self.ui.pages.currentWidget() == self.ui.albumPage:
@@ -847,6 +865,14 @@ class MainWindow(QMainWindow):
 
         # search page
         self.ui.searchResults.update_row(artist_id)
+
+        # artist page
+        if self.current_artist_id == artist_id:
+            image = repository.get_artist(artist_id).images.preferred_image()
+            self.ui.artistCover.setPixmap(make_pixmap_from_data(
+                image, default=globals.COVER_PLACEHOLDER_PIXMAP)
+            )
+
 
     def on_artist_image_fetched(self, artist_id, image):
         # cache.artists[artist_id].images.add_image(image)

@@ -36,6 +36,7 @@ class FetchWikidataImageRunnable(QRunnable):
             logo_prop = wiki.get(WIKIDATA_LOGO_PROPERTY) # logo
             logos = entity.getlist(logo_prop)
             if logos:
+                debug("Has logos")
                 for logo in logos:
                     debug(f"Found logo: {logo.image_resolution} '{logo.image_url}'")
                     if ".svg" not in  logo.image_url:
@@ -48,12 +49,12 @@ class FetchWikidataImageRunnable(QRunnable):
 
         except:
             pass
-
         if best_image is None:
             try:
                 image_prop = wiki.get(WIKIDATA_IMAGE_PROPERTY) # image
                 images = entity.getlist(image_prop)
                 if images:
+                    debug("Has images")
                     for image in images:
                         debug(f"Found image: {image.image_resolution}'{image.image_url}'")
                         if ".svg" not in image.image_url:

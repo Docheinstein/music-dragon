@@ -3,23 +3,25 @@ from typing import List, Optional
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
-    QProgressBar, QListWidgetItem
+    QProgressBar, QListWidgetItem, QVBoxLayout
 
 import globals
 from entities import YtTrack
 from log import debug
 from musicbrainz import MbReleaseGroup
-from repository import get_release_group
+from repository import get_release_group, get_artist
+from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from utils import make_pixmap_from_data
 
 
-class ArtistAlbumsItemWidget(QWidget):
+class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
     # download_track_clicked = pyqtSignal(MbTrack)
 
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
+            self.subtitle: Optional[QLabel] = None
             # self.download_button: Optional[QPushButton] = None
             # self.download_progress: Optional[QProgressBar] = None
 
@@ -46,17 +48,28 @@ class ArtistAlbumsItemWidget(QWidget):
         # title
         self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+
+        # subtitle
+        self.ui.subtitle = QLabel()
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        font = self.ui.subtitle.font()
+        font.setPointSize(font.pointSize() - 2)
+        self.ui.subtitle.setFont(font)
 
         # build
-        layout = QHBoxLayout()
-        layout.setSpacing(12)
-        layout.addWidget(self.ui.cover)
+        self.ui.layout = QHBoxLayout()
+        self.ui.layout.setSpacing(12)
+        self.ui.layout.addWidget(self.ui.cover)
 
-        inner_layout = QGridLayout()
-        inner_layout.addWidget(self.ui.title, 0, 0)
-        layout.addLayout(inner_layout)
+        self.ui.inner_layout = QVBoxLayout()
+        self.ui.inner_layout.setSpacing(0)
+        self.ui.inner_layout.addWidget(self.ui.title)
+        self.ui.inner_layout.addWidget(self.ui.subtitle)
+        self.ui.layout.addLayout(self.ui.inner_layout)
 
-        self.setLayout(layout)
+        self.setLayout(self.ui.layout)
 
     def invalidate(self):
         self.release_group = get_release_group(self.release_group_id)
@@ -68,61 +81,29 @@ class ArtistAlbumsItemWidget(QWidget):
         # title
         self.ui.title.setText(self.release_group.title)
 
+        # subtitle
+        self.ui.subtitle.setText(self.release_group.year())
 
-class ArtistAlbumsModel:
+
+class ArtistAlbumsModel(ListWidgetModel):
     def __init__(self):
-        self.release_group_id: Optional[str] = None
+        super().__init__()
+        self.artist_id: Optional[str] = None
 
-class ArtistAlbumsWidget(QListWidget):
-    row_clicked = pyqtSignal(int)
+    def items(self) -> List:
+        artist = get_artist(self.artist_id)
+        return artist.release_group_ids if artist else []
 
+    def item_count(self) -> int:
+        artist = get_artist(self.artist_id)
+        return artist.release_group_count() if artist else 0
+
+class ArtistAlbumsWidget(ListWidgetModelView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.model: Optional[ArtistAlbumsModel] = None
-        self.itemClicked.connect(self._on_item_clicked)
 
-    def set_model(self, model: ArtistAlbumsModel) -> None:
-        self.model = model
-        self.invalidate()
-
-    def invalidate(self):
-        self.clear()
-        debug(f"AlbumTracksWidget.invalidate()")
-        release = repository.get_release(self.model.release_id)
-        if not release:
-            debug(f"AlbumTracksWidget.invalidate(): nothing to do for release {self.model.release_id}")
-            return
-        debug(f"AlbumTracksWidget.invalidate(): adding {release.track_count()} rows")
-        for idx, track_id in enumerate(release.track_ids):
-            self._add_row(track_id)
-
-    def update_row(self, track_id: str):
-        release = repository.get_release(self.model.release_id)
-        if not release:
-            print(f"WARN: track row for id {track_id} not found")
-            return
-
-        for idx, track_id_ in enumerate(release.track_ids):
-            if track_id_ == track_id:
-                self.update_row_at(idx)
-                return
-
-    def update_row_at(self, idx: int):
-        item = self.item(idx)
-        widget: ArtistAlbumsItemWidget = self.itemWidget(item)
-        widget.invalidate()
-
-    def _add_row(self, track_id):
-        item = QListWidgetItem()
-        widget = ArtistAlbumsItemWidget(track_id)
-        item.setSizeHint(widget.sizeHint())
-
-        self.addItem(item)
-        self.setItemWidget(item, widget)
-
-    def _on_item_clicked(self, item: QListWidgetItem):
-        debug(f"on_item_clicked at row {self.row(item)}")
-        self.row_clicked.emit(self.row(item))
+    def make_item_widget(self, item) -> ListWidgetModelViewItem:
+        return ArtistAlbumsItemWidget(item)
 
     #
     # def set_youtube_track(self, mbtrack: MbTrack, yttrack: YtTrack):
