@@ -38,6 +38,7 @@ from ui.ui_mainwindow import Ui_MainWindow
 from utils import j, make_icon_from_data, make_pixmap_from_data
 from ytdownloader import YtDownloader
 from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
+from repository import Artist, ReleaseGroup, Release, Track
 
 SEARCH_DEBOUNCE_MS = 800
 
@@ -512,8 +513,12 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        globals.DEFAULT_COVER_PLACEHOLDER_ICON = QIcon("res/images/questionmark.png")
-        globals.DEFAULT_PERSON_PLACEHOLDER_ICON = QIcon("res/images/person.jpg")
+        globals.COVER_PLACEHOLDER_PIXMAP = QPixmap(globals.COVER_PLACEHOLDER_PATH)
+        globals.PERSON_PLACEHOLDER_PIXMAP = QPixmap(globals.PERSON_PLACEHOLDER_PATH)
+
+        globals.COVER_PLACEHOLDER_ICON = QIcon(globals.COVER_PLACEHOLDER_PATH)
+        globals.PERSON_PLACEHOLDER_ICON = QIcon(globals.COVER_PLACEHOLDER_PATH)
+
         globals.DOWNLOAD_ICON = QIcon("res/images/download.png")
 
         # Pages
@@ -557,6 +562,7 @@ class MainWindow(QMainWindow):
 
 
         # Album
+        self.current_release_group_id = None
         self.album_tracks_model = AlbumTracksModel()
         self.ui.albumTracks.set_model(self.album_tracks_model)
 
@@ -564,8 +570,8 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
 
         # Artist
-        self.current_artist: Optional[MbArtist] = None
-        self.ui.artistAlbums.album_clicked.connect(self.on_album_clicked)
+        self.current_artist_id = None
+        # self.ui.artistAlbums.album_clicked.connect(self.on_album_clicked)
 
         # self.album_model = AlbumModel()
         # self.ui.albumTracks.setModel(self.album_model)
@@ -658,9 +664,11 @@ class MainWindow(QMainWindow):
         btn.setStyleSheet("padding: 6px; background-color: #565757;")
 
 
-    def open_release_group(self, release_group: MbReleaseGroup):
-        if not isinstance(release_group, MbReleaseGroup):
-            raise TypeError("Expected object of type 'MbReleaseGroup'")
+    def open_release_group(self, release_group: ReleaseGroup):
+        if not isinstance(release_group, ReleaseGroup):
+            raise TypeError("Expected object of type 'ReleaseGroup'")
+
+        self.current_release_group_id = release_group.id
 
         # title
         self.ui.albumTitle.setText(release_group.title)
@@ -670,53 +678,38 @@ class MainWindow(QMainWindow):
 
         # icon
         cover = release_group.images.preferred_image()
-        if cover:
-            self.ui.albumCover.setPixmap(make_pixmap_from_data(cover))
-        else:
-            self.ui.albumCover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
-
-        # tracks
-        # self.ui.albumTracks.clear()
+        self.ui.albumCover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
 
         # download
         # self.ui.albumDownloadAllButton.setEnabled(False)
 
+        # tracks
         self.ui.albumTracks.invalidate()
 
         self.set_album_page()
 
-        # fetch the main release (and its tracks) of the release group
+        # fetch the releases (and theirs tracks) of the release group
+        repository.fetch_release_group_releases(release_group.id, self.on_search_release_group_releases_result)
         # release_fetcher_runnable = FetchReleaseGroupMainReleaseRunnable(release_group)
         # release_fetcher_runnable.signals.finished.connect(self.on_main_release_result)
         # QThreadPool.globalInstance().start(release_fetcher_runnable)
 
-    def open_artist(self, artist: MbArtist):
-        if not isinstance(artist, MbArtist):
-            raise TypeError("Expected object of type 'MbArtist'")
 
-        # self.current_artist = artist
+    def open_artist(self, artist: Artist):
+        if not isinstance(artist, Artist):
+            raise TypeError("Expected object of type 'Artist'")
+
+        self.current_artist_id = artist.id
 
         # title
         self.ui.artistName.setText(artist.name)
-        #
-        # # artist
-        # self.ui.artistCover.setText(release_group.artists_string())
-        #
-        # # icon
-        # cover = release_group.cover()
-        # if cover:
-        #     self.ui.albumCover.setPixmap(make_pixmap_from_data(cover))
-        # else:
-        #     self.ui.albumCover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+
+        # icon
+        cover = artist.images.preferred_image()
+        self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
 
         # albums
-        # self.album_model.beginResetModel()
-        # self.album_model.tracks.clear()
-        # self.album_model.endResetModel()
-        # self.ui.artistAlbums.clear()
-
-        # # download
-        # self.ui.albumDownloadAllButton.setEnabled(False)
+        self.ui.artistAlbums.invalidate()
 
         self.set_artist_page()
 
@@ -767,7 +760,7 @@ class MainWindow(QMainWindow):
         repository.search_release_groups(
             query,
             release_groups_callback=self.on_search_release_groups_result,
-            release_group_main_release_callback=self.on_search_release_group_main_release_result,
+            # release_group_main_release_callback=self.on_search_release_group_main_release_result,
             release_group_image_callback=self.on_release_group_image_result,
         )
         repository.search_artists(
@@ -777,7 +770,7 @@ class MainWindow(QMainWindow):
         )
 
 
-    def on_search_release_groups_result(self, query, release_groups: List[MbReleaseGroup]):
+    def on_search_release_groups_result(self, query, release_groups: List[ReleaseGroup]):
         debug(f"on_search_release_groups_result")
 
         pending_changes = False
@@ -796,10 +789,30 @@ class MainWindow(QMainWindow):
             self.ui.searchResults.invalidate()
 
 
-    def on_search_release_group_main_release_result(self, release_group_id: str, main_release: MbRelease):
-        debug(f"on_search_release_groups_result")
+    def on_search_artists_result(self, query, artists: List[Artist]):
+        debug(f"on_search_artists_result")
 
-        self.album_tracks_model.release_id = main_release.id
+        pending_changes = False
+
+        if query != self.last_query:
+            debug("Clearing search results")
+            self.last_query = query
+            self.search_results_model.results.clear()
+            pending_changes = True
+
+        for artist in artists:
+            self.search_results_model.results.append(artist.id)
+            pending_changes = True
+
+        if pending_changes:
+            self.ui.searchResults.invalidate()
+
+
+    def on_search_release_group_releases_result(self, release_group_id: str, releases: List[Release]):
+        debug(f"on_search_release_group_releases_result")
+
+        # self.album_tracks_model.release_id = main_release.id
+        self.album_tracks_model.release_id = repository.get_release_group(release_group_id).main_release_id
         self.ui.albumTracks.invalidate()
 
     def on_release_group_image_result(self, release_group_id, image):
@@ -808,8 +821,12 @@ class MainWindow(QMainWindow):
         # search page
         self.ui.searchResults.update_row(release_group_id)
 
-        # COVER_CACHE[release_group.id] = cover
-
+        if self.current_release_group_id == release_group_id:
+            cover = repository.get_release_group(release_group_id).images.preferred_image()
+            self.ui.albumCover.setPixmap(make_pixmap_from_data(
+                cover, default=globals.COVER_PLACEHOLDER_PIXMAP)
+            )
+            self.ui.albumTracks.invalidate()
 
         # if self.ui.pages.currentWidget() == self.ui.searchPage:
         # elif self.ui.pages.currentWidget() == self.ui.albumPage:
@@ -830,24 +847,6 @@ class MainWindow(QMainWindow):
 
         # search page
         self.ui.searchResults.update_row(artist_id)
-
-    def on_search_artists_result(self, query, artists: List[MbArtist]):
-        debug(f"on_search_artists_result")
-
-        pending_changes = False
-
-        if query != self.last_query:
-            debug("Clearing search results")
-            self.last_query = query
-            self.search_results_model.results.clear()
-            pending_changes = True
-
-        for artist in artists:
-            self.search_results_model.results.append(artist.id)
-            pending_changes = True
-
-        if pending_changes:
-            self.ui.searchResults.invalidate()
 
     def on_artist_image_fetched(self, artist_id, image):
         # cache.artists[artist_id].images.add_image(image)
@@ -895,9 +894,9 @@ class MainWindow(QMainWindow):
         #
         # debug(f"on_search_result_clicked on row {index.row()}")
         #
-        if isinstance(result, MbReleaseGroup):
+        if isinstance(result, ReleaseGroup):
             self.open_release_group(result)
-        elif isinstance(result, MbArtist):
+        elif isinstance(result, Artist):
             self.open_artist(result)
         else:
             print("WARN: not supported yet")

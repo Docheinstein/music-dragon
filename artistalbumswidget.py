@@ -9,6 +9,7 @@ import globals
 from entities import YtTrack
 from log import debug
 from musicbrainz import MbReleaseGroup
+from repository import get_release_group
 from utils import make_pixmap_from_data
 
 
@@ -22,102 +23,106 @@ class ArtistAlbumsItemWidget(QWidget):
             # self.download_button: Optional[QPushButton] = None
             # self.download_progress: Optional[QProgressBar] = None
 
-    def __init__(self, album: MbReleaseGroup):
+    def __init__(self, release_group_id: str):
         super().__init__()
-        self.album = album
-        self.ui = ArtistAlbumsItemWidget.Ui()
 
+        self.release_group_id = release_group_id
+        self.release_group = get_release_group(self.release_group_id)
+        if not self.release_group:
+            print(f"WARN: no release_group for id '{self.release_group_id}'")
+            return
+
+        self.ui = ArtistAlbumsItemWidget.Ui()
+        self.setup()
+        self.invalidate()
+
+    def setup(self):
         # cover
         self.ui.cover = QLabel()
         self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
-        cover = album.cover()
-        if cover:
-            self.ui.cover.setPixmap(make_pixmap_from_data(cover))
-        else:
-            self.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
 
         # title
-        # self.ui.title = QLabel(album.title)
-        self.ui.title = QLabel(f"{album.title} [{album.year}]")
+        self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        #
-        # # download button
-        # self.ui.download_button = QPushButton()
-        # self.ui.download_button.setVisible(False)
-        # self.ui.download_button.setIcon(globals.DOWNLOAD_ICON)
-        # self.ui.download_button.setFlat(True)
-        # self.ui.download_button.setCursor(Qt.PointingHandCursor)
-        # self.ui.download_button.setIconSize(QSize(24, 24))
-        # self.ui.download_button.clicked.connect(self.on_download_clicked)
-        #
-        # # download progress
-        # self.ui.download_progress = QProgressBar()
-        # self.ui.download_progress.setMaximumHeight(8)
-        # self.ui.download_progress.setTextVisible(False)
-        # self.ui.download_progress.setMinimum(0)
-        # self.ui.download_progress.setMaximum(100)
-        # self.ui.download_progress.setOrientation(Qt.Horizontal)
-        # self.ui.download_progress.setValue(20)
-        # self.ui.download_progress.setVisible(False)
 
         # build
-
         layout = QHBoxLayout()
         layout.setSpacing(12)
         layout.addWidget(self.ui.cover)
 
         inner_layout = QGridLayout()
         inner_layout.addWidget(self.ui.title, 0, 0)
-        # inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
-
-        # layout.addWidget(self.ui.download_button)
 
         self.setLayout(layout)
 
-    # def on_download_clicked(self):
-    #     self.download_track_clicked.emit(self.track)
+    def invalidate(self):
+        self.release_group = get_release_group(self.release_group_id)
+
+        # cover
+        cover = self.release_group.images.preferred_image()
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
+
+        # title
+        self.ui.title.setText(self.release_group.title)
 
 
+class ArtistAlbumsModel:
+    def __init__(self):
+        self.release_group_id: Optional[str] = None
 
 class ArtistAlbumsWidget(QListWidget):
-    album_clicked = pyqtSignal(MbReleaseGroup)
+    row_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.albums: List[MbReleaseGroup] = []
-        self.itemDoubleClicked.connect(self.on_double_click)
+        self.model: Optional[ArtistAlbumsModel] = None
+        self.itemClicked.connect(self._on_item_clicked)
 
-    def clear(self) -> None:
-        self.albums.clear()
-        super().clear()
+    def set_model(self, model: ArtistAlbumsModel) -> None:
+        self.model = model
+        self.invalidate()
 
-    def add_album(self, album: MbReleaseGroup):
-        self.albums.append(album)
+    def invalidate(self):
+        self.clear()
+        debug(f"AlbumTracksWidget.invalidate()")
+        release = repository.get_release(self.model.release_id)
+        if not release:
+            debug(f"AlbumTracksWidget.invalidate(): nothing to do for release {self.model.release_id}")
+            return
+        debug(f"AlbumTracksWidget.invalidate(): adding {release.track_count()} rows")
+        for idx, track_id in enumerate(release.track_ids):
+            self._add_row(track_id)
 
+    def update_row(self, track_id: str):
+        release = repository.get_release(self.model.release_id)
+        if not release:
+            print(f"WARN: track row for id {track_id} not found")
+            return
+
+        for idx, track_id_ in enumerate(release.track_ids):
+            if track_id_ == track_id:
+                self.update_row_at(idx)
+                return
+
+    def update_row_at(self, idx: int):
+        item = self.item(idx)
+        widget: ArtistAlbumsItemWidget = self.itemWidget(item)
+        widget.invalidate()
+
+    def _add_row(self, track_id):
         item = QListWidgetItem()
-        widget = ArtistAlbumsItemWidget(album)
-        # widget.download_track_clicked.connect(self.on_download_track_clicked)
+        widget = ArtistAlbumsItemWidget(track_id)
         item.setSizeHint(widget.sizeHint())
 
         self.addItem(item)
         self.setItemWidget(item, widget)
 
-    def set_cover(self, release_group: MbReleaseGroup, cover):
-        for idx, album in enumerate(self.albums):
-            item = self.item(idx)
-            album_widget: ArtistAlbumsItemWidget = self.itemWidget(item)
-            if album.id == release_group.id:
-                if cover:
-                    album_widget.ui.cover.setPixmap(make_pixmap_from_data(cover))
-                else:
-                    album_widget.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
-
-    def on_double_click(self, item: QListWidgetItem):
-        index = self.row(item)
-        self.album_clicked.emit(self.albums[index])
+    def _on_item_clicked(self, item: QListWidgetItem):
+        debug(f"on_item_clicked at row {self.row(item)}")
+        self.row_clicked.emit(self.row(item))
 
     #
     # def set_youtube_track(self, mbtrack: MbTrack, yttrack: YtTrack):

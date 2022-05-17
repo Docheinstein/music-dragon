@@ -2,14 +2,13 @@ from typing import Optional, List
 
 from PyQt5.QtCore import QSize, pyqtSignal, Qt
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QListWidgetItem, \
+from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QListWidgetItem, \
     QVBoxLayout
 
 import globals
 import repository
 from log import debug
-from musicbrainz import MbTrack, MbReleaseGroup, MbArtist
-from repository import get_entity
+from repository import Artist, ReleaseGroup
 from utils import make_pixmap_from_data
 
 
@@ -73,31 +72,28 @@ class SearchResultsItemWidget(QWidget):
         debug(f"Invalidating result {self.result.id}")
 
         pixmap = None
-        if isinstance(self.result, MbReleaseGroup):
+        if isinstance(self.result, ReleaseGroup):
             cover = self.result.images.preferred_image()
-            if cover:
-                pixmap = make_pixmap_from_data(cover)
-            else:
-                pixmap = QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH)
-        if isinstance(self.result, MbArtist):
+            pixmap = make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP)
+        if isinstance(self.result, Artist):
             image = self.result.images.preferred_image()
             if image:
                 debug("Artist has image")
-                pixmap = make_pixmap_from_data(image)
             else:
                 debug("Artist has no image")
-                pixmap = QPixmap(globals.DEFAULT_PERSON_PLACEHOLDER_IMAGE_PATH)
+
+            pixmap = make_pixmap_from_data(image, default=globals.PERSON_PLACEHOLDER_PIXMAP)
 
         title = None
-        if isinstance(self.result, MbReleaseGroup):
+        if isinstance(self.result, ReleaseGroup):
             title = self.result.title
-        if isinstance(self.result, MbArtist):
+        if isinstance(self.result, Artist):
             title = self.result.name
 
         subtitle = None
-        if isinstance(self.result, MbReleaseGroup):
+        if isinstance(self.result, ReleaseGroup):
             subtitle = self.result.artists_string()
-        if isinstance(self.result, MbArtist):
+        if isinstance(self.result, Artist):
             subtitle = "Artist"
 
         # pixmap

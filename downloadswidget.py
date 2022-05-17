@@ -32,10 +32,7 @@ class DownloadsItemWidget(QWidget):
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
         cover = track.mb_track.release.release_group.cover()
-        if cover:
-            self.ui.cover.setPixmap(make_pixmap_from_data(cover))
-        else:
-            self.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
 
         # title
         self.ui.title = QLabel(track.mb_track.title)

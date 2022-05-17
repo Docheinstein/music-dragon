@@ -1,5 +1,5 @@
 from statistics import mean
-from typing import  Optional
+from typing import Optional, List
 
 import musicbrainzngs as mb
 
@@ -10,36 +10,25 @@ from entities import YtTrack
 from log import debug
 from utils import j
 
-class Images:
-    def __init__(self):
-        self.images = []
-        self.preferred_image_index = -1
-
-    def add_image(self, image, preferred=True):
-        self.images.append(image)
-        if preferred:
-            self.preferred_image_index = len(self.images) - 1
-
-    def preferred_image(self):
-        return self.images[self.preferred_image_index] if 0 <= self.preferred_image_index < len(self.images) else None
 
 class MbTrack:
-    def __init__(self, release_id: str, mb_track):
+    def __init__(self, mb_track, release_id):
         self.id = mb_track["recording"]["id"]
         self.length = int(mb_track["recording"]["length"]) if "length" in mb_track["recording"] else 0
         self.title = mb_track["recording"]["title"]
         self.track_number = mb_track["position"]
-        self.release_id = release_id
         self.youtube_track: Optional[YtTrack] = None
+        self.release_id = release_id
 
 
 class MbRelease:
-    def __init__(self, release_group_id: str, mb_release):
-        self.release_group_id = release_group_id
+    def __init__(self, mb_release):
         self.id: str = mb_release["id"]
         self.title: str = mb_release["title"]
+        self.release_group_id = mb_release["release-group"]["id"]
+
         # TODO: keep only ids
-        self.tracks = [MbTrack(self, track) for track in mb_release["medium-list"][0]["track-list"]]
+        self.tracks = [MbTrack(track, mb_release["id"]) for track in mb_release["medium-list"][0]["track-list"]]
 
 class MbReleaseGroup:
     def __init__(self, mb_release_group):
@@ -57,6 +46,7 @@ class MbReleaseGroup:
             self.artists = [{
                 "id": artist_credit["artist"]["id"],
                 "name": artist_credit["artist"]["name"],
+                "aliases": [alias["alias"] for alias in artist_credit["artist"].get("aliases-list", [])]
             }  for artist_credit in mb_release_group["artist-credit"] if isinstance(artist_credit, dict)]
         if "release-list" in mb_release_group:
             self.releases = [{
@@ -64,7 +54,7 @@ class MbReleaseGroup:
                 "title": release["title"],
             }  for release in mb_release_group["release-list"]]
         self.main_release_id = None
-        self.images = Images()
+        # self.images = Images()
 
     def artists_string(self):
         if not self.artists:
@@ -95,7 +85,7 @@ class MbArtist:
             for url in mb_artist["url-relation-list"]:
                 self.urls[url["type"]] = url["target"]
 
-        self.images = Images()
+        # self.images = Images()
 
 # ============= SEARCH ARTISTS ============
 # Search the artists for a given query
@@ -212,27 +202,27 @@ def fetch_release_group_cover(release_group_id, callback):
     QThreadPool.globalInstance().start(runnable)
 
 
-# ======= FETCH RELEASE GROUP RELEASE RUNNABLE ========
+# ======= FETCH RELEASE GROUP RELEASES RUNNABLE ========
 # Fetch the more appropriate release of a release group
 # =====================================================
 
-class FetchReleaseGroupMainReleaseSignals(QObject):
-    finished = pyqtSignal(str, MbRelease)
+class FetchReleaseGroupReleasesSignals(QObject):
+    finished = pyqtSignal(str, list)
 
 
-class FetchReleaseGroupMainReleaseRunnable(QRunnable):
+class FetchReleaseGroupReleasesRunnable(QRunnable):
     def __init__(self, release_group_id: str):
         super().__init__()
-        self.signals = FetchReleaseGroupMainReleaseSignals()
+        self.signals = FetchReleaseGroupReleasesSignals()
         self.release_group_id = release_group_id
 
     @pyqtSlot()
     def run(self) -> None:
-        debug(f"[FetchReleaseGroupMainReleaseRunnable (release_group_id='{self.release_group_id}'])")
+        debug(f"[FetchReleaseGroupReleasesRunnable (release_group_id='{self.release_group_id}'])")
 
         # Fetch all the releases and releases tracks for the release groups
         result = mb.browse_releases(
-            release_group=self.release_group_id, includes=["recordings"]
+            release_group=self.release_group_id, includes=["recordings", "recording-rels", "release-groups"]
         )["release-list"]
         debug(
             "=== browse_releases ==="
@@ -240,29 +230,17 @@ class FetchReleaseGroupMainReleaseRunnable(QRunnable):
             "======================"
         )
 
-        # Try to figure out which is the more appropriate with heuristics:
-        # 1. Take the release with the number of track which is more near
-        #    to the average number of tracks of the releases
+        releases = [MbRelease(release) for release in result]
 
-        tracks_counts = [r["medium-list"][0]["track-count"] for r in result]
-        avg_track_count = mean(tracks_counts)
+        self.signals.finished.emit(self.release_group_id, releases)
 
-        deltas = []
-        for track_count in tracks_counts:
-            deltas.append(abs(track_count - avg_track_count))
+        # TODO not here
 
-        main_release_index = deltas.index(min(deltas))
-
-        debug("tracks_counts", tracks_counts)
-        debug("avg_track_count", avg_track_count)
-        debug("main_release_index", main_release_index)
-
-        main_release = MbRelease(self.release_group_id, result[main_release_index])
-        self.signals.finished.emit(self.release_group_id, main_release)
+        # main_release = MbRelease(self.release_group_id, result[main_release_index])
 
 
-def fetch_release_group_main_release(release_group_id, callback):
-    runnable = FetchReleaseGroupMainReleaseRunnable(release_group_id)
+def fetch_release_group_releases(release_group_id, callback):
+    runnable = FetchReleaseGroupReleasesRunnable(release_group_id)
     runnable.signals.finished.connect(callback)
     QThreadPool.globalInstance().start(runnable)
 

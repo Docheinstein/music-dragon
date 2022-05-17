@@ -1,16 +1,16 @@
-from typing import List, Optional
+from typing import Optional
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar, QListWidgetItem
 
 import globals
 import repository
-from entities import YtTrack
 from log import debug
-from musicbrainz import MbTrack, MbRelease
+from musicbrainz import MbTrack
+from ui.base import QListWidgetModel
 from utils import make_pixmap_from_data
+from repository import Track
 
 
 class AlbumTracksItemWidget(QWidget):
@@ -29,8 +29,8 @@ class AlbumTracksItemWidget(QWidget):
         super().__init__()
 
         self.track_id = track_id
-        self.track: MbTrack = repository.get_track(self.track_id)
-        if not self.track_id:
+        self.track: Track = repository.get_track(self.track_id)
+        if not self.track:
             print(f"WARN: no track for id '{self.track_id}'")
             return
 
@@ -47,7 +47,7 @@ class AlbumTracksItemWidget(QWidget):
         self.ui.cover.setScaledContents(True)
 
         # title
-        # self.ui.title = QLabel(track.title)
+        self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         # download button
@@ -84,18 +84,15 @@ class AlbumTracksItemWidget(QWidget):
         self.setLayout(layout)
 
     def invalidate(self):
-        release = repository.get_release(self.track.release_id)
-        release_group = repository.get_release_group(release.release_group_id)
+        self.track = repository.get_track(self.track_id)
+        release_group = self.track.release().release_group()
 
         # cover
         cover = release_group.images.preferred_image()
-        if cover:
-            self.ui.cover.setPixmap(make_pixmap_from_data(cover))
-        else:
-            self.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
 
         # title
-        self.ui.title.setText(release_group.title)
+        self.ui.title.setText(self.track.title)
 
         # TODO: download/download progress
 
@@ -103,8 +100,9 @@ class AlbumTracksItemWidget(QWidget):
         pass
         # self.download_track_clicked.emit(self.track)
 
-class AlbumTracksModel:
+class AlbumTracksModel(QListWidgetModel):
     def __init__(self):
+        super().__init__()
         self.release_id: Optional[str] = None
 
 class AlbumTracksWidget(QListWidget):
@@ -124,11 +122,11 @@ class AlbumTracksWidget(QListWidget):
         debug(f"AlbumTracksWidget.invalidate()")
         release = repository.get_release(self.model.release_id)
         if not release:
-            debug(f"AlbumTracksWidget.invalidate(): nothing to do")
+            debug(f"AlbumTracksWidget.invalidate(): nothing to do for release {self.model.release_id}")
             return
-        debug(f"AlbumTracksWidget.invalidate(): adding {len(release.tracks)} rows")
-        for idx, track in enumerate(release.tracks):
-            self._add_row(track)
+        debug(f"AlbumTracksWidget.invalidate(): adding {release.track_count()} rows")
+        for idx, track_id in enumerate(release.track_ids):
+            self._add_row(track_id)
 
     def update_row(self, track_id: str):
         release = repository.get_release(self.model.release_id)
@@ -136,8 +134,8 @@ class AlbumTracksWidget(QListWidget):
             print(f"WARN: track row for id {track_id} not found")
             return
 
-        for idx, track in enumerate(release.tracks):
-            if track.id == track_id:
+        for idx, track_id_ in enumerate(release.track_ids):
+            if track_id_ == track_id:
                 self.update_row_at(idx)
                 return
 
@@ -146,9 +144,9 @@ class AlbumTracksWidget(QListWidget):
         widget: AlbumTracksItemWidget = self.itemWidget(item)
         widget.invalidate()
 
-    def _add_row(self, result):
+    def _add_row(self, track_id):
         item = QListWidgetItem()
-        widget = AlbumTracksItemWidget(result)
+        widget = AlbumTracksItemWidget(track_id)
         item.setSizeHint(widget.sizeHint())
 
         self.addItem(item)
