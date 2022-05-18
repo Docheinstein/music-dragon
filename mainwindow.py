@@ -16,7 +16,7 @@ from PyQt5.QtCore import QRunnable, QThreadPool, QTimer, QThread, QObject, pyqtS
 from PyQt5.QtGui import QStandardItemModel, QIcon, QPixmap, QPainter, QBrush, QColor, QFont, QMovie, QMouseEvent
 from PyQt5.QtWidgets import QMainWindow, QItemDelegate, QStyledItemDelegate, QListWidgetItem, QLabel, QWidget, \
     QHBoxLayout, QLayout, QSizePolicy, QToolButton, QSpacerItem, QProgressBar, QVBoxLayout, QGridLayout, QPushButton, \
-    QListWidget
+    QListWidget, QApplication
 from musicbrainzngs import ResponseError
 from youtube_dl import YoutubeDL
 
@@ -45,7 +45,46 @@ SEARCH_DEBOUNCE_MS = 800
 
 yt: Optional[YTMusic] = None
 
+threads = []
+workers = []
 
+class BlockingWorker(QObject):
+    finished = pyqtSignal(str, bytes)
+
+    def __init__(self, what):
+        super().__init__()
+        self.what = what
+
+    def run(self):
+        debug(f"BlockingWorker.run({self.what})")
+        try:
+            debug(f"MUSICBRAINZ: get_release_group_image_front: '{self.what}'")
+            image = mb.get_release_group_image_front(self.what, size="500")
+            debug(f"MUSICBRAINZ: get_release_group_image_front: '{self.what}' retrieved")
+            repository._release_groups[self.what].images.set_image(image, image_id="release_group_front_cover")
+            repository._release_groups[self.what].fetched_front_cover = True
+            self.finished.emit(self.what, image)
+        except mb.ResponseError:
+            print(f"WARN: no image for release group '{self.what}'")
+
+
+# class BlockingRunnableSignals(QObject):
+#     finished = pyqtSignal(str)
+#
+# class BlockingRunnable(QRunnable):
+#     def __init__(self, tag):
+#         super().__init__()
+#         self.signals = BlockingRunnableSignals()
+#         self.tag = tag
+#
+#     def run(self) -> None:
+#         debug(f"BlockingRunnable {self.tag} START")
+#         p = 0
+#         for i in range(10000000):
+#             p += 1
+#         debug(f"p={p}")
+#         debug(f"BlockingRunnable {self.tag} DONE: emitting")
+#         self.signals.finished.emit(self.tag)
 
 # ======= FETCH RELEASE GROUP COVER RUNNABLE ======
 # Fetch the cover of a release group
@@ -535,7 +574,7 @@ class MainWindow(QMainWindow):
             self.ui.searchPageButton,
             self.ui.downloadsPageButton
         ]
-        self.set_search_page(root=True)
+        self.set_search_page()
 
         self.ui.backButton.clicked.connect(self.on_back_button_clicked)
         self.ui.forwardButton.clicked.connect(self.on_forward_button_clicked)
@@ -598,27 +637,36 @@ class MainWindow(QMainWindow):
         self.downloader.track_download_progress.connect(self.on_track_download_progress)
         self.downloader.track_download_finished.connect(self.on_track_download_finished)
 
+    # def event(self, event: QtCore.QEvent) -> bool:
+    #     debug(f"MainWindow: received event of type {event.type()}: {event}")
+    #     return super().event(event)
+
     def setup(self):
         global yt
         yt = YTMusic("res/other/yt_auth.json")
         mb.set_useragent("MusicDragon", "0.1")
+        QThreadPool.globalInstance().setMaxThreadCount(4)
+        # QThreadPool.globalInstance().reserveThread()
+        debug(f"QThreadPool max thread count: {QThreadPool.globalInstance().maxThreadCount()}")
+        debug(f"QThreadPool active thread count: {QThreadPool.globalInstance().activeThreadCount()}")
 
-    def set_home_page(self, root=False):
-        self.push_page(self.ui.homePage, root=root)
 
-    def set_search_page(self, root=False):
-        self.push_page(self.ui.searchPage, root=root)
+    def set_home_page(self):
+        self.push_page(self.ui.homePage)
 
-    def set_downloads_page(self, root=False):
-        self.push_page(self.ui.downloadsPage, root=root)
+    def set_search_page(self):
+        self.push_page(self.ui.searchPage)
 
-    def set_album_page(self, root=False):
-        self.push_page(self.ui.albumPage, root=root)
+    def set_downloads_page(self):
+        self.push_page(self.ui.downloadsPage)
 
-    def set_artist_page(self, root=False):
-        self.push_page(self.ui.artistPage, root=root)
+    def set_album_page(self):
+        self.push_page(self.ui.albumPage)
 
-    def push_page(self, page, root=False):
+    def set_artist_page(self):
+        self.push_page(self.ui.artistPage)
+
+    def push_page(self, page):
         self.pages_stack_cursor = self.pages_stack_cursor + 1
         self.pages_stack = self.pages_stack[:self.pages_stack_cursor]
         self.pages_stack.append(page)
@@ -700,6 +748,7 @@ class MainWindow(QMainWindow):
     def open_artist(self, artist: Artist):
         if not isinstance(artist, Artist):
             raise TypeError("Expected object of type 'Artist'")
+        debug("open_artist START")
 
         self.current_artist_id = artist.id
         self.artist_albums_model.artist_id = artist.id
@@ -715,16 +764,50 @@ class MainWindow(QMainWindow):
         self.ui.artistAlbums.invalidate()
 
         self.set_artist_page()
+        # QApplication.instance().processEvents()
 
-        repository.fetch_artist(artist.id, self.on_fetch_artist_result)
 
 
+            # runnable = BlockingRunnable(f"{i}")
+            # runnable.signals.finished.connect(self.on_blocking_runnable_finished)
+            # QThreadPool.globalInstance().start(runnable)
+        # a = repository.get_artist(artist.id)
+        # for rg_id in a.release_group_ids:
+        #     debug(f"BlockingWorker for rg {rg_id}")
+        #     t = QThread()
+        #     w = BlockingWorker(rg_id)
+        #     w.moveToThread(t)
+        #     t.started.connect(w.run)
+        #     w.finished.connect(self.on_blocking_runnable_finished)
+        #     t.start()
+        #     threads.append(t) # store ref
+        #     workers.append(w) # store ref
+
+            # repository.fetch_release_group_cover(rg_id, self.on_release_group_image_result)
+
+        repository.fetch_artist(artist.id, self.on_fetch_artist_result, self.on_artist_image_result)
+        # repository.fetch_artist(artist.id, self, self.on_artist_image_result)
+
+        # QApplication.instance().processEvents()
+
+        debug("open_artist END")
+
+    # def on_blocking_runnable_finished(self, what_, result_):
+    #     debug(f"on_blocking_runnable_finished {what_}")
+    #     self.on_release_group_image_result(what_, result_)
+
+    # @pyqtSlot("QString", Artist)
+    # def dummy(self, artist_id, artist):
+    #
+    # @pyqtSlot()
     def on_fetch_artist_result(self, artist_id, artist: Artist):
+        debug("on_fetch_artist_result START")
         if self.current_artist_id == artist_id:
             self.ui.artistAlbums.invalidate()
 
-        for rg in artist.release_group_ids:
-            repository.fetch_release_group_cover(rg, self.on_release_group_image_result)
+        for rg_id in artist.release_group_ids:
+            repository.fetch_release_group_cover(rg_id, self.on_release_group_image_result)
+        debug("on_fetch_artist_result END")
 
         # fetch the artist details
         # musicbrainz.fetch_artist(artist.id,
@@ -830,7 +913,10 @@ class MainWindow(QMainWindow):
         self.album_tracks_model.release_id = repository.get_release_group(release_group_id).main_release_id
         self.ui.albumTracks.invalidate()
 
+    # @pyqtSlot()
     def on_release_group_image_result(self, release_group_id, image):
+        debug("on_release_group_image_result START")
+
         debug(f"on_release_group_image_result(release_group_id='{release_group_id}'): {'FOUND' if image else 'NOT FOUND'}")
 
         # search page
@@ -859,6 +945,7 @@ class MainWindow(QMainWindow):
         #         self.ui.artistAlbums.set_cover(release_group, cover)
         # else:
         #     pass
+        debug("on_release_group_image_result END")
 
     def on_artist_image_result(self, artist_id, image):
         debug(f"on_artist_image_result(artist_id='{artist_id}'): {'FOUND' if image else 'NOT FOUND'}")

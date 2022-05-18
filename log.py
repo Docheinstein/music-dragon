@@ -1,7 +1,24 @@
-from PyQt5.QtCore import QThread
+import time
 
+from PyQt5.QtCore import QThread
+from PyQt5.QtWidgets import QApplication
 debug_enabled = True
 
+_main_thread_id = None
+_threads_strings = {}
+
 def debug(*args, **kwargs):
+    global _main_thread_id
     if debug_enabled:
-        print(f"[QThread {hex(int(QThread.currentThreadId()))}]", *args, **kwargs)
+        if _main_thread_id is None:
+            _main_thread_id = hex(int(QApplication.instance().thread().currentThreadId()))
+
+        thread_id = hex(int(QThread.currentThreadId()))
+        if thread_id in _threads_strings:
+            thread_str = _threads_strings[thread_id]
+        else:
+            thread_str = f"background {len(_threads_strings)}"
+            _threads_strings[thread_id] = thread_str
+        ms = round(time.time() * 1000)
+        print(f"[{ms}] {{{'main' if thread_id == _main_thread_id else thread_str}}}", *args, **kwargs)
+

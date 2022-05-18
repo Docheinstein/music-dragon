@@ -11,7 +11,7 @@ class ListWidgetModel:
         pass
 
     def items(self) -> List:
-        raise NotImplementedError("items() must be implemented by QListWidgetModel subclasses")
+        raise NotImplementedError("items() must be implemented by ListWidgetModel subclasses")
 
     def item_count(self) -> int:
         return len(self.items())
@@ -34,10 +34,10 @@ class ListWidgetModelViewItem(QWidget):
         super().__init__()
 
     def setup(self):
-        raise NotImplementedError("setup() must be implemented by QListWidgetModelViewItem subclasses")
+        raise NotImplementedError("setup() must be implemented by ListWidgetModelViewItem subclasses")
 
     def invalidate(self):
-        raise NotImplementedError("invalidate() must be implemented by QListWidgetModelViewItem subclasses")
+        raise NotImplementedError("invalidate() must be implemented by ListWidgetModelViewItem subclasses")
 
 
 class ListWidgetModelView(QListWidget):
@@ -65,16 +65,19 @@ class ListWidgetModelView(QListWidget):
 
 
     def update_row(self, item: Any):
+        debug(f"{type(self).__name__}.update_row({item})")
         item_index = self.model.index(item)
         if item_index is not None:
             self.update_row_at(item_index)
 
     def update_row_at(self, idx: int):
+        debug(f"{type(self).__name__}.update_row_at({idx})")
         item = self.item(idx)
         widget: ListWidgetModelViewItem = self.itemWidget(item)
         widget.invalidate()
 
     def add_row(self, row_item):
+        debug(f"{type(self).__name__}.add_row({row_item})")
         item = QListWidgetItem()
         widget = self.make_item_widget(row_item)
         item.setSizeHint(widget.sizeHint())
@@ -83,8 +86,9 @@ class ListWidgetModelView(QListWidget):
         self.setItemWidget(item, widget)
 
     def make_item_widget(self, item) -> ListWidgetModelViewItem:
+        debug(f"{type(self).__name__}.make_item_widget({item})")
         raise NotImplementedError("make_item_widget() must be implemented by QListWidgetModelView subclasses")
 
     def _on_item_clicked(self, item: QListWidgetItem):
-        debug(f"on_item_clicked at row {self.row(item)}")
+        debug(f"{type(self).__name__}.on_item_clicked at row {self.row(item)}")
         self.row_clicked.emit(self.row(item))

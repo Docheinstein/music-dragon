@@ -1,6 +1,8 @@
 from statistics import mean
 from typing import List, Dict, Optional
 
+from PyQt5.QtCore import QThreadPool, QRunnable, pyqtSlot, QObject, QMetaObject, Qt, QGenericArgument, Q_ARG
+
 import wiki
 
 import musicbrainz
@@ -14,18 +16,60 @@ _tracks: Dict[str, 'Track'] = {}
 
 class Images:
     def __init__(self):
-        self.images = []
-        self.preferred_image_index = -1
+        self.images = {}
+        self.preferred_image_id = None
 
-    def add_image(self, image, preferred=True):
-        self.images.append(image)
-        if preferred:
-            self.preferred_image_index = len(self.images) - 1
+    def set_image(self, image, image_id="default", preferred=None):
+        self.images[image_id] = image
+        if preferred is True:
+            # True: always override
+            self.preferred_image_id = image_id
+        elif preferred is None and self.preferred_image_id is None:
+            # None: override only if there is no preffered image yet
+            self.preferred_image_id = image_id
+        else:
+            # False: don't override
+            pass
+        debug(f"add_image: images now are {[f'{key}:{int(len(img) / 1024)}KB' for key, img in self.images.items()]}")
+
+    def get_image(self, image_id="default"):
+        return self.images.get(image_id)
 
     def preferred_image(self):
-        return self.images[self.preferred_image_index] if 0 <= self.preferred_image_index < len(self.images) else None
+        return self.images.get(self.preferred_image_id)
 
-class Artist:
+    def better(self, other: 'Images'):
+        return len(self.images.keys()) > len(other.images.keys())
+
+class Mergeable:
+    def merge(self, other):
+        debug("===== merging =====\n"
+              f"{(vars(self))}\n"
+              "------ with -----\n"
+              f"{(vars(other))}\n"
+        )
+
+        # object overriding better
+        if hasattr(self, "better") and hasattr(other, "better"):
+            if other.better(self):
+                for attr, value in vars(self).items():
+                    if hasattr(other, attr):
+                        self.__setattr__(attr, other.__getattribute__(attr))
+        else:
+            # default case
+            for attr, value in vars(self).items():
+                if attr.startswith("_"):
+                    continue # skip private attributes
+                if hasattr(other, attr):
+                    other_value = other.__getattribute__(attr)
+                    # nested object overriding better()
+                    if hasattr(value, "better") and hasattr(other_value, "better") and other_value.better(value):
+                        self.__setattr__(attr, other_value)
+                    # default case
+                    else:
+                        self.__setattr__(attr, value or other_value)
+
+class Artist(Mergeable):
     def __init__(self, mb_artist: MbArtist):
         self.id = mb_artist.id
         self.name = mb_artist.name
@@ -36,13 +80,24 @@ class Artist:
         for release_group in mb_artist.release_groups:
             _add_release_group(ReleaseGroup(release_group))
 
+        self.fetched = False
+        self.fetched_image = False
+
+    def merge(self, other):
+        # handle flags apart
+        fetched = self.fetched or other.fetched
+        fetched_image = self.fetched_image or other.fetched_image
+        super().merge(other)
+        self.fetched = fetched
+        self.fetched_image = fetched_image
+
     def release_groups(self):
         return [get_release_group(rg) for rg in self.release_group_ids]
 
     def release_group_count(self):
         return len(self.release_group_ids)
 
-class ReleaseGroup:
+class ReleaseGroup(Mergeable):
     def __init__(self, mb_release_group: MbReleaseGroup):
         self.id = mb_release_group.id
         self.title = mb_release_group.title
@@ -54,6 +109,17 @@ class ReleaseGroup:
 
         for artist in mb_release_group.artists:
             _add_artist(Artist(MbArtist(artist)))
+
+        self.fetched_releases = False
+        self.fetched_front_cover = False
+
+    def merge(self, other):
+        # handle flags apart
+        fetched_releases = self.fetched_releases or other.fetched_releases
+        fetched_front_cover = self.fetched_front_cover or other.fetched_front_cover
+        super().merge(other)
+        self.fetched_releases = fetched_releases
+        self.fetched_front_cover = fetched_front_cover
 
     def artists(self):
         return [get_artist(a) for a in self.artist_ids]
@@ -73,7 +139,7 @@ class ReleaseGroup:
         except:
             return self.date
 
-class Release:
+class Release(Mergeable):
     def __init__(self, mb_release: MbRelease):
         self.id = mb_release.id
         self.title = mb_release.title
@@ -92,7 +158,7 @@ class Release:
     def track_count(self):
         return len(self.track_ids)
 
-class Track:
+class Track(Mergeable):
     def __init__(self, mb_track: MbTrack):
         self.id = mb_track.id
         self.title = mb_track.title
@@ -123,37 +189,34 @@ class Track:
         #
         # self.images = Images()
 
-def _add_artist(artist: Artist, replace=False):
+def _add_artist(artist: Artist):
     debug(f"add_artist({artist.id})")
-    if replace or artist.id not in _artists:
-        debug(f"Actually adding artist {artist.id}")
+
+    if  artist.id not in _artists:
         _artists[artist.id] = artist
     else:
-        debug("Skipping artist insertion, already exists and replace is False")
+        _artists[artist.id].merge(artist)
 
-def _add_release_group(release_group: ReleaseGroup, replace=False):
+def _add_release_group(release_group: ReleaseGroup):
     debug(f"add_release_group({release_group.id})")
-    if replace or release_group.id not in _release_groups:
-        debug(f"Actually adding release group {release_group.id}")
+    if  release_group.id not in _release_groups:
         _release_groups[release_group.id] = release_group
     else:
-        debug("Skipping release group insertion, already exists and replace is False")
+        _release_groups[release_group.id].merge(release_group)
 
-def _add_release(release: Release, replace=False):
+def _add_release(release: Release):
     debug(f"add_release({release.id})")
-    if replace or release.id not in _releases:
-        debug(f"Actually adding release {release.id}")
+    if release.id not in _releases:
         _releases[release.id] = release
     else:
-        debug("Skipping release insertion, already exists and replace is False")
+        _releases[release.id].merge(release)
 
-def _add_track(track: Track, replace=False):
+def _add_track(track: Track):
     debug(f"add_release({track.id})")
-    if replace or track.id not in _tracks:
-        debug(f"Actually adding track {track.id}")
+    if track.id not in _tracks:
         _tracks[track.id] = track
     else:
-        debug("Skipping track insertion, already exists and replace is False")
+        _tracks[track.id].merge(track)
 
 def get_artist(artist_id) -> Optional[Artist]:
     res = _artists.get(artist_id)
@@ -204,6 +267,7 @@ def get_entity(entity_id):
     return None
 
 def search_artists(query, artists_callback, artist_image_callback=None, limit=3):
+    debug(f"search_artists({query})")
     def artists_callback_wrapper(query_, result: List[MbArtist]):
         artists = [Artist(a) for a in result]
         for a in artists:
@@ -221,10 +285,12 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
     musicbrainz.search_artists(query, artists_callback_wrapper, limit)
 
 def search_release_groups(query, release_groups_callback, release_group_image_callback=None, limit=3):
+    debug(f"search_release_groups({query})")
+
     def release_groups_callback_wrapper(query_, result: List[MbReleaseGroup]):
         release_groups = [ReleaseGroup(rg) for rg in result]
         for rg in release_groups:
-            _add_release_group(rg, replace=True) # TODO: ok?
+            _add_release_group(rg)
         release_groups_callback(query_, release_groups)
 
         if release_group_image_callback:
@@ -248,50 +314,107 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
         #
         # # (eventually) images
 
-def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
-    def release_group_image_callback_wrapper(rg_id, image):
-        _release_groups[rg_id].images.add_image(image)
-        release_group_cover_callback(rg_id, image)
+def nop(_1, _2):
+    pass
 
-    musicbrainz.fetch_release_group_cover(release_group_id, release_group_image_callback_wrapper)
+def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
+    debug(f"fetch_release_group_cover({release_group_id})")
+
+    # musicbrainz.fetch_release_group_cover(release_group_id, nop)
+
+
+    # cached
+    rg = get_release_group(release_group_id)
+    if rg and rg.fetched_front_cover:
+    # if False:
+        debug(f"Release group ({release_group_id}) cover already fetched, calling release_group_cover_callback directly")
+        release_group_cover_callback(release_group_id, rg.images.get_image(image_id="release_group_front_cover"))
+    else:
+        # perform
+        debug(f"Release group ({release_group_id}) cover not fetched yet")
+        def release_group_cover_callback_wrapper(rg_id, image):
+            _release_groups[rg_id].images.set_image(image, image_id="release_group_front_cover")
+            _release_groups[rg_id].fetched_front_cover = True
+            release_group_cover_callback(rg_id, image)
+
+        musicbrainz.fetch_release_group_cover(release_group_id, release_group_cover_callback_wrapper)
 
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback):
-    def release_group_releases_callback_wrapper(release_group_id_, result: List[MbRelease]):
-        debug("release_group_releases_callback_wrapper")
-        releases = [Release(r) for r in result]
-        for r in releases:
-            _add_release(r)
+    debug(f"fetch_release_group_releases({release_group_id})")
 
-        # add releases to release group to
-        release_group = get_release_group(release_group_id_)
-        if release_group:
-            release_group.release_ids = [r.id for r in releases]
+    rg = get_release_group(release_group_id)
+    if rg and rg.fetched_releases:
+    # if False:
+        # cached
+        debug(f"Release group ({release_group_id}) releases already fetched, calling release_group_releases_callback directly")
+        release_group_releases_callback(release_group_id, rg.releases())
+    else:
+        # perform
+        debug(f"Release group ({release_group_id}) releases not fetched yet")
+        def release_group_releases_callback_wrapper(release_group_id_, result: List[MbRelease]):
+            releases = [Release(r) for r in result]
+            for r in releases:
+                _add_release(r)
 
-            # Try to figure out which is the more appropriate release with heuristics:
-            # 1. Take the release with the number of track which is more near
-            #    to the average number of tracks of the releases
-            avg_track_count = mean([r.track_count() for r in releases])
-            deltas = [abs(r.track_count() - avg_track_count) for r in releases]
-            main_release_id = releases[deltas.index(min(deltas))].id
-            release_group.main_release_id = main_release_id
+            # add releases to release group to
+            release_group = get_release_group(release_group_id_)
+            if release_group:
+                release_group.release_ids = [r.id for r in releases]
+                release_group.fetched_releases = True
 
-        release_group_releases_callback(release_group_id_, releases)
+                # Try to figure out which is the more appropriate release with heuristics:
+                # 1. Take the release with the number of track which is more near
+                #    to the average number of tracks of the releases
+                avg_track_count = mean([r.track_count() for r in releases])
+                deltas = [abs(r.track_count() - avg_track_count) for r in releases]
+                main_release_id = releases[deltas.index(min(deltas))].id
+                release_group.main_release_id = main_release_id
 
-    musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
+            release_group_releases_callback(release_group_id_, releases)
+
+        musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
 
 def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
-    def artist_callback_wrapper(artist_id_, result: MbArtist):
-        artist = Artist(result)
-        _add_artist(artist, replace=True)
-        artist_callback(artist_id_, artist)
+    debug(f"fetch_artist({artist_id})")
 
-        if artist_image_callback:
-            def artist_image_callback_wrapper(wiki_id, image, artist_id__):
-                _artists[artist_id__].images.add_image(image)
-                artist_image_callback(artist_id_, image)
+    # cached
+    a = get_artist(artist_id)
+    if a:
+        if a.fetched:
+            debug("Artist already fetched, calling artist_callback directly")
+            artist_callback(artist_id, a)
+            return
+            # QMetaObject.invokeMethod(artist_callback, "dummy", Qt.QueuedConnection, Q_ARG("QString", artist_id), Q_ARG(Artist, a))
+        else:
+            debug("Artist not fetched yet")
+        if artist_image_callback and a.fetched_image:
+            debug("Artist image already fetched, calling artist_image_callback directly")
+            artist_image_callback(artist_id, a.images.preferred_image())
+        else:
+            debug("Artist image not fetched yet")
 
-            if "wikidata" in result.urls:
-                wiki_id = result.urls["wikidata"].split("/")[-1]
-                wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
+    # perform
+    if not a or (not a.fetched) or (not a.fetched_image):
+        def artist_callback_wrapper(artist_id_, result: MbArtist):
+            artist = Artist(result)
+            artist.fetched = True
+            _add_artist(artist)
+            if not a.fetched:
+            # if True:
+            #     QMetaObject.invokeMethod(artist_callback, "on_fetch_artist_result", Qt.QueuedConnection, artist_id_, artist)
+                artist_callback(artist_id_, artist)
 
-    musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
+            if artist_image_callback and not a.fetched_image:
+            # if artist_image_callback:
+                debug("Retrieving image too")
+
+                def artist_image_callback_wrapper(wiki_id, image, artist_id__):
+                    _artists[artist_id__].images.set_image(image, "wikidata")
+                    _artists[artist_id__].fetched_image = True
+                    artist_image_callback(artist_id_, image)
+
+                if "wikidata" in result.urls:
+                    wiki_id = result.urls["wikidata"].split("/")[-1]
+                    wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
+
+        musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
