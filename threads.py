@@ -1,10 +1,20 @@
-from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal
+from typing import Any
+
+from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 
 from log import debug
 
 
 class Worker(QObject):
+    next_id = 0
+
     finished = pyqtSignal()
+
+    def __init__(self, tag=None):
+        super().__init__()
+        self.worker_id = Worker.next_id
+        Worker.next_id += 1
+        self.tag = tag
 
     @pyqtSlot()
     def run(self):
@@ -13,50 +23,83 @@ class Worker(QObject):
     def finish(self):
         self.finished.emit()
 
-class ThreadsManager(QObject):
-    threads = set()
-    workers = set()
+    def __str__(self):
+        if self.tag:
+            return f"Worker {self.worker_id} ({self.tag})"
+        return f"Worker {self.worker_id}"
 
-    def __init__(self):
+class Thread(QThread):
+    def __init__(self, tag=None):
         super().__init__()
+        self.tag = tag
+        self.workers = {}
+
+    def start(self, priority=QThread.InheritPriority) -> None:
+        super().start(priority)
+        debug(f"Started {self}")
+
+    def enqueue_worker(self, w: Worker):
+        self.workers[w.worker_id] = w
+        debug(f"Enqueued worker {w} to {self}: {self.active_workers()} workers now")
+        w.moveToThread(self)
+        w.finished.connect(self._on_worker_finished)
+        QMetaObject.invokeMethod(w, "run", Qt.QueuedConnection)
 
 
+    def active_workers(self):
+        return len(self.workers)
 
-    def start(self, worker: Worker):
-        thread_num = f"{len(self.threads)}"
-        worker_num = f"{len(self.workers)}"
+    def __str__(self):
+        return f"Thread {self.tag}"
 
-        thread = QThread()
+    @pyqtSlot()
+    def _on_worker_finished(self):
+        w: Worker = self.sender()
+        try:
+            self.workers.pop(w.worker_id)
+            debug(f"Removed worker {w} from {self}: {self.active_workers()} workers now")
+        except KeyError:
+            print(f"WARN: no worker with id {w.worker_id} among workers of {self}")
 
-        self.threads.add(thread)
-        self.workers.add(worker)
 
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.finished.connect(thread.quit)
+class WorkerDispatcher(QObject):
 
-        @pyqtSlot()
-        def release_worker():
-            debug("release_worker")
-            debug(f"Removing [Worker {worker_num}]")
-            self.workers.remove(worker)
+    def __init__(self, max_num_threads=QThread.idealThreadCount()):
+        super().__init__()
+        self.max_num_threads = max_num_threads
+        self.threads = []
 
-        @pyqtSlot()
-        def release_thread():
-            debug("release_thread")
-            debug(f"Removing [Thread {thread_num}]")
-            self.threads.remove(thread)
+        debug(f"Initializing WorkerDispatcher with {self.max_num_threads} threads")
 
-        worker.finished.connect(release_worker)
-        worker.finished.connect(worker.deleteLater)
+        for i in range(self.max_num_threads):
+            t = Thread(tag=f"{i}")
+            self.threads.append(t)
 
-        thread.finished.connect(release_thread)
-        thread.finished.connect(thread.deleteLater)
+            # TODO: start only when required
+            t.start()
 
-        debug(f"Starting [Worker {worker_num}] in [Thread {thread_num}]")
-        thread.start()
 
-_threads_manager = ThreadsManager()
+    def execute(self, worker: Worker):
+        # Find the thread with the lower number of active workers
+        debug(f"Going to dispatch {worker}, choosing which thread will execute it")
+        best_thread_idx = 0
+        best_thread_num_workers = self.threads[0].active_workers()
+        for idx, t in enumerate(self.threads):
+            if t.active_workers() < best_thread_num_workers:
+                best_thread_num_workers = t.active_workers()
+                best_thread_idx = idx
 
-def start(worker: Worker):
-    _threads_manager.start(worker)
+        best_thread = self.threads[best_thread_idx]
+        debug(f"Executing {worker} on {best_thread}")
+        best_thread.enqueue_worker(worker)
+
+_worker_dispatcher = None
+
+def init():
+    global _worker_dispatcher
+    if _worker_dispatcher is None:
+        _worker_dispatcher = WorkerDispatcher()
+
+def execute(worker: Worker):
+    init()
+    _worker_dispatcher.execute(worker)

@@ -27,6 +27,7 @@ import preferences
 import musicbrainzngs as mb
 
 import repository
+import threads
 import wiki
 from albumtrackswidget import AlbumTracksModel
 from artistalbumswidget import ArtistAlbumsModel
@@ -45,8 +46,6 @@ SEARCH_DEBOUNCE_MS = 800
 
 yt: Optional[YTMusic] = None
 
-threads = []
-workers = []
 
 class BlockingWorker(QObject):
     finished = pyqtSignal(str, bytes)
@@ -645,10 +644,11 @@ class MainWindow(QMainWindow):
         global yt
         yt = YTMusic("res/other/yt_auth.json")
         mb.set_useragent("MusicDragon", "0.1")
-        QThreadPool.globalInstance().setMaxThreadCount(4)
+        threads.init()
+        # QThreadPool.globalInstance().setMaxThreadCount(4)
         # QThreadPool.globalInstance().reserveThread()
-        debug(f"QThreadPool max thread count: {QThreadPool.globalInstance().maxThreadCount()}")
-        debug(f"QThreadPool active thread count: {QThreadPool.globalInstance().activeThreadCount()}")
+        # debug(f"QThreadPool max thread count: {QThreadPool.globalInstance().maxThreadCount()}")
+        # debug(f"QThreadPool active thread count: {QThreadPool.globalInstance().activeThreadCount()}")
 
 
     def set_home_page(self):

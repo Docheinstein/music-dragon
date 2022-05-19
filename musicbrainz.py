@@ -161,7 +161,7 @@ class SearchArtistsWorker(Worker):
 def search_artists(query, callback, limit):
     worker = SearchArtistsWorker(query, limit)
     worker.result.connect(callback)
-    threads.start(worker)
+    threads.execute(worker)
 
 # ========== SEARCH RELEASE GROUP ==========
 # Search the release groups for a given query
@@ -235,7 +235,7 @@ class SearchReleaseGroupsWorker(Worker):
 def search_release_groups(query, callback, limit):
     worker = SearchReleaseGroupsWorker(query, limit)
     worker.result.connect(callback)
-    threads.start(worker)
+    threads.execute(worker)
 
 
 # ======= FETCH RELEASE GROUP COVER ======
@@ -301,7 +301,7 @@ class FetchReleaseGroupCoverWorker(Worker):
 def fetch_release_group_cover(release_group_id, callback):
     worker = FetchReleaseGroupCoverWorker(release_group_id)
     worker.result.connect(callback)
-    threads.start(worker)
+    threads.execute(worker)
 
 # ======= FETCH RELEASE GROUP RELEASES RUNNABLE ========
 # Fetch the more appropriate release of a release group
@@ -383,7 +383,7 @@ class FetchReleaseGroupReleasesWorker(Worker):
 def fetch_release_group_releases(release_group_id, callback):
     worker = FetchReleaseGroupReleasesWorker(release_group_id)
     worker.result.connect(callback)
-    threads.start(worker)
+    threads.execute(worker)
 
 # ============ FETCH ARTIST =============
 # Fetch the details of the given artist
@@ -451,4 +451,4 @@ class FetchArtistWorker(Worker):
 def fetch_artist(artist_id, callback):
     worker = FetchArtistWorker(artist_id)
     worker.result.connect(callback)
-    threads.start(worker)
+    threads.execute(worker)
