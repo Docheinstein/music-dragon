@@ -2,34 +2,35 @@ from typing import Optional
 
 from PyQt5.QtCore import QSettings
 
-_preferences: Optional['QSettings'] = None
+_preferences: Optional[QSettings] = None
 
+def initialize():
+    global _preferences
+    _preferences = QSettings("Docheinstein", "Music Dragon")
+
+
+# Directory
 
 def directory():
-    return _get_preferences().value("directory", "~/MusicDragon")
+    return _preferences.value("directory", "~/MusicDragon")
 
 def set_directory(value: str):
-    _get_preferences().setValue("directory", value)
+    _preferences.setValue("directory", value)
 
+# Cover Size
 
 def cover_size():
-    return _get_preferences().value("cover_size", "500")
+    return _preferences.value("cover_size", "500")
 
 
 def set_cover_size(value: str):
-    _get_preferences().setValue("cover_size", value)
+    _preferences.setValue("cover_size", value)
 
+# Output format
 
 def output_format():
-    return _get_preferences().value("output_format", "{artist}/{album}/{song}.{ext}")
+    return _preferences.value("output_format", "{artist}/{album}/{song}.{ext}")
 
 
 def set_output_format(value: str):
-    _get_preferences().setValue("output_format", value)
-
-
-def _get_preferences():
-    global _preferences
-    if not _preferences:
-        _preferences = QSettings("Docheinstein", "Music Dragon")
-    return _preferences
+    _preferences.setValue("output_format", value)

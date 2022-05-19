@@ -1,4 +1,5 @@
 import json
+import time
 
 from PyQt5.QtGui import QPixmap, QIcon
 
@@ -17,3 +18,6 @@ def make_icon_from_data(data, default=None):
 
 def j(x):
     return json.dumps(x, indent=4)
+
+def current_millis():
+    return round(time.time() * 1000)

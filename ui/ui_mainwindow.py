@@ -245,7 +245,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuEdit.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.pages.setCurrentIndex(1)
+        self.pages.setCurrentIndex(3)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -263,8 +263,8 @@ class Ui_MainWindow(object):
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.menuEdit.setTitle(_translate("MainWindow", "Edit"))
         self.actionPreferences.setText(_translate("MainWindow", "Preferences"))
-from albumtrackswidget import AlbumTracksWidget
-from artistalbumswidget import ArtistAlbumsWidget
-from clickablelabel import ClickableLabel
-from downloadswidget import DownloadsWidget
-from searchresultswidget import SearchResultsWidget
+from ui.albumtrackswidget import AlbumTracksWidget
+from ui.artistalbumswidget import ArtistAlbumsWidget
+from ui.clickablelabel import ClickableLabel
+from ui.downloadswidget import DownloadsWidget
+from ui.searchresultswidget import SearchResultsWidget

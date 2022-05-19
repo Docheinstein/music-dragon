@@ -1,3 +1,4 @@
+import ui
 from typing import List, Optional
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
@@ -5,25 +6,17 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar, QListWidgetItem, QVBoxLayout
 
-import globals
-from entities import YtTrack
-from log import debug
-from musicbrainz import MbReleaseGroup
 from repository import get_release_group, get_artist
 from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from utils import make_pixmap_from_data
 
 
 class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
-    # download_track_clicked = pyqtSignal(MbTrack)
-
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.subtitle: Optional[QLabel] = None
-            # self.download_button: Optional[QPushButton] = None
-            # self.download_progress: Optional[QProgressBar] = None
 
     def __init__(self, release_group_id: str):
         super().__init__()
@@ -72,11 +65,14 @@ class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.setLayout(self.ui.layout)
 
     def invalidate(self):
+        if self.release_group_id is None:
+            return
+
         self.release_group = get_release_group(self.release_group_id)
 
         # cover
         cover = self.release_group.images.preferred_image()
-        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # title
         self.ui.title.setText(self.release_group.title)
@@ -104,41 +100,3 @@ class ArtistAlbumsWidget(ListWidgetModelView):
 
     def make_item_widget(self, item) -> ListWidgetModelViewItem:
         return ArtistAlbumsItemWidget(item)
-
-    #
-    # def set_youtube_track(self, mbtrack: MbTrack, yttrack: YtTrack):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track.youtube_track = yttrack
-    #             track_widget.ui.download_button.setVisible(True)
-    #             track_widget.ui.download_button.setToolTip(f"Download {yttrack.video_title}  [{yttrack.video_id}]")
-    #
-    # def set_download_enabled(self, mbtrack: MbTrack, enabled):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_button.setVisible(enabled)
-    #
-    # def set_download_progress_visible(self, mbtrack: MbTrack, visibile):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_progress.setVisible(visibile)
-    #
-    # def set_download_progress(self, mbtrack: MbTrack, percentage: int):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_progress.setValue(percentage)
-    #
-    # def on_download_track_clicked(self, track: MbTrack):
-    #     self.download_track_clicked.emit(track)

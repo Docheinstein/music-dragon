@@ -1,12 +1,10 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, pyqtSignal, Qt
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QListWidgetItem, \
-    QVBoxLayout
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout
 
-import globals
-import repository
+import ui
+from repository import get_entity
 from log import debug
 from repository import Artist, ReleaseGroup
 from ui.listwidgetmodelview import ListWidgetModelViewItem, ListWidgetModel, ListWidgetModelView
@@ -25,7 +23,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
     def __init__(self, item_id):
         super().__init__()
         self.result_id = item_id
-        self.result = repository.get_entity(self.result_id)
+        self.result = get_entity(self.result_id)
         if not self.result:
             print(f"WARN: no entity for id '{item_id}'")
             return
@@ -67,14 +65,17 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         self.setLayout(self.ui.layout)
 
     def invalidate(self):
-        self.result = repository.get_entity(self.result_id) # reload
+        if self.result_id is None:
+            return
+
+        self.result = get_entity(self.result_id)
 
         debug(f"Invalidating result {self.result.id}")
 
         pixmap = None
         if isinstance(self.result, ReleaseGroup):
             cover = self.result.images.preferred_image()
-            pixmap = make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP)
+            pixmap = make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
         if isinstance(self.result, Artist):
             image = self.result.images.preferred_image()
             if image:
@@ -82,7 +83,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
             else:
                 debug("Artist has no image")
 
-            pixmap = make_pixmap_from_data(image, default=globals.PERSON_PLACEHOLDER_PIXMAP)
+            pixmap = make_pixmap_from_data(image, default=ui.resources.PERSON_PLACEHOLDER_PIXMAP)
 
         title = None
         if isinstance(self.result, ReleaseGroup):

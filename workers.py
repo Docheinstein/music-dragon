@@ -1,9 +1,15 @@
-from typing import Any
+from typing import Optional
 
 from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 
 from log import debug
 
+
+_worker_dispatcher: Optional['WorkerDispatcher'] = None
+
+def initialize():
+    global _worker_dispatcher
+    _worker_dispatcher = WorkerDispatcher()
 
 class Worker(QObject):
     next_id = 0
@@ -40,7 +46,7 @@ class Thread(QThread):
 
     def enqueue_worker(self, w: Worker):
         self.workers[w.worker_id] = w
-        debug(f"Enqueued worker {w} to {self}: {self.active_workers()} workers now")
+        debug(f"Enqueued {w} to {self}: {self.active_workers()} workers now")
         w.moveToThread(self)
         w.finished.connect(self._on_worker_finished)
         QMetaObject.invokeMethod(w, "run", Qt.QueuedConnection)
@@ -57,7 +63,7 @@ class Thread(QThread):
         w: Worker = self.sender()
         try:
             self.workers.pop(w.worker_id)
-            debug(f"Removed worker {w} from {self}: {self.active_workers()} workers now")
+            debug(f"Removed {w} from {self}: {self.active_workers()} workers now")
         except KeyError:
             print(f"WARN: no worker with id {w.worker_id} among workers of {self}")
 
@@ -93,13 +99,6 @@ class WorkerDispatcher(QObject):
         debug(f"Executing {worker} on {best_thread}")
         best_thread.enqueue_worker(worker)
 
-_worker_dispatcher = None
-
-def init():
-    global _worker_dispatcher
-    if _worker_dispatcher is None:
-        _worker_dispatcher = WorkerDispatcher()
 
 def execute(worker: Worker):
-    init()
     _worker_dispatcher.execute(worker)

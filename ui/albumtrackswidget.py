@@ -1,20 +1,17 @@
-from typing import Optional, List, Any
+from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
-    QProgressBar, QListWidgetItem
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
+    QProgressBar
 
-import globals
-import repository
-from log import debug
-from musicbrainz import MbTrack
+import ui
+from repository import Track, get_release, get_track
 from ui.listwidgetmodelview import ListWidgetModel, ListWidgetModelViewItem, ListWidgetModelView
 from utils import make_pixmap_from_data
-from repository import Track
 
 
 class AlbumTracksItemWidget(ListWidgetModelViewItem):
-    download_track_clicked = pyqtSignal(MbTrack)
+    # download_track_clicked = pyqtSignal(MbTrack)
 
     class Ui:
         def __init__(self):
@@ -29,7 +26,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         super().__init__()
 
         self.track_id = track_id
-        self.track: Track = repository.get_track(self.track_id)
+        self.track: Track = get_track(self.track_id)
         if not self.track:
             print(f"WARN: no track for id '{self.track_id}'")
             return
@@ -53,11 +50,11 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # download button
         self.ui.download_button = QPushButton()
         self.ui.download_button.setVisible(False)
-        self.ui.download_button.setIcon(globals.DOWNLOAD_ICON)
+        self.ui.download_button.setIcon(ui.resources.DOWNLOAD_ICON)
         self.ui.download_button.setFlat(True)
         self.ui.download_button.setCursor(Qt.PointingHandCursor)
         self.ui.download_button.setIconSize(QSize(24, 24))
-        self.ui.download_button.clicked.connect(self._on_download_track_clicked)
+        # self.ui.download_button.clicked.connect(self._on_download_track_clicked)
 
         # download progress
         self.ui.download_progress = QProgressBar()
@@ -84,21 +81,20 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.setLayout(layout)
 
     def invalidate(self):
-        self.track = repository.get_track(self.track_id)
+        if self.track_id is None:
+            return
+
+        self.track = get_track(self.track_id)
         release_group = self.track.release().release_group()
 
         # cover
         cover = release_group.images.preferred_image()
-        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # title
         self.ui.title.setText(self.track.title)
 
         # TODO: download/download progress
-
-    def _on_download_track_clicked(self):
-        pass
-        # self.download_track_clicked.emit(self.track)
 
 class AlbumTracksModel(ListWidgetModel):
     def __init__(self):
@@ -106,11 +102,11 @@ class AlbumTracksModel(ListWidgetModel):
         self.release_id: Optional[str] = None
 
     def items(self) -> List:
-        release = repository.get_release(self.release_id)
+        release = get_release(self.release_id)
         return release.track_ids if release else []
 
     def item_count(self) -> int:
-        release = repository.get_release(self.release_id)
+        release = get_release(self.release_id)
         return release.track_count() if release else 0
 
 class AlbumTracksWidget(ListWidgetModelView):
@@ -139,7 +135,7 @@ class AlbumTracksWidget(ListWidgetModelView):
     #         if cover:
     #             track_widget.ui.cover.setPixmap(make_pixmap_from_data(cover))
     #         else:
-    #             track_widget.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+    #             track_widget.ui.cover.setPixmap(QPixmap(ui.resources.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
     #
     # def set_youtube_track(self, mbtrack: MbTrack, yttrack: YtTrack):
     #     for idx, track in enumerate(self.tracks):

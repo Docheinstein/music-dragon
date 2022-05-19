@@ -5,8 +5,7 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar, QListWidgetItem
 
-import globals
-from entities import YtTrack
+from youtube import YtTrack
 from log import debug
 from musicbrainz import MbTrack
 from utils import make_pixmap_from_data
@@ -32,7 +31,7 @@ class DownloadsItemWidget(QWidget):
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
         cover = track.mb_track.release.release_group.cover()
-        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=globals.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # title
         self.ui.title = QLabel(track.mb_track.title)
@@ -98,7 +97,7 @@ class DownloadsWidget(QListWidget):
     #         if cover:
     #             track_widget.ui.cover.setPixmap(make_pixmap_from_data(cover))
     #         else:
-    #             track_widget.ui.cover.setPixmap(QPixmap(globals.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
+    #             track_widget.ui.cover.setPixmap(QPixmap(ui.resources.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
     #
 
 

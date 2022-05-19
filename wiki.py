@@ -1,32 +1,32 @@
-from typing import Any
+from typing import Sequence
 
-from wikidata.client import Client as WikidataClient
-from PyQt5.QtCore import pyqtSignal, QObject, QRunnable, pyqtSlot, QThreadPool
-
-from log import debug
 import requests
+from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from wikidata.client import Client as WikidataClient
+from wikidata.commonsmedia import File as WikidataFile
+from wikidata.entity import EntityId
 
-WIKIDATA_IMAGE_PROPERTY = "P18"
-WIKIDATA_LOGO_PROPERTY = "P154"
+import workers
+from log import debug
+from workers import Worker
+
+WIKIDATA_IMAGE_PROPERTY = EntityId("P18")
+WIKIDATA_LOGO_PROPERTY = EntityId("P154")
 
 # ======== FETCH IMAGE =======
 # Fetch wikidata image
 # ============================
 
-class FetchWikidataImageSignals(QObject):
-    finished = pyqtSignal(str, bytes, str)
+class FetchWikidataImageWorker(Worker):
+    result = pyqtSignal(str, bytes, str)
 
-class FetchWikidataImageRunnable(QRunnable):
     def __init__(self, wiki_id, user_data=None):
         super().__init__()
-        self.signals = FetchWikidataImageSignals()
         self.wiki_id = wiki_id
         self.user_data = user_data
 
     @pyqtSlot()
     def run(self) -> None:
-        debug(f"[FetchWikidataImageRunnable (wiki_id='{self.wiki_id}']")
-
         debug(f"WIKIDATA: get: '{self.wiki_id}'")
 
         wiki = WikidataClient()
@@ -34,7 +34,7 @@ class FetchWikidataImageRunnable(QRunnable):
         best_image = None
         try:
             logo_prop = wiki.get(WIKIDATA_LOGO_PROPERTY) # logo
-            logos = entity.getlist(logo_prop)
+            logos: Sequence[WikidataFile] = entity.getlist(logo_prop)
             if logos:
                 debug("Has logos")
                 for logo in logos:
@@ -52,7 +52,7 @@ class FetchWikidataImageRunnable(QRunnable):
         if best_image is None:
             try:
                 image_prop = wiki.get(WIKIDATA_IMAGE_PROPERTY) # image
-                images = entity.getlist(image_prop)
+                images: Sequence[WikidataFile] = entity.getlist(image_prop)
                 if images:
                     debug("Has images")
                     for image in images:
@@ -72,17 +72,12 @@ class FetchWikidataImageRunnable(QRunnable):
                 "User-Agent": "MusicDragonBot/1.0 (docheinstein@gmail.com) MusicDragon/1.0",
             }).content
             debug(f"Retrieved image data size: {len(result)}")
-            self.signals.finished.emit(self.wiki_id, result, self.user_data)
+            self.result.emit(self.wiki_id, result, self.user_data)
         else:
             print("WARN: image not found")
 
 
-
 def fetch_wikidata_image(wiki_id, callback, user_data=None):
-    debug(f"fetch_wikidata_image(wiki_id={wiki_id})")
-
-    runnable = FetchWikidataImageRunnable(wiki_id, user_data)
-    runnable.signals.finished.connect(callback)
-    QThreadPool.globalInstance().start(runnable)
-
-
+    worker = FetchWikidataImageWorker(wiki_id, user_data)
+    worker.result.connect(callback)
+    workers.execute(worker)

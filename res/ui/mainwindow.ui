@@ -150,7 +150,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>1</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="homePage">
          <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -464,27 +464,27 @@
   <customwidget>
    <class>ClickableLabel</class>
    <extends>QLabel</extends>
-   <header>clickablelabel.h</header>
+   <header>ui/clickablelabel.h</header>
   </customwidget>
   <customwidget>
    <class>AlbumTracksWidget</class>
    <extends>QListWidget</extends>
-   <header>albumtrackswidget.h</header>
+   <header>ui/albumtrackswidget.h</header>
   </customwidget>
   <customwidget>
    <class>DownloadsWidget</class>
    <extends>QListWidget</extends>
-   <header>downloadswidget.h</header>
+   <header>ui/downloadswidget.h</header>
   </customwidget>
   <customwidget>
    <class>ArtistAlbumsWidget</class>
    <extends>QListWidget</extends>
-   <header>artistalbumswidget.h</header>
+   <header>ui/artistalbumswidget.h</header>
   </customwidget>
   <customwidget>
    <class>SearchResultsWidget</class>
    <extends>QListWidget</extends>
-   <header>searchresultswidget.h</header>
+   <header>ui/searchresultswidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

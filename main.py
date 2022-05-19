@@ -1,9 +1,14 @@
 import argparse
 import sys
 
+import musicbrainz
+import preferences
+import ui
+
 from PyQt5.QtWidgets import QApplication
 
-from mainwindow import MainWindow
+import workers
+from ui.mainwindow import MainWindow
 
 
 def main():
@@ -16,8 +21,12 @@ def main():
 
     app = QApplication(sys.argv)
 
+    preferences.initialize()
+    ui.resources.initialize()
+    musicbrainz.initialize()
+    workers.initialize()
+
     window = MainWindow()
-    window.setup()
     window.show()
 
     sys.exit(app.exec_())

@@ -1,1 +1,0 @@
-COVER_CACHE = {}

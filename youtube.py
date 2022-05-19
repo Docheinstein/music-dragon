@@ -1,23 +1,33 @@
 import json
 import os.path
 import sys
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 import eyed3
-import youtube_dl
 from PyQt5.QtCore import QObject, pyqtSignal, QRunnable, pyqtSlot, QThreadPool
 from eyed3.core import AudioFile
 from eyed3.id3 import Tag
 from youtube_dl import YoutubeDL
 
 import preferences
-from entities import YtTrack
 from log import debug
-from utils import j
 
 FRONT_COVER = 3
 
+
+class YtTrack:
+    def __init__(self, mb_track: 'MbTrack', yt_track):
+        self.mb_track = mb_track
+        self.video_id = yt_track["videoId"]
+        self.video_title = yt_track["title"]
+        self.album = {
+            "id": yt_track["album"]["id"],
+            "title": yt_track["album"]["name"]
+        }
+        self.artists = [{
+            "id": a["id"],
+            "name": a["name"]
+        } for a in yt_track["artists"]]
 
 class TrackDownloaderSignals(QObject):
     started = pyqtSignal(YtTrack)

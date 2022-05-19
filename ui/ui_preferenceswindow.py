@@ -126,4 +126,4 @@ class Ui_PreferencesWindow(object):
         self.label_3.setText(_translate("PreferencesWindow", "Output format"))
         self.label_4.setText(_translate("PreferencesWindow", "<html><head/><body><p><span style=\" font-size:10pt;\">{artist}: </span><span style=\" font-size:10pt; font-style:italic;\">artist name</span><span style=\" font-size:10pt;\"><br/>{album}: </span><span style=\" font-size:10pt; font-style:italic;\">album title</span><span style=\" font-size:10pt;\"><br/>{song}: </span><span style=\" font-size:10pt; font-style:italic;\">song name</span><span style=\" font-size:10pt;\"><br/>{ext}: </span><span style=\" font-size:10pt; font-style:italic;\">extension</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("PreferencesWindow", "General"))
-from clickablewidget import ClickableWidget
+from ui.clickablewidget import ClickableWidget
