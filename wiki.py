@@ -75,6 +75,7 @@ class FetchWikidataImageWorker(Worker):
             self.result.emit(self.wiki_id, result, self.user_data)
         else:
             print("WARN: image not found")
+            self.result.emit(self.wiki_id, bytes(), self.user_data)
 
 
 def fetch_wikidata_image(wiki_id, callback, user_data=None):

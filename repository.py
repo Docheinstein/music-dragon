@@ -16,7 +16,7 @@ class Images:
         self.images = {}
         self.preferred_image_id = None
 
-    def set_image(self, image, image_id="default", preferred=None):
+    def set_image(self, image_id, image, preferred=None):
         self.images[image_id] = image
         if preferred is True:
             # True: always override
@@ -27,16 +27,32 @@ class Images:
         else:
             # False: don't override
             pass
-        debug(f"set_image: images now are {[f'{key}:{int(len(img) / 1024)}KB' for key, img in self.images.items()]}")
+        debug(f"set_image: images now are {self}")
 
-    def get_image(self, image_id="default"):
+    def get_image(self, image_id):
         return self.images.get(image_id)
 
     def preferred_image(self):
         return self.images.get(self.preferred_image_id)
 
+    def set_preferred_image_next(self):
+        debug("set_preferred_image_next")
+        try:
+            keys = list(self.images.keys())
+            preferred_image_idx = keys.index(self.preferred_image_id)
+            next_preferred_image_idx = (preferred_image_idx + 1) % len(keys)
+            debug(f"set_preferred_image_next: old is {self.preferred_image_id} (at index {preferred_image_idx})")
+            self.preferred_image_id = keys[next_preferred_image_idx]
+            debug(f"set_preferred_image_next: new is {self.preferred_image_id} (at index {next_preferred_image_idx})")
+        except ValueError:
+            pass
+
     def better(self, other: 'Images'):
         return len(self.images.keys()) > len(other.images.keys())
+
+    def __str__(self):
+        return ", ".join([f'(key={key}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_id == key})' for key, img in self.images.items()])
+
 
 class Mergeable:
     def merge(self, other):
@@ -146,6 +162,15 @@ class Release(Mergeable):
 
         for mb_track in mb_release.tracks:
             _add_track(Track(mb_track))
+
+        self.front_cover = None
+        self.fetched_front_cover = False
+
+    def merge(self, other):
+        # handle flags apart
+        fetched_front_cover = self.fetched_front_cover or other.fetched_front_cover
+        super().merge(other)
+        self.fetched_front_cover = fetched_front_cover
 
     def release_group(self):
         return get_release_group(self.release_group_id)
@@ -283,13 +308,14 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
     if rg and rg.fetched_front_cover:
         # cached
         debug(f"Release group ({release_group_id}) cover already fetched, calling release_group_cover_callback directly")
-        release_group_cover_callback(release_group_id, rg.images.get_image(image_id="release_group_front_cover"))
+        release_group_cover_callback(release_group_id, rg.images.get_image(release_group_id))
     else:
         # actually fetch
         debug(f"Release group ({release_group_id}) cover not fetched yet")
         def release_group_cover_callback_wrapper(rg_id, image):
-            _release_groups[rg_id].images.set_image(image, image_id="release_group_front_cover")
             _release_groups[rg_id].fetched_front_cover = True
+            if image:
+                _release_groups[rg_id].images.set_image(rg_id, image)
             release_group_cover_callback(rg_id, image)
 
         musicbrainz.fetch_release_group_cover(release_group_id, release_group_cover_callback_wrapper)
@@ -358,8 +384,9 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
                 debug("Retrieving image too")
 
                 def artist_image_callback_wrapper(wiki_id_, image, artist_id__):
-                    _artists[artist_id__].images.set_image(image, "wikidata")
                     _artists[artist_id__].fetched_image = True
+                    if image:
+                        _artists[artist_id__].images.set_image(artist_id__, image)
                     artist_image_callback(artist_id_, image)
 
                 if "wikidata" in result.urls:
@@ -367,3 +394,25 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
                     wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
 
         musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
+
+
+def fetch_release_cover(release_id: str, release_cover_callback):
+    debug(f"fetch_release_cover(release_id={release_id})")
+
+    r = get_release(release_id)
+    if r and r.fetched_front_cover:
+        # cached
+        debug(f"Release ({release_id}) cover already fetched, calling release_cover_callback directly")
+        release_cover_callback(release_id, r.front_cover)
+    else:
+        # actually fetch
+        debug(f"Release ({release_id}) cover not fetched yet")
+        def release_cover_callback_wrapper(r_id, image):
+            release = _releases[r_id]
+            release.front_cover = image
+            release.fetched_front_cover = True
+            if image:
+                release.release_group().images.set_image(r_id, image)
+            release_cover_callback(r_id, image)
+
+        musicbrainz.fetch_release_cover(release_id, release_cover_callback_wrapper)

@@ -64,9 +64,15 @@ class MbArtist:
             self.aliases = [alias["alias"] for alias in mb_artist["aliases-list"]]
 
         if "release-group-list" in mb_artist:
-            self.release_groups = [
-                MbReleaseGroup(release_group) for release_group in mb_artist["release-group-list"]
-            ]
+            for release_group in mb_artist["release-group-list"]:
+                mb_release_group = MbReleaseGroup(release_group)
+                # TODO: what if there is more than an artist?
+                mb_release_group.artists.append({
+                    "id": self.id,
+                    "name": self.name,
+                    "aliases": self.aliases
+                })
+                self.release_groups.append(mb_release_group)
 
         if "url-relation-list" in mb_artist:
             for url in mb_artist["url-relation-list"]:
@@ -171,6 +177,7 @@ class FetchReleaseGroupCoverWorker(Worker):
             self.result.emit(self.release_group_id, image)
         except mb.ResponseError:
             print(f"WARN: no image for release group '{self.release_group_id}'")
+            self.result.emit(self.release_group_id, bytes())
         self.finish()
 
 
@@ -196,7 +203,8 @@ class FetchReleaseGroupReleasesWorker(Worker):
         # Fetch all the releases and releases tracks for the release groups
         debug(f"MUSICBRAINZ: browse_releases: '{self.release_group_id}'")
         result = mb.browse_releases(
-            release_group=self.release_group_id, includes=["recordings", "recording-rels", "release-groups"]
+            release_group=self.release_group_id,
+            includes=["recordings", "recording-rels", "release-groups", "media"]
         )["release-list"]
         debug(
             "=== browse_releases ==="
@@ -206,12 +214,33 @@ class FetchReleaseGroupReleasesWorker(Worker):
 
         releases = [MbRelease(release) for release in result]
 
+        # # TODO remove
+        # try:
+        #     debug(f"MUSICBRAINZ: get_release_group_image_list: '{self.release_group_id}'")
+        #     result = mb.get_release_group_image_list(self.release_group_id)
+        #     debug(
+        #         "=== get_release_group_image_list ==="
+        #         f"{j(result)}"
+        #         "======================"
+        #     )
+        # except mb.ResponseError:
+        #     print(f"WARN: no image list for release group '{self.release_group_id}'")
+        #
+        # for release in releases:
+        #     try:
+        #         debug(f"MUSICBRAINZ: get_image_list: '{release.id}'")
+        #         result = mb.get_image_list(release.id)
+        #         debug(
+        #             "=== get_image_list ==="
+        #             f"{j(result)}"
+        #             "======================"
+        #         )
+        #     except mb.ResponseError:
+        #         print(f"WARN: no image list for release group '{release.id}'")
+        #
+
         self.result.emit(self.release_group_id, releases)
         self.finish()
-
-        # TODO not here
-
-        # main_release = MbRelease(self.release_group_id, result[main_release_index])
 
 
 def fetch_release_group_releases(release_group_id, callback):
@@ -251,5 +280,38 @@ class FetchArtistWorker(Worker):
 
 def fetch_artist(artist_id, callback):
     worker = FetchArtistWorker(artist_id)
+    worker.result.connect(callback)
+    workers.execute(worker)
+
+
+# ======= FETCH RELEASE COVER ======
+# Fetch the cover of a release
+# ==================================
+
+class FetchReleaseCoverWorker(Worker):
+    result = pyqtSignal(str, bytes)
+
+    # size can be: “250”, “500”, “1200” or None.
+    # If it is None, the largest available picture will be downloaded.
+    def __init__(self, release_id: str, size="250"):
+        super().__init__()
+        self.release_id = release_id
+        self.size = size
+
+    @pyqtSlot()
+    def run(self):
+        try:
+            debug(f"MUSICBRAINZ: get_image: '{self.release_id}'")
+            image = mb.get_image(self.release_id, "front", size=self.size)
+            debug(f"MUSICBRAINZ: get_image: '{self.release_id}' retrieved")
+            self.result.emit(self.release_id, image)
+        except mb.ResponseError:
+            print(f"WARN: no image for release '{self.release_id}'")
+            self.result.emit(self.release_id, bytes())
+        self.finish()
+
+
+def fetch_release_cover(release_id, callback):
+    worker = FetchReleaseCoverWorker(release_id)
     worker.result.connect(callback)
     workers.execute(worker)

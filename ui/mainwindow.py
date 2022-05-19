@@ -14,7 +14,7 @@ from log import debug
 from musicbrainz import MbReleaseGroup, MbTrack
 from ui.preferenceswindow import PreferencesWindow
 from repository import Artist, ReleaseGroup, Release, get_artist, \
-    get_release_group, get_entity, get_track
+    get_release_group, get_entity, get_track, get_release
 from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
 from ui.searchresultswidget import SearchResultsModel
@@ -246,6 +246,12 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.set_model(self.album_tracks_model)
         self.ui.albumTracks.row_clicked.connect(self.on_album_track_clicked)
 
+        self.ui.albumArtist.set_underline_on_hover(True)
+        self.ui.albumArtist.clicked.connect(self.on_album_artist_clicked)
+
+        self.ui.albumCoverPrevButton.clicked.connect(self.on_album_cover_prev_button_clicked)
+        self.ui.albumCoverNextButton.clicked.connect(self.on_album_cover_next_button_clicked)
+
         # self.ui.albumTracks.download_track_clicked.connect(self.on_download_track_clicked)
         # self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
 
@@ -344,7 +350,7 @@ class MainWindow(QMainWindow):
 
     def open_release_group(self, release_group: ReleaseGroup):
         if not isinstance(release_group, ReleaseGroup):
-            raise TypeError("Expected object of type 'ReleaseGroup'")
+            raise TypeError(f"Expected object of type 'ReleaseGroup', found {type(release_group)}")
 
         self.current_release_group_id = release_group.id
 
@@ -374,7 +380,7 @@ class MainWindow(QMainWindow):
 
     def open_artist(self, artist: Artist):
         if not isinstance(artist, Artist):
-            raise TypeError("Expected object of type 'Artist'")
+            raise TypeError(f"Expected object of type 'Artist', found {type(artist)}")
         debug(f"open_artist({artist.id})")
 
         self.current_artist_id = artist.id
@@ -497,18 +503,8 @@ class MainWindow(QMainWindow):
     def on_release_group_image_result(self, release_group_id, image):
         debug(f"on_release_group_image_result(release_group_id={release_group_id})")
 
-        # search page
-        self.ui.searchResults.update_row(release_group_id)
+        self.on_album_cover_update(release_group_id)
 
-        # album page
-        if self.current_release_group_id == release_group_id:
-            cover = get_release_group(release_group_id).images.preferred_image()
-            self.ui.albumCover.setPixmap(make_pixmap_from_data(
-                cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
-            )
-
-        # artist page
-        self.ui.artistAlbums.update_row(release_group_id)
 
     def on_artist_result(self, artist_id, artist: Artist):
         debug(f"on_artist_result(artist_id={artist_id})")
@@ -560,6 +556,7 @@ class MainWindow(QMainWindow):
             print("WARN: not supported yet")
 
     def on_artist_album_clicked(self, row: int):
+        debug(f"on_album_artist_clicked(row={row})")
         release_group_id = self.artist_albums_model.entry(row)
         release_group = get_release_group(release_group_id)
 
@@ -577,7 +574,69 @@ class MainWindow(QMainWindow):
             print(f"WARN: no release group found for id {track_id}")
             return
 
-    #
+    def on_album_artist_clicked(self):
+        debug("on_album_artist_clicked")
+        release_group = get_release_group(self.current_release_group_id)
+        release_group_artists = release_group.artists()
+        if not release_group_artists:
+            print(f"WARN: no artist found for release group {self.current_release_group_id}")
+        # TODO: more than an artist
+        self.open_artist(release_group_artists[0])
+
+    def on_album_cover_prev_button_clicked(self):
+        debug("on_album_cover_prev_button_clicked")
+
+    def on_album_cover_next_button_clicked(self):
+        debug("on_album_cover_next_button_clicked")
+        # check if there is still a cover to fetch, otherwise cycle the ones we have
+        self.ui.albumCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
+        release_group = get_release_group(self.current_release_group_id)
+        release_group_releases = release_group.releases()
+        for release in release_group_releases:
+            if not release.fetched_front_cover:
+                debug(f"Retrieving next front cover: of release {release.id}")
+                repository.fetch_release_cover(release.id, self.on_album_cover_change_image_result)
+                return
+        # cycle
+        debug("Every release album has been fetched, cycling between the retrieved ones")
+        release_group.images.set_preferred_image_next()
+        self.on_album_cover_update(release_group.id)
+
+    def on_album_cover_change_image_result(self, release_id, image):
+        debug(f"on_album_cover_change_image_result(release_id={release_id})")
+
+        if not image:
+            debug("Going forward")
+            self.on_album_cover_next_button_clicked()
+            return
+
+        release_group = get_release(release_id).release_group()
+        release_group.images.preferred_image_id = release_id
+
+        self.on_album_cover_update(release_group.id)
+
+    def on_album_cover_update(self, release_group_id):
+
+        release_group = get_release_group(release_group_id)
+
+        # search page
+        self.ui.searchResults.update_row(release_group.id)
+
+        # album page
+        if self.current_release_group_id == release_group.id:
+            debug(f"Updating album cover: there are {len(release_group.images.images)} images: {release_group.images}")
+
+            cover = release_group.images.preferred_image()
+            self.ui.albumCover.setPixmap(make_pixmap_from_data(
+                cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
+            )
+
+        # artist page
+        self.ui.artistAlbums.update_row(release_group.id)
+
+        # tracks
+        self.ui.albumTracks.invalidate()
+
     # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
     #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")
     #
