@@ -1,27 +1,31 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QMouseEvent
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QListWidgetItem
 
 import ui
 from repository import get_entity
 from log import debug
 from repository import Artist, ReleaseGroup
+from ui.clickablelabel import ClickableLabel
 from ui.listwidgetmodelview import ListWidgetModelViewItem, ListWidgetModel, ListWidgetModelView
 from utils import make_pixmap_from_data
 
 
 class SearchResultsItemWidget(ListWidgetModelViewItem):
+    subtitle_clicked = pyqtSignal(QMouseEvent)
+
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
-            self.subtitle: Optional[QLabel] = None
+            self.subtitle: Optional[ClickableLabel] = None
             self.layout = None
             self.inner_layout = None
 
     def __init__(self, item_id):
-        super().__init__()
+        super().__init__(entry=item_id)
         self.result_id = item_id
         self.result = get_entity(self.result_id)
         if not self.result:
@@ -48,8 +52,10 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         self.ui.title.setFont(font)
 
         # subtitle
-        self.ui.subtitle = QLabel()
+        self.ui.subtitle = ClickableLabel()
         self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.subtitle.clicked.connect(self.subtitle_clicked)
+        self.ui.subtitle.set_underline_on_hover(True)
 
         # build
         self.ui.layout = QHBoxLayout()
@@ -94,8 +100,10 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         subtitle = None
         if isinstance(self.result, ReleaseGroup):
             subtitle = self.result.artists_string()
+
         if isinstance(self.result, Artist):
             subtitle = "Artist"
+            self.ui.subtitle.set_clickable(False)
 
         # pixmap
         if pixmap:
@@ -117,12 +125,23 @@ class SearchResultsModel(ListWidgetModel):
         super().__init__()
         self.results: List[str] = []
 
-    def items(self) -> List:
+    def entries(self) -> List:
         return self.results
 
 class SearchResultsWidget(ListWidgetModelView):
+    subtitle_clicked = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def make_item_widget(self, item) -> ListWidgetModelViewItem:
-        return SearchResultsItemWidget(item)
+    def make_item_widget(self, entry) -> ListWidgetModelViewItem:
+        w = SearchResultsItemWidget(entry)
+        w.subtitle_clicked.connect(self._on_subtitle_clicked)
+        return w
+
+    def _on_subtitle_clicked(self, ev: QMouseEvent):
+        debug("on_subtitle_clicked")
+        ev.accept() # prevent propagation
+        widget: ListWidgetModelViewItem = self.sender()
+        row = self.model.index(widget.entry)
+        self.subtitle_clicked.emit(row)

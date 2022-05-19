@@ -1,11 +1,9 @@
-import ui
 from typing import List, Optional
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
-    QProgressBar, QListWidgetItem, QVBoxLayout
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout
 
+import ui
 from repository import get_release_group, get_artist
 from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from utils import make_pixmap_from_data
@@ -19,7 +17,7 @@ class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
             self.subtitle: Optional[QLabel] = None
 
     def __init__(self, release_group_id: str):
-        super().__init__()
+        super().__init__(entry=release_group_id)
 
         self.release_group_id = release_group_id
         self.release_group = get_release_group(self.release_group_id)
@@ -86,11 +84,11 @@ class ArtistAlbumsModel(ListWidgetModel):
         super().__init__()
         self.artist_id: Optional[str] = None
 
-    def items(self) -> List:
+    def entries(self) -> List:
         artist = get_artist(self.artist_id)
         return artist.release_group_ids if artist else []
 
-    def item_count(self) -> int:
+    def entry_count(self) -> int:
         artist = get_artist(self.artist_id)
         return artist.release_group_count() if artist else 0
 
@@ -98,5 +96,5 @@ class ArtistAlbumsWidget(ListWidgetModelView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def make_item_widget(self, item) -> ListWidgetModelViewItem:
-        return ArtistAlbumsItemWidget(item)
+    def make_item_widget(self, entry) -> ListWidgetModelViewItem:
+        return ArtistAlbumsItemWidget(entry)

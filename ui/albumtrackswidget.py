@@ -23,7 +23,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
             self.inner_layout = None
 
     def __init__(self, track_id: str):
-        super().__init__()
+        super().__init__(entry=track_id)
 
         self.track_id = track_id
         self.track: Track = get_track(self.track_id)
@@ -101,11 +101,11 @@ class AlbumTracksModel(ListWidgetModel):
         super().__init__()
         self.release_id: Optional[str] = None
 
-    def items(self) -> List:
+    def entries(self) -> List:
         release = get_release(self.release_id)
         return release.track_ids if release else []
 
-    def item_count(self) -> int:
+    def entry_count(self) -> int:
         release = get_release(self.release_id)
         return release.track_count() if release else 0
 
@@ -113,8 +113,8 @@ class AlbumTracksWidget(ListWidgetModelView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def make_item_widget(self, item) -> ListWidgetModelViewItem:
-        return AlbumTracksItemWidget(item)
+    def make_item_widget(self, entry) -> ListWidgetModelViewItem:
+        return AlbumTracksItemWidget(entry)
 
     #
     # def add_track(self, track: MbTrack):

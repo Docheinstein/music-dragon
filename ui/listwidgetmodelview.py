@@ -1,7 +1,7 @@
 from typing import Optional, List, Any
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QWidget
+from PyQt5.QtCore import pyqtSignal, QCoreApplication
+from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QWidget, QApplication
 
 from log import debug
 
@@ -10,28 +10,29 @@ class ListWidgetModel:
     def __init__(self):
         pass
 
-    def items(self) -> List:
+    def entries(self) -> List:
         raise NotImplementedError("items() must be implemented by ListWidgetModel subclasses")
 
-    def item_count(self) -> int:
-        return len(self.items())
+    def entry_count(self) -> int:
+        return len(self.entries())
 
-    def item(self, index: int) -> Optional[Any]:
-        items = self.items()
+    def entry(self, index: int) -> Optional[Any]:
+        items = self.entries()
         if 0 <= index < len(items):
             return items[index]
         return None
 
-    def index(self, item: Any) -> Optional[int]:
+    def index(self, entry: Any) -> Optional[int]:
         try:
-            return self.items().index(item)
+            return self.entries().index(entry)
         except ValueError:
             pass
         return None
 
 class ListWidgetModelViewItem(QWidget):
-    def __init__(self):
+    def __init__(self, entry: Any):
         super().__init__()
+        self.entry = entry
 
     def setup(self):
         raise NotImplementedError("setup() must be implemented by ListWidgetModelViewItem subclasses")
@@ -52,23 +53,26 @@ class ListWidgetModelView(QListWidget):
         self.model = model
         self.invalidate()
 
+    def clear(self) -> None:
+        debug(f"{type(self).__name__}.clear()")
+        super().clear()
+
     def invalidate(self):
         self.clear()
         debug(f"{type(self).__name__}.invalidate()")
-        item_count = self.model.item_count()
-        if not item_count:
+        entry_count = self.model.entry_count()
+        if not entry_count:
             debug(f"{type(self).__name__}.invalidate(): nothing to do")
             return
-        debug(f"{type(self).__name__}.invalidate(): adding {item_count} rows")
-        for item in self.model.items():
-            self.add_row(item)
+        debug(f"{type(self).__name__}.invalidate(): adding {entry_count} rows")
+        for entry in self.model.entries():
+            self.add_row(entry)
 
-
-    def update_row(self, item: Any):
-        debug(f"{type(self).__name__}.update_row({item})")
-        item_index = self.model.index(item)
-        if item_index is not None:
-            self.update_row_at(item_index)
+    def update_row(self, entry: Any):
+        debug(f"{type(self).__name__}.update_row({entry})")
+        entry_index = self.model.index(entry)
+        if entry_index is not None:
+            self.update_row_at(entry_index)
 
     def update_row_at(self, idx: int):
         debug(f"{type(self).__name__}.update_row_at({idx})")
@@ -76,17 +80,17 @@ class ListWidgetModelView(QListWidget):
         widget: ListWidgetModelViewItem = self.itemWidget(item)
         widget.invalidate()
 
-    def add_row(self, row_item):
-        debug(f"{type(self).__name__}.add_row({row_item})")
+    def add_row(self, entry: Any):
+        debug(f"{type(self).__name__}.add_row({entry})")
         item = QListWidgetItem()
-        widget = self.make_item_widget(row_item)
+        widget = self.make_item_widget(entry)
         item.setSizeHint(widget.sizeHint())
 
         self.addItem(item)
         self.setItemWidget(item, widget)
 
-    def make_item_widget(self, item) -> ListWidgetModelViewItem:
-        debug(f"{type(self).__name__}.make_item_widget({item})")
+    def make_item_widget(self, entry) -> ListWidgetModelViewItem:
+        debug(f"{type(self).__name__}.make_item_widget({entry})")
         raise NotImplementedError("make_item_widget() must be implemented by QListWidgetModelView subclasses")
 
     def _on_item_clicked(self, item: QListWidgetItem):

@@ -338,8 +338,6 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
         if a.fetched:
             debug("Artist already fetched, calling artist_callback directly")
             artist_callback(artist_id, a)
-            return
-            # QMetaObject.invokeMethod(artist_callback, "dummy", Qt.QueuedConnection, Q_ARG("QString", artist_id), Q_ARG(Artist, a))
         else:
             debug("Artist not fetched yet")
         if artist_image_callback and a.fetched_image:
@@ -354,13 +352,9 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
             artist = Artist(result)
             artist.fetched = True
             _add_artist(artist)
-            if not a.fetched:
-            # if True:
-            #     QMetaObject.invokeMethod(artist_callback, "on_fetch_artist_result", Qt.QueuedConnection, artist_id_, artist)
-                artist_callback(artist_id_, artist)
+            artist_callback(artist_id_, artist)
 
-            if artist_image_callback and not a.fetched_image:
-            # if artist_image_callback:
+            if artist_image_callback:
                 debug("Retrieving image too")
 
                 def artist_image_callback_wrapper(wiki_id_, image, artist_id__):

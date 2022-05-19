@@ -1,9 +1,9 @@
 from difflib import get_close_matches
 from typing import List, Optional
 
-from PyQt5.QtCore import QRunnable, QTimer, QObject, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QMainWindow, QLabel
+from PyQt5.QtCore import QRunnable, QTimer, QObject, pyqtSignal, pyqtSlot, QCoreApplication
+from PyQt5.QtGui import QFont, QMouseEvent
+from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from ytmusicapi import YTMusic
 
 import musicbrainz
@@ -14,7 +14,7 @@ from log import debug
 from musicbrainz import MbReleaseGroup, MbTrack
 from ui.preferenceswindow import PreferencesWindow
 from repository import Artist, ReleaseGroup, Release, get_artist, \
-    get_release_group, get_entity
+    get_release_group, get_entity, get_track
 from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
 from ui.searchresultswidget import SearchResultsModel
@@ -235,6 +235,7 @@ class MainWindow(QMainWindow):
 
         self.ui.searchResults.set_model(self.search_results_model)
         self.ui.searchResults.row_clicked.connect(self.on_search_result_clicked)
+        self.ui.searchResults.subtitle_clicked.connect(self.on_search_result_subtitle_clicked)
 
         self.last_search_query = None
 
@@ -243,6 +244,7 @@ class MainWindow(QMainWindow):
         self.current_release_group_id = None
         self.album_tracks_model = AlbumTracksModel()
         self.ui.albumTracks.set_model(self.album_tracks_model)
+        self.ui.albumTracks.row_clicked.connect(self.on_album_track_clicked)
 
         # self.ui.albumTracks.download_track_clicked.connect(self.on_download_track_clicked)
         # self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
@@ -251,6 +253,7 @@ class MainWindow(QMainWindow):
         self.current_artist_id = None
         self.artist_albums_model = ArtistAlbumsModel()
         self.ui.artistAlbums.set_model(self.artist_albums_model)
+        self.ui.artistAlbums.row_clicked.connect(self.on_artist_album_clicked)
 
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
@@ -291,21 +294,36 @@ class MainWindow(QMainWindow):
         self._update_current_page()
 
     def _update_current_page(self):
+        def page_to_string(p):
+            if p == self.ui.homePage:
+                return "home"
+            if p == self.ui.searchPage:
+                return "search"
+            if p == self.ui.downloadsPage:
+                return "downloads"
+            if p == self.ui.albumPage:
+                return "album"
+            if p == self.ui.artistPage:
+                return "artist"
+        next_page = self.pages_stack[self.pages_stack_cursor]
+        debug(f"Updating current page to {page_to_string(next_page)}")
+        debug(f"Page stack is ",
+            [(f'{page_to_string(p)} (ACTIVE)' if idx == self.pages_stack_cursor else page_to_string(p))
+             for idx, p in enumerate(self.pages_stack)])
         self.unselect_pages_buttons()
-        page = self.pages_stack[self.pages_stack_cursor]
 
-        if page == self.ui.homePage:
+        if next_page == self.ui.homePage:
             self.select_page_button(self.ui.homePageButton)
-        elif page == self.ui.searchPage:
+        elif next_page == self.ui.searchPage:
             self.select_page_button(self.ui.searchPageButton)
-        elif page == self.ui.downloadsPage:
+        elif next_page == self.ui.downloadsPage:
             self.select_page_button(self.ui.downloadsPageButton)
-        elif page == self.ui.albumPage:
+        elif next_page == self.ui.albumPage:
             pass
-        elif page == self.ui.artistPage:
+        elif next_page == self.ui.artistPage:
             pass
 
-        self.ui.pages.setCurrentWidget(page)
+        self.ui.pages.setCurrentWidget(next_page)
 
         self.ui.backButton.setEnabled(self.pages_stack_cursor > 0)
         self.ui.forwardButton.setEnabled(self.pages_stack_cursor < len(self.pages_stack) - 1)
@@ -344,6 +362,7 @@ class MainWindow(QMainWindow):
         # self.ui.albumDownloadAllButton.setEnabled(False)
 
         # tracks
+        self.album_tracks_model.release_id = None
         self.ui.albumTracks.invalidate()
 
         # switch page
@@ -359,7 +378,6 @@ class MainWindow(QMainWindow):
         debug(f"open_artist({artist.id})")
 
         self.current_artist_id = artist.id
-        self.artist_albums_model.artist_id = artist.id
 
         # title
         self.ui.artistName.setText(artist.name)
@@ -369,6 +387,7 @@ class MainWindow(QMainWindow):
         self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # albums
+        self.artist_albums_model.artist_id = artist.id
         self.ui.artistAlbums.invalidate()
 
         # switch page
@@ -382,13 +401,13 @@ class MainWindow(QMainWindow):
         preferences_window = PreferencesWindow()
         preferences_window.exec()
 
-    def on_home_page_button_clicked(self):
+    def on_home_page_button_clicked(self, ev: QMouseEvent):
         self.set_home_page()
 
-    def on_search_page_button_clicked(self):
+    def on_search_page_button_clicked(self, ev: QMouseEvent):
         self.set_search_page()
 
-    def on_downloads_page_button_clicked(self):
+    def on_downloads_page_button_clicked(self, ev: QMouseEvent):
         self.set_downloads_page()
 
     def on_back_button_clicked(self):
@@ -403,7 +422,7 @@ class MainWindow(QMainWindow):
         if not query:
             return
 
-        debug(f"on_search(query={query}) [not performed yet]")
+        debug(f"on_search({query}) [not performed yet]")
         self.search_debounce_timer.start(SEARCH_DEBOUNCE_MS)
 
     def on_search_debounce_time_elapsed(self):
@@ -514,6 +533,7 @@ class MainWindow(QMainWindow):
             )
 
     def on_search_result_clicked(self, row: int):
+        debug(f"on_search_result_clicked({row})")
         result_id = self.search_results_model.results[row]
         result = get_entity(result_id)
 
@@ -523,6 +543,39 @@ class MainWindow(QMainWindow):
             self.open_artist(result)
         else:
             print("WARN: not supported yet")
+
+    def on_search_result_subtitle_clicked(self, row: int):
+        debug(f"on_search_result_subtitle_clicked({row})")
+
+        result_id = self.search_results_model.results[row]
+        result = get_entity(result_id)
+
+        if isinstance(result, ReleaseGroup):
+            # TODO: what if there is more than an arist?
+            # should probably add different labels separated by commasS
+            self.open_artist(result.artists()[0])
+        elif isinstance(result, Artist):
+            print("WARN: wtf?")
+        else:
+            print("WARN: not supported yet")
+
+    def on_artist_album_clicked(self, row: int):
+        release_group_id = self.artist_albums_model.entry(row)
+        release_group = get_release_group(release_group_id)
+
+        if not release_group:
+            print(f"WARN: no release group found for id {release_group_id}")
+            return
+
+        self.open_release_group(release_group)
+
+    def on_album_track_clicked(self, row: int):
+        track_id = self.album_tracks_model.entry(row)
+        track = get_track(track_id)
+
+        if not track:
+            print(f"WARN: no release group found for id {track_id}")
+            return
 
     #
     # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
