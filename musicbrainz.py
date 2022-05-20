@@ -181,8 +181,8 @@ class FetchReleaseGroupCoverWorker(Worker):
         self.finish()
 
 
-def fetch_release_group_cover(release_group_id, callback):
-    worker = FetchReleaseGroupCoverWorker(release_group_id)
+def fetch_release_group_cover(release_group_id, size, callback):
+    worker = FetchReleaseGroupCoverWorker(release_group_id, size)
     worker.result.connect(callback)
     workers.execute(worker)
 
@@ -311,7 +311,7 @@ class FetchReleaseCoverWorker(Worker):
         self.finish()
 
 
-def fetch_release_cover(release_id, callback):
-    worker = FetchReleaseCoverWorker(release_id)
+def fetch_release_cover(release_id, size, callback):
+    worker = FetchReleaseCoverWorker(release_id, size)
     worker.result.connect(callback)
     workers.execute(worker)

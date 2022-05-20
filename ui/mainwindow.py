@@ -7,12 +7,14 @@ from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from ytmusicapi import YTMusic
 
 import musicbrainz
+import preferences
 import repository
 import ui.resources
 import workers
 from log import debug
 from musicbrainz import MbReleaseGroup, MbTrack
 from ui.preferenceswindow import PreferencesWindow
+from ui.imagepreviewwindow import ImagePreviewWindow
 from repository import Artist, ReleaseGroup, Release, get_artist, \
     get_release_group, get_entity, get_track, get_release
 from ui.albumtrackswidget import AlbumTracksModel
@@ -249,8 +251,12 @@ class MainWindow(QMainWindow):
         self.ui.albumArtist.set_underline_on_hover(True)
         self.ui.albumArtist.clicked.connect(self.on_album_artist_clicked)
 
+        self.ui.albumCover.double_clicked.connect(self.on_album_cover_double_clicked)
+        self.ui.albumCover.set_clickable(False)
+        self.ui.albumCover.set_double_clickable(True)
         self.ui.albumCoverPrevButton.clicked.connect(self.on_album_cover_prev_button_clicked)
         self.ui.albumCoverNextButton.clicked.connect(self.on_album_cover_next_button_clicked)
+        self.album_change_cover_empty_image_callback = None
 
         # self.ui.albumTracks.download_track_clicked.connect(self.on_download_track_clicked)
         # self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
@@ -363,6 +369,7 @@ class MainWindow(QMainWindow):
         # icon
         cover = release_group.images.preferred_image()
         self.ui.albumCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        self.set_album_cover(release_group.id)
 
         # download
         # self.ui.albumDownloadAllButton.setEnabled(False)
@@ -491,6 +498,8 @@ class MainWindow(QMainWindow):
         self.album_tracks_model.release_id = get_release_group(release_group_id).main_release_id
         self.ui.albumTracks.invalidate()
 
+        self.set_album_cover(release_group_id)
+
         # TODO
         # fetch youtube videos for tracks
         # youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks)
@@ -503,7 +512,7 @@ class MainWindow(QMainWindow):
     def on_release_group_image_result(self, release_group_id, image):
         debug(f"on_release_group_image_result(release_group_id={release_group_id})")
 
-        self.on_album_cover_update(release_group_id)
+        self.handle_album_cover_update(release_group_id)
 
 
     def on_artist_result(self, artist_id, artist: Artist):
@@ -585,37 +594,99 @@ class MainWindow(QMainWindow):
 
     def on_album_cover_prev_button_clicked(self):
         debug("on_album_cover_prev_button_clicked")
+        self.album_change_cover_empty_image_callback = self.on_album_cover_prev_button_clicked
+        self.handle_album_cover_change_request(direction="prev")
+
 
     def on_album_cover_next_button_clicked(self):
         debug("on_album_cover_next_button_clicked")
-        # check if there is still a cover to fetch, otherwise cycle the ones we have
-        self.ui.albumCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
-        release_group = get_release_group(self.current_release_group_id)
-        release_group_releases = release_group.releases()
-        for release in release_group_releases:
-            if not release.fetched_front_cover:
-                debug(f"Retrieving next front cover: of release {release.id}")
-                repository.fetch_release_cover(release.id, self.on_album_cover_change_image_result)
-                return
-        # cycle
-        debug("Every release album has been fetched, cycling between the retrieved ones")
-        release_group.images.set_preferred_image_next()
-        self.on_album_cover_update(release_group.id)
+        self.album_change_cover_empty_image_callback = self.on_album_cover_next_button_clicked
+        self.handle_album_cover_change_request(direction="next")
 
-    def on_album_cover_change_image_result(self, release_id, image):
+    def handle_album_cover_change_request(self, direction):
+        if direction == "next":
+            delta = 1
+        elif direction == "prev":
+            delta = -1
+        else:
+            raise ValueError(f"Unexpected direction: {direction}")
+
+        self.ui.albumCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
+        self.ui.albumCoverNumber.setText("")
+
+        release_group = get_release_group(self.current_release_group_id)
+        releases = release_group.releases()
+
+        current_image_id = release_group.images.preferred_image_id
+        debug(f"current_image_id={current_image_id}")
+
+        #      | 0 | 1 | 2 | 3 | 4 | # release index
+        # | RG | R | R | R | R | R | # images
+        # | 0  | 1 |   | 2 |   | 3 | # image index
+
+        try:
+            next_image_release_index = release_group.release_ids.index(current_image_id)
+        except:
+            next_image_release_index = None
+
+        while True:
+            if delta > 0:
+                if next_image_release_index is None: # current is release group
+                    next_image_release_index = 0 # next is first release
+                else: # current is release
+                    next_image_release_index += 1 # next is next release
+            else: # delta < 0
+                if next_image_release_index is None: # current is release group
+                    next_image_release_index = len(releases) - 1 # next is last release
+                else: # current is release
+                    next_image_release_index -= 1 # next is prev release
+
+            if next_image_release_index < 0: # below release -> release group
+                next_image_release_index = None
+
+            if next_image_release_index == len(releases): # above release -> release group
+                next_image_release_index = None
+
+            if next_image_release_index is None:
+                # release group
+                if release_group.fetched_front_cover and not release_group.images.get_image(release_group.id):
+                    continue
+                repository.fetch_release_group_cover(release_group.id, self.on_change_album_cover_release_group_image_result)
+                return
+            else:
+                # release
+                release = releases[next_image_release_index]
+                if release.fetched_front_cover and not release.front_cover:
+                    continue
+                repository.fetch_release_cover(release.id, self.on_change_album_cover_release_image_result)
+                return
+
+
+    def on_change_album_cover_release_group_image_result(self, release_group_id, image):
+        debug(f"on_change_album_cover_release_group_image_result(release_group_id={release_group_id})")
+
+        if not image:
+            self.album_change_cover_empty_image_callback()
+            return
+
+        release_group = get_release_group(release_group_id)
+        release_group.images.preferred_image_id = release_group_id
+
+        self.handle_album_cover_update(release_group_id)
+
+    def on_change_album_cover_release_image_result(self, release_id, image):
         debug(f"on_album_cover_change_image_result(release_id={release_id})")
 
         if not image:
-            debug("Going forward")
-            self.on_album_cover_next_button_clicked()
+            self.album_change_cover_empty_image_callback()
             return
 
         release_group = get_release(release_id).release_group()
         release_group.images.preferred_image_id = release_id
 
-        self.on_album_cover_update(release_group.id)
+        self.handle_album_cover_update(release_group.id)
 
-    def on_album_cover_update(self, release_group_id):
+    def handle_album_cover_update(self, release_group_id):
 
         release_group = get_release_group(release_group_id)
 
@@ -624,18 +695,39 @@ class MainWindow(QMainWindow):
 
         # album page
         if self.current_release_group_id == release_group.id:
-            debug(f"Updating album cover: there are {len(release_group.images.images)} images: {release_group.images}")
-
-            cover = release_group.images.preferred_image()
-            self.ui.albumCover.setPixmap(make_pixmap_from_data(
-                cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
-            )
+            self.set_album_cover(release_group.id)
 
         # artist page
         self.ui.artistAlbums.update_row(release_group.id)
 
         # tracks
         self.ui.albumTracks.invalidate()
+
+    def set_album_cover(self, release_group_id):
+        release_group = get_release_group(release_group_id)
+        debug(f"Updating album cover: there are {len(release_group.images.images)} images: {release_group.images}")
+
+        cover = release_group.images.preferred_image()
+        self.ui.albumCover.setPixmap(make_pixmap_from_data(
+            cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
+        )
+        if release_group.images.count():
+            expected_image_num = 1
+            for r in release_group.releases():
+                if not r.fetched_front_cover:
+                    expected_image_num += 1
+                elif r.front_cover:
+                    expected_image_num += 1
+
+            self.ui.albumCoverNumber.setText(f"{release_group.images.preferred_image_index() + 1}/{expected_image_num}")
+        else:
+            self.ui.albumCoverNumber.setText("")
+
+    def on_album_cover_double_clicked(self, ev: QMouseEvent):
+        debug("on_album_cover_double_clicked")
+        image_preview_window = ImagePreviewWindow()
+        image_preview_window.set_image(self.ui.albumCover.pixmap())
+        image_preview_window.exec()
 
     # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
     #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")

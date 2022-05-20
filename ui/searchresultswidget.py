@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QListWidgetItem
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QListWidgetItem, QSpacerItem
 
 import ui
 from repository import get_entity
@@ -45,7 +45,6 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         font = self.ui.title.font()
         font.setBold(True)
         font.setPointSize(14)
@@ -53,6 +52,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         # subtitle
         self.ui.subtitle = ClickableLabel()
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.ui.subtitle.clicked.connect(self.subtitle_clicked)
         self.ui.subtitle.set_underline_on_hover(True)
@@ -66,7 +66,10 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         self.ui.inner_layout.setSpacing(0)
         self.ui.inner_layout.addWidget(self.ui.title)
         self.ui.inner_layout.addWidget(self.ui.subtitle)
+
         self.ui.layout.addLayout(self.ui.inner_layout)
+
+        self.ui.layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
         self.setLayout(self.ui.layout)
 

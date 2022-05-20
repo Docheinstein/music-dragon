@@ -2,6 +2,7 @@ from statistics import mean
 from typing import List, Dict, Optional
 
 import musicbrainz
+import preferences
 import wiki
 from log import debug
 from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
@@ -35,6 +36,12 @@ class Images:
     def preferred_image(self):
         return self.images.get(self.preferred_image_id)
 
+    def preferred_image_index(self):
+        try:
+            return list(self.images.keys()).index(self.preferred_image_id)
+        except ValueError:
+            return None
+
     def set_preferred_image_next(self):
         debug("set_preferred_image_next")
         try:
@@ -46,6 +53,9 @@ class Images:
             debug(f"set_preferred_image_next: new is {self.preferred_image_id} (at index {next_preferred_image_idx})")
         except ValueError:
             pass
+
+    def count(self):
+        return len(self.images)
 
     def better(self, other: 'Images'):
         return len(self.images.keys()) > len(other.images.keys())
@@ -318,7 +328,7 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
                 _release_groups[rg_id].images.set_image(rg_id, image)
             release_group_cover_callback(rg_id, image)
 
-        musicbrainz.fetch_release_group_cover(release_group_id, release_group_cover_callback_wrapper)
+        musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper)
 
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback):
     debug(f"fetch_release_group_releases(release_group_id={release_group_id})")
@@ -415,4 +425,4 @@ def fetch_release_cover(release_id: str, release_cover_callback):
                 release.release_group().images.set_image(r_id, image)
             release_cover_callback(r_id, image)
 
-        musicbrainz.fetch_release_cover(release_id, release_cover_callback_wrapper)
+        musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper)
