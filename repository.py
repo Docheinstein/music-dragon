@@ -1,16 +1,21 @@
+from difflib import get_close_matches
 from statistics import mean
 from typing import List, Dict, Optional
 
 import musicbrainz
 import preferences
 import wiki
+import ytmusic
+from ytmusic import YtTrack
 from log import debug
 from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
+from utils import j, Mergeable
 
 _artists: Dict[str, 'Artist'] = {}
 _release_groups: Dict[str, 'ReleaseGroup'] = {}
 _releases: Dict[str, 'Release'] = {}
 _tracks: Dict[str, 'Track'] = {}
+_youtube_tracks: Dict[str, 'YtTrack'] = {}
 
 class Images:
     def __init__(self):
@@ -62,36 +67,6 @@ class Images:
 
     def __str__(self):
         return ", ".join([f'(key={key}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_id == key})' for key, img in self.images.items()])
-
-
-class Mergeable:
-    def merge(self, other):
-        debug("===== merging =====\n"
-              f"{(vars(self))}\n"
-              "------ with -----\n"
-              f"{(vars(other))}\n"
-        )
-        # TODO: recursive check of better()? evaluate len() if hasattr(len) eventually?
-
-        # object overriding better
-        if hasattr(self, "better") and hasattr(other, "better"):
-            if other.better(self):
-                for attr, value in vars(self).items():
-                    if hasattr(other, attr):
-                        self.__setattr__(attr, other.__getattribute__(attr))
-        else:
-            # default case
-            for attr, value in vars(self).items():
-                if attr.startswith("_"):
-                    continue # skip private attributes
-                if hasattr(other, attr):
-                    other_value = other.__getattribute__(attr)
-                    # nested object overriding better()
-                    if hasattr(value, "better") and hasattr(other_value, "better") and other_value.better(value):
-                        self.__setattr__(attr, other_value)
-                    # default case
-                    else:
-                        self.__setattr__(attr, value or other_value)
 
 class Artist(Mergeable):
     def __init__(self, mb_artist: MbArtist):
@@ -175,12 +150,15 @@ class Release(Mergeable):
 
         self.front_cover = None
         self.fetched_front_cover = False
+        self.fetched_youtube_video_ids = False
 
     def merge(self, other):
         # handle flags apart
         fetched_front_cover = self.fetched_front_cover or other.fetched_front_cover
+        fetched_youtube_video_ids = self.fetched_youtube_video_ids or other.fetched_youtube_video_ids
         super().merge(other)
         self.fetched_front_cover = fetched_front_cover
+        self.fetched_youtube_video_ids = fetched_youtube_video_ids
 
     def release_group(self):
         return get_release_group(self.release_group_id)
@@ -196,9 +174,20 @@ class Track(Mergeable):
         self.id = mb_track.id
         self.title = mb_track.title
         self.release_id = mb_track.release_id
+        self.youtube_track_id = None
+        self.fetched_youtube_track = False
+
+    def merge(self, other):
+        # handle flags apart
+        fetched_youtube_track = self.fetched_youtube_track or other.fetched_youtube_track
+        super().merge(other)
+        self.fetched_youtube_track = fetched_youtube_track
 
     def release(self):
         return get_release(self.release_id)
+
+    def youtube_track(self):
+        return get_youtube_track(self.youtube_track_id)
 
 def _add_artist(artist: Artist):
     debug(f"add_artist({artist.id})")
@@ -223,11 +212,18 @@ def _add_release(release: Release):
         _releases[release.id].merge(release)
 
 def _add_track(track: Track):
-    debug(f"add_release({track.id})")
+    debug(f"add_track({track.id})")
     if track.id not in _tracks:
         _tracks[track.id] = track
     else:
         _tracks[track.id].merge(track)
+
+def _add_youtube_track(yttrack: YtTrack):
+    debug(f"add_youtube_track({yttrack.id})")
+    if yttrack.id not in _youtube_tracks:
+        _youtube_tracks[yttrack.id] = yttrack
+    else:
+        _youtube_tracks[yttrack.id].merge(yttrack)
 
 def get_artist(artist_id) -> Optional[Artist]:
     res = _artists.get(artist_id)
@@ -259,6 +255,14 @@ def get_track(track_id) -> Optional[Track]:
         debug(f"get_track({track_id}): found")
     else:
         debug(f"get_track({track_id}): not found")
+    return res
+
+def get_youtube_track(youtube_track_id) -> Optional[YtTrack]:
+    res = _youtube_tracks.get(youtube_track_id)
+    if res:
+        debug(f"get_youtube_track({youtube_track_id}): found")
+    else:
+        debug(f"get_youtube_track({youtube_track_id}): not found")
     return res
 
 def get_entity(entity_id):
@@ -426,3 +430,61 @@ def fetch_release_cover(release_id: str, release_cover_callback):
             release_cover_callback(r_id, image)
 
         musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper)
+
+
+def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callback):
+    debug(f"search_release_youtube_tracks(release_id={release_id})")
+
+    r = get_release(release_id)
+    rg = r.release_group()
+    if r and r.fetched_youtube_video_ids:
+        # cached
+        release_youtube_tracks_callback(release_id, [t.youtube_track() for t in r.tracks()])
+    else:
+        # actually fetch
+        def release_youtube_tracks_callback_wrapper(artist_name, album_title, yttracks: List[YtTrack]):
+            release = _releases[release_id]
+            tracks = release.tracks()
+            track_names = [t.title for t in tracks]
+            release.fetched_youtube_video_ids = True
+
+            for yttrack in yttracks:
+                _add_youtube_track(yttrack)
+
+                debug(f"Handling yttrack: {yttrack.video_title}")
+
+                closest_track_names = get_close_matches(yttrack.video_title, track_names)
+                debug(f"closest_track_names={closest_track_names}")
+                if closest_track_names:
+                    closest_track_name = closest_track_names[0]
+                    debug(f"Closest track found: {closest_track_name}")
+                    closest_track_index = track_names.index(closest_track_name)
+                    closest_track = tracks[closest_track_index]
+                    closest_track.fetched_youtube_track = True
+                    closest_track.youtube_track_id = yttrack.id
+                else:
+                    print(f"WARN: no close track found for youtube track with title {yttrack.video_title}")
+
+            release_youtube_tracks_callback(release_id, yttracks)
+
+        ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, release_youtube_tracks_callback_wrapper)
+
+def search_track_youtube_track(track_id: str, track_youtube_track_callback):
+    debug(f"search_track_youtube_track(track_id={track_id})")
+
+    t = get_track(track_id)
+    if t and t.fetched_youtube_track:
+        # cached
+        track_youtube_track_callback(track_id, t.youtube_track())
+    else:
+        # actually fetch
+        def track_youtube_track_callback_wrapper(query, yttrack: YtTrack):
+            _add_youtube_track(yttrack)
+
+            track_ = _tracks[track_id]
+            track_.fetched_youtube_track = True
+            track_.youtube_track_id = yttrack.id
+            track_youtube_track_callback(track_id, yttrack)
+
+        query = t.release().release_group().artists_string() + " " + t.title
+        ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)

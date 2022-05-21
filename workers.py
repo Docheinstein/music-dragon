@@ -14,6 +14,7 @@ def initialize():
 class Worker(QObject):
     next_id = 0
 
+    started = pyqtSignal()
     finished = pyqtSignal()
 
     def __init__(self, tag=None):
@@ -22,11 +23,13 @@ class Worker(QObject):
         Worker.next_id += 1
         self.tag = tag
 
-    @pyqtSlot()
     def run(self):
         raise NotImplementedError("run() must be implemented by Worker subclasses")
 
-    def finish(self):
+    @pyqtSlot()
+    def exec(self):
+        self.started.emit()
+        self.run()
         self.finished.emit()
 
     def __str__(self):
@@ -49,7 +52,7 @@ class Thread(QThread):
         debug(f"Enqueued {w} to {self}: {self.active_workers()} workers now")
         w.moveToThread(self)
         w.finished.connect(self._on_worker_finished)
-        QMetaObject.invokeMethod(w, "run", Qt.QueuedConnection)
+        QMetaObject.invokeMethod(w, "exec", Qt.QueuedConnection)
 
 
     def active_workers(self):

@@ -5,10 +5,10 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QListWidget, QWidget, QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar, QListWidgetItem
 
-from youtube import YtTrack
 from log import debug
 from musicbrainz import MbTrack
 from utils import make_pixmap_from_data
+from ytmusic import YtTrack
 
 
 class DownloadsItemWidget(QWidget):

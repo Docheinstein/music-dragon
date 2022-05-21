@@ -1,13 +1,12 @@
 from typing import Optional
 
 import musicbrainzngs as mb
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal
 
 import workers
 from log import debug
 from utils import j
 from workers import Worker
-from youtube import YtTrack
 
 
 def initialize():
@@ -19,7 +18,6 @@ class MbTrack:
         self.length = int(mb_track["recording"]["length"]) if "length" in mb_track["recording"] else 0
         self.title = mb_track["recording"]["title"]
         self.track_number = mb_track["position"]
-        self.youtube_track: Optional[YtTrack] = None
         self.release_id = release_id
 
 
@@ -92,7 +90,6 @@ class SearchArtistsWorker(Worker):
         self.query = query
         self.limit = limit
 
-    @pyqtSlot()
     def run(self):
         if not self.query:
             return
@@ -109,7 +106,6 @@ class SearchArtistsWorker(Worker):
         artists = [MbArtist(a) for a in result]
 
         self.result.emit(self.query, artists)
-        self.finish()
 
 def search_artists(query, callback, limit):
     worker = SearchArtistsWorker(query, limit)
@@ -129,7 +125,6 @@ class SearchReleaseGroupsWorker(Worker):
         self.query = query
         self.limit = limit
 
-    @pyqtSlot()
     def run(self):
         if not self.query:
             return
@@ -146,7 +141,6 @@ class SearchReleaseGroupsWorker(Worker):
                           if "primary-type" in release_group and release_group["primary-type"] in ["Album", "EP"]]
 
         self.result.emit(self.query, release_groups)
-        self.finish()
 
 def search_release_groups(query, callback, limit):
     worker = SearchReleaseGroupsWorker(query, limit)
@@ -168,7 +162,6 @@ class FetchReleaseGroupCoverWorker(Worker):
         self.release_group_id = release_group_id
         self.size = size
 
-    @pyqtSlot()
     def run(self):
         try:
             debug(f"MUSICBRAINZ: get_release_group_image_front: '{self.release_group_id}'")
@@ -178,7 +171,6 @@ class FetchReleaseGroupCoverWorker(Worker):
         except mb.ResponseError:
             print(f"WARN: no image for release group '{self.release_group_id}'")
             self.result.emit(self.release_group_id, bytes())
-        self.finish()
 
 
 def fetch_release_group_cover(release_group_id, size, callback):
@@ -198,7 +190,6 @@ class FetchReleaseGroupReleasesWorker(Worker):
         super().__init__()
         self.release_group_id = release_group_id
 
-    @pyqtSlot()
     def run(self):
         # Fetch all the releases and releases tracks for the release groups
         debug(f"MUSICBRAINZ: browse_releases: '{self.release_group_id}'")
@@ -240,7 +231,6 @@ class FetchReleaseGroupReleasesWorker(Worker):
         #
 
         self.result.emit(self.release_group_id, releases)
-        self.finish()
 
 
 def fetch_release_group_releases(release_group_id, callback):
@@ -260,7 +250,6 @@ class FetchArtistWorker(Worker):
         super().__init__()
         self.artist_id = artist_id
 
-    @pyqtSlot()
     def run(self):
         # Fetch all the releases and releases tracks for the release groups
         # result = mb.get_artist_by_id(self.artist_id, includes=["aliases", "release-groups", "url-rels", "annotation", "releases", "isrcs"])
@@ -276,7 +265,6 @@ class FetchArtistWorker(Worker):
         )
 
         self.result.emit(self.artist_id, MbArtist(result))
-        self.finish()
 
 def fetch_artist(artist_id, callback):
     worker = FetchArtistWorker(artist_id)
@@ -298,7 +286,6 @@ class FetchReleaseCoverWorker(Worker):
         self.release_id = release_id
         self.size = size
 
-    @pyqtSlot()
     def run(self):
         try:
             debug(f"MUSICBRAINZ: get_image: '{self.release_id}'")
@@ -308,7 +295,6 @@ class FetchReleaseCoverWorker(Worker):
         except mb.ResponseError:
             print(f"WARN: no image for release '{self.release_id}'")
             self.result.emit(self.release_id, bytes())
-        self.finish()
 
 
 def fetch_release_cover(release_id, size, callback):

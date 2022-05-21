@@ -8,6 +8,7 @@ import ui
 from PyQt5.QtWidgets import QApplication
 
 import workers
+import ytmusic
 from ui.mainwindow import MainWindow
 
 
@@ -23,8 +24,9 @@ def main():
 
     preferences.initialize()
     ui.resources.initialize()
-    musicbrainz.initialize()
     workers.initialize()
+    musicbrainz.initialize()
+    ytmusic.initialize("res/other/yt_auth.json")
 
     window = MainWindow()
     window.show()

@@ -25,7 +25,6 @@ class FetchWikidataImageWorker(Worker):
         self.wiki_id = wiki_id
         self.user_data = user_data
 
-    @pyqtSlot()
     def run(self) -> None:
         debug(f"WIKIDATA: get: '{self.wiki_id}'")
 

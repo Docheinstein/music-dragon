@@ -14,7 +14,7 @@ from utils import make_pixmap_from_data
 
 
 class SearchResultsItemWidget(ListWidgetModelViewItem):
-    subtitle_clicked = pyqtSignal(QMouseEvent)
+    subtitle_clicked = pyqtSignal(str)
 
     class Ui:
         def __init__(self):
@@ -54,7 +54,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         self.ui.subtitle = ClickableLabel()
         self.ui.subtitle.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.subtitle.clicked.connect(self.subtitle_clicked)
+        self.ui.subtitle.clicked.connect(self._on_subtitle_clicked)
         self.ui.subtitle.set_underline_on_hover(True)
 
         # build
@@ -123,6 +123,11 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         else:
             self.ui.subtitle.setVisible(False)
 
+    def _on_subtitle_clicked(self, ev: QMouseEvent):
+        debug(f"on_subtitle_clicked({self.result_id})")
+        ev.accept() # prevent propagation
+        self.subtitle_clicked.emit(self.result_id)
+
 class SearchResultsModel(ListWidgetModel):
     def __init__(self):
         super().__init__()
@@ -142,9 +147,6 @@ class SearchResultsWidget(ListWidgetModelView):
         w.subtitle_clicked.connect(self._on_subtitle_clicked)
         return w
 
-    def _on_subtitle_clicked(self, ev: QMouseEvent):
-        debug("on_subtitle_clicked")
-        ev.accept() # prevent propagation
-        widget: ListWidgetModelViewItem = self.sender()
-        row = self.model.index(widget.entry)
+    def _on_subtitle_clicked(self, entry: str):
+        row = self.model.index(entry)
         self.subtitle_clicked.emit(row)

@@ -3,6 +3,8 @@ import time
 
 from PyQt5.QtGui import QPixmap, QIcon
 
+from log import debug
+
 
 def make_pixmap_from_data(data, default=None):
     pixmap = QPixmap()
@@ -21,3 +23,33 @@ def j(x):
 
 def current_millis():
     return round(time.time() * 1000)
+
+
+class Mergeable:
+    def merge(self, other):
+        debug("===== merging =====\n"
+              f"{(vars(self))}\n"
+              "------ with -----\n"
+              f"{(vars(other))}\n"
+        )
+        # TODO: recursive check of better()? evaluate len() if hasattr(len) eventually?
+
+        # object overriding better
+        if hasattr(self, "better") and hasattr(other, "better"):
+            if other.better(self):
+                for attr, value in vars(self).items():
+                    if hasattr(other, attr):
+                        self.__setattr__(attr, other.__getattribute__(attr))
+        else:
+            # default case
+            for attr, value in vars(self).items():
+                if attr.startswith("_"):
+                    continue # skip private attributes
+                if hasattr(other, attr):
+                    other_value = other.__getattribute__(attr)
+                    # nested object overriding better()
+                    if hasattr(value, "better") and hasattr(other_value, "better") and other_value.better(value):
+                        self.__setattr__(attr, other_value)
+                    # default case
+                    else:
+                        self.__setattr__(attr, value or other_value)

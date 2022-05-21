@@ -1,23 +1,27 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar
 
 import ui
-from repository import Track, get_release, get_track
+from ytmusic import ytmusic_video_id_to_url
+from log import debug
+from repository import Track, get_release, get_track, get_youtube_track
 from ui.listwidgetmodelview import ListWidgetModel, ListWidgetModelViewItem, ListWidgetModelView
 from utils import make_pixmap_from_data
 
 
 class AlbumTracksItemWidget(ListWidgetModelViewItem):
-    # download_track_clicked = pyqtSignal(MbTrack)
+    download_button_clicked = pyqtSignal(str)
+    open_video_button_clicked = pyqtSignal(str)
 
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.download_button: Optional[QPushButton] = None
+            self.open_video_button: Optional[QPushButton] = None
             self.download_progress: Optional[QProgressBar] = None
             self.layout = None
             self.inner_layout = None
@@ -54,7 +58,16 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.download_button.setFlat(True)
         self.ui.download_button.setCursor(Qt.PointingHandCursor)
         self.ui.download_button.setIconSize(QSize(24, 24))
-        # self.ui.download_button.clicked.connect(self._on_download_track_clicked)
+        self.ui.download_button.clicked.connect(self._on_download_button_clicked)
+
+        # open video
+        self.ui.open_video_button = QPushButton()
+        self.ui.open_video_button.setVisible(False)
+        self.ui.open_video_button.setIcon(ui.resources.OPEN_LINK_ICON)
+        self.ui.open_video_button.setFlat(True)
+        self.ui.open_video_button.setCursor(Qt.PointingHandCursor)
+        self.ui.open_video_button.setIconSize(QSize(24, 24))
+        self.ui.open_video_button.clicked.connect(self._on_open_video_button_clicked)
 
         # download progress
         self.ui.download_progress = QProgressBar()
@@ -68,14 +81,16 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
 
         # build
         layout = QHBoxLayout()
-        layout.setSpacing(12)
+        layout.setSpacing(4)
         layout.addWidget(self.ui.cover)
 
         inner_layout = QGridLayout()
         inner_layout.addWidget(self.ui.title, 0, 0)
+        inner_layout.setContentsMargins(8, 0, 0, 0)
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
 
+        layout.addWidget(self.ui.open_video_button)
         layout.addWidget(self.ui.download_button)
 
         self.setLayout(layout)
@@ -95,6 +110,24 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.title.setText(self.track.title)
 
         # TODO: download/download progress
+        youtube_track = get_youtube_track(self.track.youtube_track_id)
+        if youtube_track:
+            debug(f"Setting tooltip = {ytmusic_video_id_to_url(youtube_track.video_id)}")
+            self.ui.download_button.setVisible(True)
+            self.ui.open_video_button.setVisible(True)
+            self.ui.open_video_button.setToolTip(ytmusic_video_id_to_url(youtube_track.video_id))
+        else:
+            self.ui.download_button.setVisible(False)
+            self.ui.open_video_button.setVisible(False)
+            self.ui.open_video_button.setToolTip("")
+
+    def _on_download_button_clicked(self):
+        debug(f"_on_download_button_clicked({self.track_id})")
+        self.download_button_clicked.emit(self.track_id)
+
+    def _on_open_video_button_clicked(self):
+        debug(f"_on_open_video_button_clicked({self.track_id})")
+        self.open_video_button_clicked.emit(self.track_id)
 
 class AlbumTracksModel(ListWidgetModel):
     def __init__(self):
@@ -110,11 +143,25 @@ class AlbumTracksModel(ListWidgetModel):
         return release.track_count() if release else 0
 
 class AlbumTracksWidget(ListWidgetModelView):
+    download_button_clicked = pyqtSignal(int)
+    open_video_button_clicked = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
-        return AlbumTracksItemWidget(entry)
+        w = AlbumTracksItemWidget(entry)
+        w.download_button_clicked.connect(self._on_download_button_clicked)
+        w.open_video_button_clicked.connect(self._on_open_video_button_clicked)
+        return w
+
+    def _on_download_button_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.download_button_clicked.emit(row)
+
+    def _on_open_video_button_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.open_video_button_clicked.emit(row)
 
     #
     # def add_track(self, track: MbTrack):

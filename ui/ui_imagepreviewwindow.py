@@ -41,4 +41,4 @@ class Ui_ImagePreviewWindow(object):
 
     def retranslateUi(self, ImagePreviewWindow):
         _translate = QtCore.QCoreApplication.translate
-        ImagePreviewWindow.setWindowTitle(_translate("ImagePreviewWindow", "Dialog"))
+        ImagePreviewWindow.setWindowTitle(_translate("ImagePreviewWindow", "Image Preview"))
