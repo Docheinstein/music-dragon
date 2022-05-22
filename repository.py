@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 import musicbrainz
 import preferences
 import wiki
+import ytdownloader
 import ytmusic
 from ytmusic import YtTrack
 from log import debug
@@ -132,6 +133,9 @@ class ReleaseGroup(Mergeable):
     def releases(self):
         return [get_release(r) for r in self.release_ids]
 
+    def main_release(self):
+        return get_release(self.main_release_id)
+
     def year(self):
         try:
             return self.date.split("-")[0]
@@ -173,11 +177,14 @@ class Track(Mergeable):
     def __init__(self, mb_track: MbTrack):
         self.id = mb_track.id
         self.title = mb_track.title
+        self.track_number = mb_track.track_number
         self.release_id = mb_track.release_id
         self.youtube_track_id = None
         self.fetched_youtube_track = False
+        self.youtube_track_is_official = False
 
     def merge(self, other):
+        # TODO: youtube_track_is_official is not handled well probably
         # handle flags apart
         fetched_youtube_track = self.fetched_youtube_track or other.fetched_youtube_track
         super().merge(other)
@@ -196,6 +203,7 @@ def _add_artist(artist: Artist):
         _artists[artist.id] = artist
     else:
         _artists[artist.id].merge(artist)
+    return get_artist(artist.id)
 
 def _add_release_group(release_group: ReleaseGroup):
     debug(f"add_release_group({release_group.id})")
@@ -203,6 +211,7 @@ def _add_release_group(release_group: ReleaseGroup):
         _release_groups[release_group.id] = release_group
     else:
         _release_groups[release_group.id].merge(release_group)
+    return get_release_group(release_group.id)
 
 def _add_release(release: Release):
     debug(f"add_release({release.id})")
@@ -210,6 +219,7 @@ def _add_release(release: Release):
         _releases[release.id] = release
     else:
         _releases[release.id].merge(release)
+    return get_release(release.id)
 
 def _add_track(track: Track):
     debug(f"add_track({track.id})")
@@ -217,6 +227,7 @@ def _add_track(track: Track):
         _tracks[track.id] = track
     else:
         _tracks[track.id].merge(track)
+    return get_track(track.id)
 
 def _add_youtube_track(yttrack: YtTrack):
     debug(f"add_youtube_track({yttrack.id})")
@@ -224,6 +235,7 @@ def _add_youtube_track(yttrack: YtTrack):
         _youtube_tracks[yttrack.id] = yttrack
     else:
         _youtube_tracks[yttrack.id].merge(yttrack)
+    return get_youtube_track(yttrack.id)
 
 def get_artist(artist_id) -> Optional[Artist]:
     res = _artists.get(artist_id)
@@ -448,8 +460,8 @@ def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callba
             track_names = [t.title for t in tracks]
             release.fetched_youtube_video_ids = True
 
-            for yttrack in yttracks:
-                _add_youtube_track(yttrack)
+            for yttrack_ in yttracks:
+                yttrack = _add_youtube_track(yttrack_)
 
                 debug(f"Handling yttrack: {yttrack.video_title}")
 
@@ -461,6 +473,7 @@ def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callba
                     closest_track_index = track_names.index(closest_track_name)
                     closest_track = tracks[closest_track_index]
                     closest_track.fetched_youtube_track = True
+                    closest_track.youtube_track_is_official = True
                     closest_track.youtube_track_id = yttrack.id
                 else:
                     print(f"WARN: no close track found for youtube track with title {yttrack.video_title}")
@@ -488,3 +501,37 @@ def search_track_youtube_track(track_id: str, track_youtube_track_callback):
 
         query = t.release().release_group().artists_string() + " " + t.title
         ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
+
+
+def download_youtube_track(track_id: str, started_callback, progress_callback, finished_callback):
+    track = get_track(track_id)
+    rg = track.release().release_group()
+
+    if not track.youtube_track_id:
+        print(f"WARN: not youtube track associated with track {track.id}")
+        return
+
+    def started_callback_wrapper(video_id: str, track_id_: str):
+        started_callback(track_id)
+
+    def progress_callback_wrapper(video_id: str, progress: float, track_id_: str):
+        progress_callback(track_id, progress)
+
+    def finished_callback_wrapper(video_id: str, track_id_: str):
+        finished_callback(track_id)
+
+    ytdownloader.start_track_download(
+        video_id=track.youtube_track().video_id,
+        artist=rg.artists_string(),
+        album=rg.title,
+        song=track.title,
+        track_num=track.track_number,
+        image=rg.images.preferred_image(),
+        output_directory=preferences.directory(),
+        output_format=preferences.output_format(),
+        started_callback=started_callback_wrapper,
+        progress_callback=progress_callback_wrapper,
+        finished_callback=finished_callback_wrapper,
+        apply_tags=True,
+        user_data=track.id
+    )

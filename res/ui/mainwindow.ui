@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Music Dragon</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_5">
@@ -25,7 +25,7 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>140</width>
+        <width>160</width>
         <height>0</height>
        </size>
       </property>
@@ -37,6 +37,12 @@
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_6">
        <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
         <number>0</number>
        </property>
        <item>
@@ -397,6 +403,9 @@
              <widget class="QPushButton" name="albumDownloadAllButton">
               <property name="enabled">
                <bool>false</bool>
+              </property>
+              <property name="cursor">
+               <cursorShape>PointingHandCursor</cursorShape>
               </property>
               <property name="styleSheet">
                <string notr="true">padding: 8px</string>

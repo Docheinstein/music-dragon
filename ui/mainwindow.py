@@ -11,6 +11,8 @@ import preferences
 import repository
 import ui.resources
 import workers
+import ytdownloader
+from ui.downloadswidget import DownloadsModel
 from ytmusic import YtTrack
 from ytmusic import ytmusic_video_id_to_url
 from log import debug
@@ -88,7 +90,7 @@ class MainWindow(QMainWindow):
 
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
-        # self.ui.albumDownloadAllButton.clicked.connect(self.on_download_album_tracks_clicked)
+        self.ui.albumDownloadAllButton.clicked.connect(self.on_download_all_album_tracks_clicked)
 
         # Artist
         self.current_artist_id = None
@@ -100,6 +102,9 @@ class MainWindow(QMainWindow):
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
 
         # Downloader
+        self.downloads_model = DownloadsModel()
+        self.ui.downloads.set_model(self.downloads_model)
+
         # self.downloader = YtDownloader()
         # self.downloader.track_download_started.connect(self.on_track_download_started)
         # self.downloader.track_download_progress.connect(self.on_track_download_progress)
@@ -201,7 +206,9 @@ class MainWindow(QMainWindow):
         self.set_album_cover(release_group.id)
 
         # download
-        # self.ui.albumDownloadAllButton.setEnabled(False)
+        self.ui.albumDownloadAllButton.setEnabled(False)
+        self.ui.albumDownloadAllButton.setText(f"Download All")
+        self.ui.albumDownloadStatus.setText("")
 
         # tracks
         self.album_tracks_model.release_id = None
@@ -325,21 +332,12 @@ class MainWindow(QMainWindow):
         debug(f"on_search_release_group_releases_result(release_group_id={release_group_id})")
 
         main_release_id = get_release_group(release_group_id).main_release_id
-        main_release = get_release(main_release_id)
         self.album_tracks_model.release_id = main_release_id
         self.ui.albumTracks.invalidate()
 
         self.set_album_cover(release_group_id)
 
         repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
-
-
-        # fetch youtube videos for tracks
-        # youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks)
-        # youtube_track_runnable = FetchYoutubeTracksRunnable(release.tracks, album_hint=release.release_group)
-        # youtube_track_runnable.signals.track_fetched.connect(self.on_youtube_track_fetched)
-        # youtube_track_runnable.signals.finished.connect(self.on_youtube_tracks_fetch_finished)
-        # QThreadPool.globalInstance().start(youtube_track_runnable)
 
 
     def on_release_group_image_result(self, release_group_id, image):
@@ -564,7 +562,6 @@ class MainWindow(QMainWindow):
 
     def on_release_youtube_tracks_result(self, release_id: str, yttracks: List[YtTrack]):
         debug("on_release_youtube_tracks_result")
-        self.ui.albumTracks.invalidate()
 
         # fetch missing ones
         release = get_release(release_id)
@@ -579,13 +576,19 @@ class MainWindow(QMainWindow):
             debug(f"After release tracks fetching there was still {missing} "
                   f"missing tracks missing youtube video, searching now")
 
+        self.handle_youtube_tracks_update(release_id)
+
+
     def on_track_youtube_track_result(self, track_id: str, yttrack: YtTrack):
-        self.ui.albumTracks.update_row(track_id)
+        track = get_track(track_id)
+        # self.ui.albumTracks.update_row(track_id) # would be more precise
+        self.handle_youtube_tracks_update(track.release_id)
+
 
     def on_track_download_button_clicked(self, row: int):
         debug("on_track_download_button_clicked")
         track_id = self.album_tracks_model.entry(row)
-        track = get_track(track_id)
+        self.do_download_youtube_track(track_id)
 
     def on_track_open_video_button_clicked(self, row: int):
         debug("on_track_open_video_button_clicked")
@@ -595,6 +598,64 @@ class MainWindow(QMainWindow):
 
         QDesktopServices.openUrl(QUrl(ytmusic_video_id_to_url(yttrack.video_id)))
 
+    def handle_youtube_tracks_update(self, release_id):
+        release = get_release(release_id)
+
+        if self.current_release_group_id == release.release_group_id:
+            self.ui.albumTracks.invalidate()
+
+            # download all button
+            self.ui.albumDownloadAllButton.setEnabled(
+                [t.fetched_youtube_track for t in release.tracks()].count(False) == 0)
+
+            downloadable = 0
+            official = 0
+            for track in release.tracks():
+                if track.youtube_track_id is not None:
+                    downloadable += 1
+                    if track.youtube_track_is_official:
+                        official += 1
+            self.ui.albumDownloadAllButton.setText(f"Download All ({downloadable})")
+
+            # download all status
+            self.ui.albumDownloadStatus.setText(f"Official tracks: {official}/{downloadable}")
+
+
+    def on_youtube_track_download_started(self, track_id: str):
+        debug(f"on_youtube_track_download_started(track_id={track_id})")
+        self.ui.downloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_page_button()
+
+    def on_youtube_track_download_progress(self, track_id: str, progress: float):
+        debug(f"on_youtube_track_download_progress(track_id={track_id}, progress={progress})")
+        self.ui.downloads.update_row(track_id)
+        self.ui.albumTracks.update_row(track_id)
+
+    def on_youtube_track_download_finished(self, track_id: str):
+        debug(f"on_youtube_track_download_finished(track_id={track_id})")
+        self.ui.downloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_page_button()
+
+    def update_downloads_page_button(self):
+        count = ytdownloader.download_count()
+        if count:
+            self.ui.downloadsPageButton.setText(f"Downloads ({count})")
+        else:
+            self.ui.downloadsPageButton.setText(f"Downloads")
+
+    def on_download_all_album_tracks_clicked(self):
+        debug("on_download_all_album_tracks_clicked")
+        rg = get_release_group(self.current_release_group_id)
+        for track in rg.main_release().tracks():
+            self.do_download_youtube_track(track.id)
+
+    def do_download_youtube_track(self, track_id):
+        repository.download_youtube_track(track_id,
+                                          started_callback=self.on_youtube_track_download_started,
+                                          progress_callback=self.on_youtube_track_download_progress,
+                                          finished_callback=self.on_youtube_track_download_finished)
 
     # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
     #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")

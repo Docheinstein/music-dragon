@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPush
     QProgressBar
 
 import ui
+import ytdownloader
 from ytmusic import ytmusic_video_id_to_url
 from log import debug
 from repository import Track, get_release, get_track, get_youtube_track
@@ -76,7 +77,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.download_progress.setMinimum(0)
         self.ui.download_progress.setMaximum(100)
         self.ui.download_progress.setOrientation(Qt.Horizontal)
-        self.ui.download_progress.setValue(20)
+        self.ui.download_progress.setValue(0)
         self.ui.download_progress.setVisible(False)
 
         # build
@@ -89,6 +90,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         inner_layout.setContentsMargins(8, 0, 0, 0)
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
+
 
         layout.addWidget(self.ui.open_video_button)
         layout.addWidget(self.ui.download_button)
@@ -109,24 +111,39 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # title
         self.ui.title.setText(self.track.title)
 
-        # TODO: download/download progress
+        # download
         youtube_track = get_youtube_track(self.track.youtube_track_id)
+        download = ytdownloader.get_download(youtube_track.video_id) if youtube_track else None
+
         if youtube_track:
-            debug(f"Setting tooltip = {ytmusic_video_id_to_url(youtube_track.video_id)}")
-            self.ui.download_button.setVisible(True)
-            self.ui.open_video_button.setVisible(True)
-            self.ui.open_video_button.setToolTip(ytmusic_video_id_to_url(youtube_track.video_id))
+            if download:
+                self.ui.download_progress.setVisible(download["status"] == "downloading")
+                self.ui.download_progress.setValue(round(download["progress"]))
+
+                self.ui.download_button.setVisible(False)
+                self.ui.open_video_button.setVisible(False)
+
+            else:
+                self.ui.download_progress.setVisible(False)
+
+                self.ui.download_button.setVisible(True)
+                self.ui.download_button.setToolTip(f"Download")
+
+                self.ui.open_video_button.setVisible(True)
+                self.ui.open_video_button.setToolTip(f"Open")
         else:
+            self.ui.download_progress.setVisible(False)
             self.ui.download_button.setVisible(False)
             self.ui.open_video_button.setVisible(False)
-            self.ui.open_video_button.setToolTip("")
+
+
 
     def _on_download_button_clicked(self):
-        debug(f"_on_download_button_clicked({self.track_id})")
+        debug(f"on_download_button_clicked({self.track_id})")
         self.download_button_clicked.emit(self.track_id)
 
     def _on_open_video_button_clicked(self):
-        debug(f"_on_open_video_button_clicked({self.track_id})")
+        debug(f"on_open_video_button_clicked({self.track_id})")
         self.open_video_button_clicked.emit(self.track_id)
 
 class AlbumTracksModel(ListWidgetModel):
