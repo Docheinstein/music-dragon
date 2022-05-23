@@ -1,17 +1,20 @@
 from typing import Optional
 
-from PyQt5.QtCore import QSettings
+from PyQt5.QtCore import QSettings, QThread
+
+from log import debug
 
 _preferences: Optional[QSettings] = None
 
 def initialize():
     global _preferences
-    _preferences = QSettings("Docheinstein", "Music Dragon")
+    _preferences = QSettings("Docheinstein", "MusicDragon")
+    debug(f"Preferences file path: {_preferences.fileName()}")
 
 
 # Directory
 
-def directory():
+def directory() -> str:
     return _preferences.value("directory", "~/MusicDragon")
 
 def set_directory(value: str):
@@ -19,18 +22,29 @@ def set_directory(value: str):
 
 # Cover Size
 
-def cover_size():
-    return _preferences.value("cover_size", "500")
+def cover_size() -> int:
+    sz = _preferences.value("cover_size", "500")
+    return int(sz) if sz is not None else None
 
 
-def set_cover_size(value: str):
-    _preferences.setValue("cover_size", value)
+def set_cover_size(value: int):
+    _preferences.setValue("cover_size", value if value is not None else None)
 
 # Output format
 
-def output_format():
+def output_format() -> str:
     return _preferences.value("output_format", "{artist}/{album}/{song}.{ext}")
 
 
 def set_output_format(value: str):
     _preferences.setValue("output_format", value)
+
+# Thread number
+
+def thread_number() -> int:
+    th = _preferences.value("thread_number")
+    return int(th) if th is not None else QThread.idealThreadCount()
+
+
+def set_thread_number(value: int):
+    _preferences.setValue("thread_number", value)

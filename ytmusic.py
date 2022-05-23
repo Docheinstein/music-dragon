@@ -62,10 +62,10 @@ class SearchYoutubeTrackWorker(Worker):
         if result:
             self.result.emit(self.query, YtTrack(result[0]))
 
-def search_youtube_track(query: str, callback):
+def search_youtube_track(query: str, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = SearchYoutubeTrackWorker(query)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 # =============== SEARCH YOUTUBE ALBUM TRACKS  =================
 # Search youtube tracks for a given (Artist Name, Album Title)
@@ -154,9 +154,9 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             print(f"WARN: no artist close to '{artist_query}'")
 
 
-def search_youtube_album_tracks(artist_name: str, album_title: str, callback):
+def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 

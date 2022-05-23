@@ -24,7 +24,7 @@ def main():
 
     preferences.initialize()
     ui.resources.initialize()
-    workers.initialize()
+    workers.initialize(max_num_threads=preferences.thread_number())
     musicbrainz.initialize()
     ytmusic.initialize("res/other/yt_auth.json")
 

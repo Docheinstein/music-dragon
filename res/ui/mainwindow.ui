@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>3</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="homePage">
          <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -200,9 +200,33 @@
          </layout>
         </widget>
         <widget class="QWidget" name="downloadsPage">
-         <layout class="QVBoxLayout" name="verticalLayout_3">
+         <layout class="QVBoxLayout" name="verticalLayout_11">
           <item>
-           <widget class="DownloadsWidget" name="downloads"/>
+           <widget class="QTabWidget" name="downloadsTabs">
+            <property name="currentIndex">
+             <number>0</number>
+            </property>
+            <widget class="QWidget" name="downloadsQueuedTab">
+             <attribute name="title">
+              <string>Queued</string>
+             </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_3">
+              <item>
+               <widget class="DownloadsWidget" name="queuedDownloads"/>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="downloadsFinishedTab">
+             <attribute name="title">
+              <string>Completed</string>
+             </attribute>
+             <layout class="QVBoxLayout" name="verticalLayout_12">
+              <item>
+               <widget class="DownloadsWidget" name="finishedDownloads"/>
+              </item>
+             </layout>
+            </widget>
+           </widget>
           </item>
          </layout>
         </widget>

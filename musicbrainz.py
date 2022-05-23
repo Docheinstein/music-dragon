@@ -71,6 +71,8 @@ class MbArtist:
                     "aliases": self.aliases
                 })
                 self.release_groups.append(mb_release_group)
+            # sort release groups by date
+            self.release_groups.sort(key=lambda mbrg: mbrg.date)
 
         if "url-relation-list" in mb_artist:
             for url in mb_artist["url-relation-list"]:
@@ -107,10 +109,10 @@ class SearchArtistsWorker(Worker):
 
         self.result.emit(self.query, artists)
 
-def search_artists(query, callback, limit):
+def search_artists(query, callback, limit, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = SearchArtistsWorker(query, limit)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 
 # ========== SEARCH RELEASE GROUP ==========
@@ -142,10 +144,10 @@ class SearchReleaseGroupsWorker(Worker):
 
         self.result.emit(self.query, release_groups)
 
-def search_release_groups(query, callback, limit):
+def search_release_groups(query, callback, limit, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = SearchReleaseGroupsWorker(query, limit)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 
 # ======= FETCH RELEASE GROUP COVER ======
@@ -157,10 +159,10 @@ class FetchReleaseGroupCoverWorker(Worker):
 
     # size can be: “250”, “500”, “1200” or None.
     # If it is None, the largest available picture will be downloaded.
-    def __init__(self, release_group_id: str, size="250"):
+    def __init__(self, release_group_id: str, size=250):
         super().__init__()
         self.release_group_id = release_group_id
-        self.size = size
+        self.size = str(size) if size is not None else None
 
     def run(self):
         try:
@@ -173,10 +175,10 @@ class FetchReleaseGroupCoverWorker(Worker):
             self.result.emit(self.release_group_id, bytes())
 
 
-def fetch_release_group_cover(release_group_id, size, callback):
+def fetch_release_group_cover(release_group_id, size, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = FetchReleaseGroupCoverWorker(release_group_id, size)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 
 # ======= FETCH RELEASE GROUP RELEASES RUNNABLE ========
@@ -233,10 +235,10 @@ class FetchReleaseGroupReleasesWorker(Worker):
         self.result.emit(self.release_group_id, releases)
 
 
-def fetch_release_group_releases(release_group_id, callback):
+def fetch_release_group_releases(release_group_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = FetchReleaseGroupReleasesWorker(release_group_id)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 
 # ============ FETCH ARTIST =============
@@ -266,10 +268,10 @@ class FetchArtistWorker(Worker):
 
         self.result.emit(self.artist_id, MbArtist(result))
 
-def fetch_artist(artist_id, callback):
+def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = FetchArtistWorker(artist_id)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
 
 
 # ======= FETCH RELEASE COVER ======
@@ -297,7 +299,7 @@ class FetchReleaseCoverWorker(Worker):
             self.result.emit(self.release_id, bytes())
 
 
-def fetch_release_cover(release_id, size, callback):
+def fetch_release_cover(release_id, size, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = FetchReleaseCoverWorker(release_id, size)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)

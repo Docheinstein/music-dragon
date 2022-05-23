@@ -1,34 +1,30 @@
-from difflib import get_close_matches
-from typing import List, Optional
+from typing import List
 
-from PyQt5.QtCore import QRunnable, QTimer, QObject, pyqtSignal, pyqtSlot, QCoreApplication, QUrl
+from PyQt5.QtCore import QTimer, QUrl
 from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices
-from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
-from ytmusicapi import YTMusic
+from PyQt5.QtWidgets import QMainWindow, QLabel
 
-import musicbrainz
-import preferences
 import repository
 import ui.resources
-import workers
 import ytdownloader
-from ui.downloadswidget import DownloadsModel
-from ytmusic import YtTrack
-from ytmusic import ytmusic_video_id_to_url
 from log import debug
-from musicbrainz import MbReleaseGroup, MbTrack
-from ui.preferenceswindow import PreferencesWindow
-from ui.imagepreviewwindow import ImagePreviewWindow
 from repository import Artist, ReleaseGroup, Release, get_artist, \
     get_release_group, get_entity, get_track, get_release, get_youtube_track
 from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
+from ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
+from ui.imagepreviewwindow import ImagePreviewWindow
+from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
-from utils import j, make_pixmap_from_data
+from utils import make_pixmap_from_data
+from ytmusic import YtTrack
+from ytmusic import ytmusic_video_id_to_url
 
 SEARCH_DEBOUNCE_MS = 800
 
+DOWNLOADS_TABS_QUEUED_INDEX = 0
+DOWNLOADS_TABS_COMPLETED_INDEX = 1
 
 
 class MainWindow(QMainWindow):
@@ -101,9 +97,13 @@ class MainWindow(QMainWindow):
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
 
-        # Downloader
+        # Downloads
         self.downloads_model = DownloadsModel()
-        self.ui.downloads.set_model(self.downloads_model)
+        self.ui.queuedDownloads.set_model(self.downloads_model)
+
+        # Completed downloads
+        self.finished_downloads_model = FinishedDownloadsModel()
+        self.ui.finishedDownloads.set_model(self.finished_downloads_model)
 
         # self.downloader = YtDownloader()
         # self.downloader.track_download_started.connect(self.on_track_download_started)
@@ -623,27 +623,35 @@ class MainWindow(QMainWindow):
 
     def on_youtube_track_download_started(self, track_id: str):
         debug(f"on_youtube_track_download_started(track_id={track_id})")
-        self.ui.downloads.invalidate()
+        self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
-        self.update_downloads_page_button()
+        self.update_downloads_count()
 
     def on_youtube_track_download_progress(self, track_id: str, progress: float):
         debug(f"on_youtube_track_download_progress(track_id={track_id}, progress={progress})")
-        self.ui.downloads.update_row(track_id)
+        self.ui.queuedDownloads.update_row(track_id)
         self.ui.albumTracks.update_row(track_id)
 
     def on_youtube_track_download_finished(self, track_id: str):
         debug(f"on_youtube_track_download_finished(track_id={track_id})")
-        self.ui.downloads.invalidate()
+        self.ui.queuedDownloads.invalidate()
+        self.ui.finishedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
-        self.update_downloads_page_button()
+        self.update_downloads_count()
 
-    def update_downloads_page_button(self):
-        count = ytdownloader.download_count()
-        if count:
-            self.ui.downloadsPageButton.setText(f"Downloads ({count})")
-        else:
-            self.ui.downloadsPageButton.setText(f"Downloads")
+    def on_youtube_track_download_error(self, track_id: str, error_msg: str):
+        debug(f"on_youtube_track_download_error(track_id={track_id}): {error_msg}")
+        self.ui.queuedDownloads.invalidate()
+        self.ui.finishedDownloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_count()
+
+    def update_downloads_count(self):
+        queued_count = ytdownloader.download_count()
+        finished_count = ytdownloader.finished_download_count()
+        self.ui.downloadsPageButton.setText(f"Downloads ({queued_count})" if queued_count else "Downloads")
+        self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_QUEUED_INDEX, f"Queued ({queued_count})" if queued_count else "Queued")
+        self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_COMPLETED_INDEX, f"Completed ({finished_count})" if finished_count else "Completed")
 
     def on_download_all_album_tracks_clicked(self):
         debug("on_download_all_album_tracks_clicked")
@@ -655,7 +663,8 @@ class MainWindow(QMainWindow):
         repository.download_youtube_track(track_id,
                                           started_callback=self.on_youtube_track_download_started,
                                           progress_callback=self.on_youtube_track_download_progress,
-                                          finished_callback=self.on_youtube_track_download_finished)
+                                          finished_callback=self.on_youtube_track_download_finished,
+                                          error_callback=self.on_youtube_track_download_error)
 
     # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
     #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")
@@ -715,7 +724,7 @@ class MainWindow(QMainWindow):
     #
     # def enqueue_download(self, track: YtTrack):
     #     self.downloader.enqueue(track)
-    #     self.ui.downloads.add_track(track)
+    #     self.ui.queuedDownloads.add_track(track)
 
     # def on_album_clicked(self, mb_release_group: MbReleaseGroup):
     #     self.open_release_group(mb_release_group)
@@ -725,18 +734,18 @@ class MainWindow(QMainWindow):
     #     self.ui.albumTracks.set_download_progress_visible(track.mb_track, True)
     #     self.ui.albumTracks.set_download_progress(track.mb_track, percentage=0)
     #
-    #     self.ui.downloads.set_download_progress_visible(track, True)
-    #     self.ui.downloads.set_download_progress(track, percentage=0)
+    #     self.ui.queuedDownloads.set_download_progress_visible(track, True)
+    #     self.ui.queuedDownloads.set_download_progress(track, percentage=0)
     #
     # def on_track_download_progress(self, track: YtTrack, progress: float):
     #     debug(f"on_track_download_progress(track={track.mb_track.title}, progress={progress})")
     #     self.ui.albumTracks.set_download_progress(track.mb_track, percentage=int(progress))
-    #     self.ui.downloads.set_download_progress(track, percentage=int(progress))
+    #     self.ui.queuedDownloads.set_download_progress(track, percentage=int(progress))
     #
     # def on_track_download_finished(self, track: YtTrack):
     #     debug(f"on_track_download_finished(track={track.mb_track.title})")
     #     self.ui.albumTracks.set_download_progress_visible(track.mb_track, False)
-    #     self.ui.downloads.remove_track(track)
+    #     self.ui.queuedDownloads.remove_track(track)
 
     #
     # def do_album_download(self, artist_query, album_query):

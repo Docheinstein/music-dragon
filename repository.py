@@ -5,12 +5,14 @@ from typing import List, Dict, Optional
 import musicbrainz
 import preferences
 import wiki
+import workers
 import ytdownloader
 import ytmusic
 from ytmusic import YtTrack
 from log import debug
 from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
 from utils import j, Mergeable
+
 
 _artists: Dict[str, 'Artist'] = {}
 _release_groups: Dict[str, 'ReleaseGroup'] = {}
@@ -344,7 +346,8 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
                 _release_groups[rg_id].images.set_image(rg_id, image)
             release_group_cover_callback(rg_id, image)
 
-        musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper)
+        musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
+                                              priority=workers.WorkerScheduler.PRIORITY_LOW)
 
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback):
     debug(f"fetch_release_group_releases(release_group_id={release_group_id})")
@@ -441,7 +444,8 @@ def fetch_release_cover(release_id: str, release_cover_callback):
                 release.release_group().images.set_image(r_id, image)
             release_cover_callback(r_id, image)
 
-        musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper)
+        musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
+                                        priority=workers.WorkerScheduler.PRIORITY_LOW)
 
 
 def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callback):
@@ -503,7 +507,7 @@ def search_track_youtube_track(track_id: str, track_youtube_track_callback):
         ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
 
 
-def download_youtube_track(track_id: str, started_callback, progress_callback, finished_callback):
+def download_youtube_track(track_id: str, started_callback, progress_callback, finished_callback, error_callback):
     track = get_track(track_id)
     rg = track.release().release_group()
 
@@ -520,6 +524,9 @@ def download_youtube_track(track_id: str, started_callback, progress_callback, f
     def finished_callback_wrapper(video_id: str, track_id_: str):
         finished_callback(track_id)
 
+    def error_callback_wrapper(video_id: str, error_msg: str, track_id_: str):
+        error_callback(track_id, error_msg)
+
     ytdownloader.start_track_download(
         video_id=track.youtube_track().video_id,
         artist=rg.artists_string(),
@@ -532,6 +539,7 @@ def download_youtube_track(track_id: str, started_callback, progress_callback, f
         started_callback=started_callback_wrapper,
         progress_callback=progress_callback_wrapper,
         finished_callback=finished_callback_wrapper,
+        error_callback=error_callback_wrapper,
         apply_tags=True,
         user_data=track.id
     )

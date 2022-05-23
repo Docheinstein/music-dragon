@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QDialog, QFileDialog
 
 from log import debug
@@ -7,16 +11,16 @@ from ui.ui_preferenceswindow import Ui_PreferencesWindow
 
 class PreferencesWindow(QDialog):
     COVER_SIZE_VALUES = [
-        "250",
-        "500",
-        "1200",
-        "MAX"
+        250,
+        500,
+        1200,
+        None
     ]
     COVER_SIZE_INDEXES = {
-        "250": 0,
-        "500": 1,
-        "1200": 2,
-        "MAX": 3
+        250: 0,
+        500: 1,
+        1200: 2,
+        None: 3
     }
 
     def __init__(self):
@@ -27,6 +31,7 @@ class PreferencesWindow(QDialog):
 
         # Directory
         self.ui.directoryWidget.clicked.connect(self.on_download_directory_clicked)
+        self.ui.openDirectoryButton.clicked.connect(self.on_open_directory_button_clicked)
 
         # OK / CANCEL
         self.accepted.connect(self.on_accepted)
@@ -42,6 +47,19 @@ class PreferencesWindow(QDialog):
     def on_rejected(self):
         debug("Closing preferences window without saving")
 
+    def load_settings(self):
+        self.ui.directory.setText(preferences.directory())
+        self.ui.coverSize.setCurrentIndex(PreferencesWindow.COVER_SIZE_INDEXES[preferences.cover_size()])
+        self.ui.outputFormat.setText(preferences.output_format())
+        self.ui.threadNumber.setValue(preferences.thread_number())
+
+    def save_settings(self):
+        preferences.set_directory(self.ui.directory.text())
+        preferences.set_cover_size(PreferencesWindow.COVER_SIZE_VALUES[self.ui.coverSize.currentIndex()])
+        preferences.set_output_format(self.ui.outputFormat.text())
+        preferences.set_thread_number(self.ui.threadNumber.value())
+
+
     def on_download_directory_clicked(self):
         debug("Opening download directory picker")
         directory_picker = QFileDialog()
@@ -56,13 +74,13 @@ class PreferencesWindow(QDialog):
             debug(f"Selected directory: {result}")
             self.ui.directory.setText(result)
 
-
-    def load_settings(self):
-        self.ui.directory.setText(preferences.directory())
-        self.ui.coverSize.setCurrentIndex(PreferencesWindow.COVER_SIZE_INDEXES[preferences.cover_size()])
-        self.ui.outputFormat.setText(preferences.output_format())
-
-    def save_settings(self):
-        preferences.set_directory(self.ui.directory.text())
-        preferences.set_cover_size(PreferencesWindow.COVER_SIZE_VALUES[self.ui.coverSize.currentIndex()])
-        preferences.set_output_format(self.ui.outputFormat.text())
+    def on_open_directory_button_clicked(self):
+        directory_str = self.ui.directory.text()
+        debug(f"Opening directory: {directory_str}")
+        directory = Path(directory_str)
+        if not directory.exists():
+            print(f"WARN: cannot open directory: '{directory_str}' does not exist")
+            return
+        # debug(f"abs: {str(directory.absolute())}")
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory.absolute())))
+        # QDesktopServices.openUrl(QUrl(f"file://{str(directory.absolute())}"))

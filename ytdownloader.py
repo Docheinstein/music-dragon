@@ -23,6 +23,7 @@ def yt_video_url_to_id(video_url: str):
     return video_url.split("=")[-1]
 
 downloads = {}
+finished_downloads = {}
 
 def download_count():
     return len(downloads)
@@ -30,10 +31,16 @@ def download_count():
 def get_download(video_id: str):
     return downloads.get(video_id)
 
+def finished_download_count():
+    return len(finished_downloads)
+
+def get_finished_download(video_id: str):
+    return finished_downloads.get(video_id)
+
 class TrackDownloaderWorker(Worker):
     progress = pyqtSignal(str, float, str)
+    error = pyqtSignal(str, str, str)
     download_finished = pyqtSignal(str, str)
-    # download_error = pyqtSignal(str, str)
     conversion_finished = pyqtSignal(str, str)
     tagging_finished = pyqtSignal(str, str)
 
@@ -78,10 +85,9 @@ class TrackDownloaderWorker(Worker):
                 debug("YOUTUBE_DL update: finished")
                 self.download_finished.emit(self.video_id, self.user_data)
 
-
             if d["status"] == "error":
                 debug(f"YOUTUBE_DL update: error\n{j(d)}")
-                # self.download_error.emit(self.video_id, self.user_data)
+                self.error.emit(self.video_id, "ERROR", self.user_data)
 
 
         # https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L141
@@ -114,49 +120,55 @@ class TrackDownloaderWorker(Worker):
             'logger': YoutubeDLLogger(),
             'progress_hooks': [progress_hook],
             'outtmpl': outtmpl,
-            'ignoreerrors': True
+            'cachedir': False,
+            'verbose': True
+            # 'ignoreerrors': True
         }
 
-        with YoutubeDL(ydl_opts) as ydl:
-            yt_url = yt_video_id_to_url(self.video_id)
-            debug(f"Going to download from '{yt_url}'")
+        # TODO: download speed up?
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                yt_url = yt_video_id_to_url(self.video_id)
+                debug(f"Going to download from '{yt_url}'")
 
-            # TODO: download speed up?
-            ydl.download([yt_url])
+                ydl.download([yt_url])
 
-            debug("Conversion completed")
+                debug("Conversion completed")
 
-            self.conversion_finished.emit(self.video_id, self.user_data)
+                self.conversion_finished.emit(self.video_id, self.user_data)
 
-            if self.apply_tags:
-                debug(f"Applying mp3 tags to {output}")
+                if self.apply_tags:
+                    debug(f"Applying mp3 tags to {output}")
 
-                try:
-                    f: AudioFile = eyed3.load(output)
-                    if f:
-                        if not f.tag:
-                            f.tag.initTag()
+                    try:
+                        f: AudioFile = eyed3.load(output)
+                        if f:
+                            if not f.tag:
+                                f.tag.initTag()
 
-                        tag: eyed3.id3.Tag = f.tag
-                        if self.artist is not None:
-                            tag.artist = self.artist
-                        if self.album is not None:
-                            tag.album = self.album
-                        if self.song is not None:
-                            tag.title = self.song
-                        if self.track_num is not None:
-                            tag.track_num = self.track_num
-                        if self.image:
-                            # TODO: use better cover
-                            tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, self.image, "image/jpeg")
-                        tag.save()
-                        debug("Tagging completed")
-                        self.tagging_finished.emit(self.video_id, self.user_data)
-                    else:
+                            tag: eyed3.id3.Tag = f.tag
+                            if self.artist is not None:
+                                tag.artist = self.artist
+                            if self.album is not None:
+                                tag.album = self.album
+                            if self.song is not None:
+                                tag.title = self.song
+                            if self.track_num is not None:
+                                tag.track_num = self.track_num
+                            if self.image:
+                                # TODO: use better cover
+                                tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, self.image, "image/jpeg")
+                            tag.save()
+                            debug("Tagging completed")
+                            self.tagging_finished.emit(self.video_id, self.user_data)
+                        else:
+                            print(f"WARN: failed to apply mp3 tags to {output}")
+                    except:
                         print(f"WARN: failed to apply mp3 tags to {output}")
-                except:
-                    print(f"WARN: failed to apply mp3 tags to {output}")
-
+        except Exception as e:
+            print(f"ERROR: download for video {self.video_id} failed: {e}", file=sys.stderr)
+            self.error.emit(self.video_id, f"ERROR: {e}", self.user_data)
+            return
 
 def start_track_download(
         video_id: str,
@@ -165,6 +177,7 @@ def start_track_download(
         started_callback,
         progress_callback,
         finished_callback,
+        error_callback,
         apply_tags=True, user_data=None):
 
     worker = TrackDownloaderWorker(
@@ -192,14 +205,27 @@ def start_track_download(
 
     def internal_finished_callback():
         try:
-            downloads.pop(video_id)
-        except ValueError:
+            d = downloads.pop(video_id)
+            d["status"] = "finished"
+            finished_downloads[video_id] = d
+        except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
         finished_callback(video_id, user_data)
+
+    def internal_error_callback(video_id_, error_msg, user_data_):
+        try:
+            d = downloads.pop(video_id)
+            d["status"] = "finished"
+            d["error"] = error_msg
+            finished_downloads[video_id] = d
+        except KeyError:
+            print(f"WARN: no track with video id = {video_id} was in download")
+        error_callback(video_id, error_msg, user_data)
 
     worker.started.connect(internal_started_callback)
     worker.progress.connect(internal_progress_callback)
     worker.finished.connect(internal_finished_callback)
+    worker.error.connect(internal_error_callback)
 
     downloads[video_id] = {
         "user_data": user_data,
@@ -209,7 +235,7 @@ def start_track_download(
     for video_id, down in downloads.items():
         debug(f"{video_id}: {down['status']} ({down['progress']}%)")
 
-    workers.execute(worker)
+    workers.schedule(worker)
 
 
 # class YtDownloader(QObject):

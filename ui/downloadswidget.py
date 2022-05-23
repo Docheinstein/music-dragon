@@ -19,6 +19,7 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.download_progress: Optional[QProgressBar] = None
+            self.download_error: Optional[QLabel] = None
             self.layout = None
             self.inner_layout = None
 
@@ -55,7 +56,12 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         self.ui.download_progress.setMaximum(100)
         self.ui.download_progress.setOrientation(Qt.Horizontal)
         self.ui.download_progress.setValue(0)
-        self.ui.download_progress.setVisible(False)
+
+        # download errors
+        self.ui.download_error = QLabel()
+        self.ui.download_error.setStyleSheet("QLabel { color: red; }")
+        self.ui.download_error.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.download_error.setVisible(False)
 
         # build
         layout = QHBoxLayout()
@@ -63,9 +69,10 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         layout.addWidget(self.ui.cover)
 
         inner_layout = QGridLayout()
-        inner_layout.addWidget(self.ui.title, 0, 0)
         inner_layout.setContentsMargins(8, 0, 0, 0)
+        inner_layout.addWidget(self.ui.title, 0, 0)
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
+        inner_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
 
         self.setLayout(layout)
@@ -87,12 +94,33 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         # progress
         youtube_track = get_youtube_track(self.track.youtube_track_id)
         download = ytdownloader.get_download(youtube_track.video_id)
+        if not download:
+            download = ytdownloader.get_finished_download(youtube_track.video_id)
 
+
+        # error
         if download:
-            self.ui.download_progress.setVisible(download["status"] == "downloading")
-            self.ui.download_progress.setValue(round(download["progress"]))
+            if download["status"] == "queued":
+                self.ui.download_progress.setVisible(False)
+                self.ui.download_error.setVisible(False)
+            elif download["status"] == "downloading":
+                self.ui.download_progress.setVisible(True)
+                self.ui.download_progress.setValue(round(download["progress"]))
+                self.ui.download_error.setVisible(False)
+            elif download["status"] == "finished":
+                if "error" in download:
+                    self.ui.download_progress.setVisible(False)
+                    self.ui.download_error.setVisible(True)
+                    self.ui.download_error.setText(download["error"])
+                else:
+                    self.ui.download_progress.setVisible(False)
+                    self.ui.download_error.setVisible(False)
+            else:
+                print(f"WARN: unknown status: {download['status']}")
         else:
             print(f"WARN: no download found for video {youtube_track.video_id}")
+            self.ui.download_progress.setVisible(False)
+            self.ui.download_error.setVisible(False)
 
 
 class DownloadsModel(ListWidgetModel):
@@ -104,6 +132,16 @@ class DownloadsModel(ListWidgetModel):
 
     def entry_count(self) -> int:
         return len(ytdownloader.downloads)
+
+class FinishedDownloadsModel(ListWidgetModel):
+    def __init__(self):
+        super().__init__()
+
+    def entries(self) -> List:
+        return [down["user_data"] for down in ytdownloader.finished_downloads.values()]
+
+    def entry_count(self) -> int:
+        return len(ytdownloader.finished_downloads)
 
 class DownloadsWidget(ListWidgetModelView):
 

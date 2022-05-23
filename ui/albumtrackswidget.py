@@ -86,8 +86,8 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         layout.addWidget(self.ui.cover)
 
         inner_layout = QGridLayout()
-        inner_layout.addWidget(self.ui.title, 0, 0)
         inner_layout.setContentsMargins(8, 0, 0, 0)
+        inner_layout.addWidget(self.ui.title, 0, 0)
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
 

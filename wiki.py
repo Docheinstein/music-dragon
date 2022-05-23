@@ -77,7 +77,7 @@ class FetchWikidataImageWorker(Worker):
             self.result.emit(self.wiki_id, bytes(), self.user_data)
 
 
-def fetch_wikidata_image(wiki_id, callback, user_data=None):
+def fetch_wikidata_image(wiki_id, callback, user_data=None, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
     worker = FetchWikidataImageWorker(wiki_id, user_data)
     worker.result.connect(callback)
-    workers.execute(worker)
+    workers.schedule(worker, priority=priority)
