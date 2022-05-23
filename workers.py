@@ -1,10 +1,9 @@
-from queue import PriorityQueue
 from typing import Optional, List
 
 from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 
 from log import debug
-
+from utils import current_millis
 
 _worker_scheduler: Optional['WorkerScheduler'] = None
 
@@ -34,6 +33,12 @@ class Worker(QObject):
         self.started.emit()
         self.run()
         self.finished.emit()
+
+    def can_execute(self):
+        return True
+
+    def is_canceled(self):
+        return False
 
     def __str__(self):
         if self.tag:
@@ -102,15 +107,26 @@ class WorkerJob:
         self.worker = worker
         self.priority = priority
         self.status = status
+        self.born = current_millis()
 
+    # Returns True if schedule this job is better than scheduling the other job
     def __lt__(self, other):
-        return self.priority >= other.priority # reversed
+        # Higher priority is better
+        if self.priority > other.priority:
+            return True
+        if self.priority < other.priority:
+            return False
+
+        # Latest is better
+        return self.born > other.born
 
 
 class WorkerScheduler(QObject):
     PRIORITY_LOW = 10
-    PRIORITY_NORMAL = 20
-    PRIORITY_HIGH = 30
+    PRIORITY_BELOW_NORMAL = 20
+    PRIORITY_NORMAL = 30
+    PRIORITY_ABOVE_NORMAL = 40
+    PRIORITY_HIGH = 50
 
     def __init__(self, max_num_threads: int):
         super().__init__()
@@ -151,11 +167,17 @@ class WorkerScheduler(QObject):
     def _dispatch_next_job_if_possible(self):
         debug("Eventually dispatching next job")
 
+        self._remove_canceled()
+
         # Dispatch a job to an available thread, if any
+
+        # PRIORITY
         available_thread = self._get_first_available_thread()
         if not available_thread:
             debug("No available thread, not executing job by now")
             return
+        # FIFO
+        # available_thread = self._get_most_available_thread()
 
         debug(f"Available thread found: {available_thread}")
 
@@ -168,9 +190,10 @@ class WorkerScheduler(QObject):
         for wid, job in self.jobs.items():
             if job.status != WorkerJob.STATUS_WAITING:
                 continue
-            if best_job_priority is None or job.priority > best_job_priority:
-                best_job = job
-                best_job_priority = job.priority
+            if job.worker.can_execute() is True:
+                if best_job_priority is None or job.priority > best_job_priority:
+                    best_job = job
+                    best_job_priority = job.priority
 
         if not best_job:
             debug("No job to dispatch")
@@ -187,9 +210,30 @@ class WorkerScheduler(QObject):
                 return t
         return None
 
+    def _get_most_available_thread(self) -> Thread:
+        best_thread_idx = 0
+        best_thread_num_workers = self.threads[0].active_workers()
+        for idx, t in enumerate(self.threads):
+            if t.active_workers() < best_thread_num_workers:
+                best_thread_num_workers = t.active_workers()
+                best_thread_idx = idx
+        return self.threads[best_thread_idx]
+
     def _available_threads(self) -> int:
         return [t.active_workers() for t in self.threads].count(0)
 
+    def _remove_canceled(self):
+        wid_zombies = []
+        for wid, job in self.jobs.items():
+            if job.worker.is_canceled():
+                wid_zombies.append(wid)
+
+        if wid_zombies:
+            debug(f"Killing zombie workers: {wid_zombies}")
+        for wid in wid_zombies:
+            self.jobs.pop(wid)
+
+
 
 def schedule(worker: Worker, priority=WorkerScheduler.PRIORITY_NORMAL):
-    _worker_scheduler.schedule(worker, priority)
+    _worker_scheduler.schedule(worker, priority=priority)

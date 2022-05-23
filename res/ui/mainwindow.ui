@@ -208,7 +208,7 @@
             </property>
             <widget class="QWidget" name="downloadsQueuedTab">
              <attribute name="title">
-              <string>Queued</string>
+              <string>Queue</string>
              </attribute>
              <layout class="QVBoxLayout" name="verticalLayout_3">
               <item>

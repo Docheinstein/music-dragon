@@ -507,13 +507,16 @@ def search_track_youtube_track(track_id: str, track_youtube_track_callback):
         ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
 
 
-def download_youtube_track(track_id: str, started_callback, progress_callback, finished_callback, error_callback):
+def download_youtube_track(track_id: str, queued_callback, started_callback, progress_callback, finished_callback, error_callback):
     track = get_track(track_id)
     rg = track.release().release_group()
 
     if not track.youtube_track_id:
-        print(f"WARN: not youtube track associated with track {track.id}")
+        print(f"WARN: no youtube track associated with track {track.id}")
         return
+
+    def queued_callback_wrapper(video_id: str, track_id_: str):
+        queued_callback(track_id)
 
     def started_callback_wrapper(video_id: str, track_id_: str):
         started_callback(track_id)
@@ -536,6 +539,7 @@ def download_youtube_track(track_id: str, started_callback, progress_callback, f
         image=rg.images.preferred_image(),
         output_directory=preferences.directory(),
         output_format=preferences.output_format(),
+        queued_callback=queued_callback_wrapper,
         started_callback=started_callback_wrapper,
         progress_callback=progress_callback_wrapper,
         finished_callback=finished_callback_wrapper,
@@ -543,3 +547,12 @@ def download_youtube_track(track_id: str, started_callback, progress_callback, f
         apply_tags=True,
         user_data=track.id
     )
+
+def stop_download_youtube_track(track_id: str):
+    track = get_track(track_id)
+
+    if not track.youtube_track_id:
+        print(f"WARN: no youtube track associated with track {track.id}")
+        return
+
+    ytdownloader.stop_track_download(track.youtube_track().video_id)

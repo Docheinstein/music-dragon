@@ -48,3 +48,13 @@ def thread_number() -> int:
 
 def set_thread_number(value: int):
     _preferences.setValue("thread_number", value)
+
+# Maximum simultaneous downloads
+
+def max_simultaneous_downloads() -> int:
+    x = _preferences.value("max_simultaneous_downloads")
+    return int(x) if x is not None else max(thread_number() - 1, 1)
+
+
+def set_max_simultaneous_downloads(value: int):
+    _preferences.setValue("max_simultaneous_downloads", value)

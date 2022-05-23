@@ -1,18 +1,18 @@
 from typing import List, Optional
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton
 
 import ui
 import ytdownloader
+from log import debug
 from repository import get_track, Track, get_youtube_track
 from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from utils import make_pixmap_from_data
 
 
 class DownloadsItemItemWidget(ListWidgetModelViewItem):
-    download_button_clicked = pyqtSignal(str)
-    open_video_button_clicked = pyqtSignal(str)
+    cancel_button_clicked = pyqtSignal(str)
 
     class Ui:
         def __init__(self):
@@ -20,6 +20,7 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             self.title: Optional[QLabel] = None
             self.download_progress: Optional[QProgressBar] = None
             self.download_error: Optional[QLabel] = None
+            self.cancel_button: Optional[QPushButton] = None
             self.layout = None
             self.inner_layout = None
 
@@ -63,6 +64,15 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         self.ui.download_error.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         self.ui.download_error.setVisible(False)
 
+        # cancel button
+        self.ui.cancel_button = QPushButton()
+        self.ui.cancel_button.setVisible(False)
+        self.ui.cancel_button.setIcon(ui.resources.X_ICON)
+        self.ui.cancel_button.setFlat(True)
+        self.ui.cancel_button.setCursor(Qt.PointingHandCursor)
+        self.ui.cancel_button.setIconSize(QSize(24, 24))
+        self.ui.cancel_button.clicked.connect(self._on_cancel_button_clicked)
+
         # build
         layout = QHBoxLayout()
         layout.setSpacing(4)
@@ -74,6 +84,8 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         inner_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
+
+        layout.addWidget(self.ui.cancel_button)
 
         self.setLayout(layout)
 
@@ -97,23 +109,25 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         if not download:
             download = ytdownloader.get_finished_download(youtube_track.video_id)
 
-
         # error
         if download:
             if download["status"] == "queued":
                 self.ui.download_progress.setVisible(False)
                 self.ui.download_error.setVisible(False)
+                self.ui.cancel_button.setVisible(True)
             elif download["status"] == "downloading":
                 self.ui.download_progress.setVisible(True)
                 self.ui.download_progress.setValue(round(download["progress"]))
                 self.ui.download_error.setVisible(False)
+                self.ui.cancel_button.setVisible(False) # TODO: handle this
             elif download["status"] == "finished":
+                self.ui.download_progress.setVisible(False)
+                self.ui.cancel_button.setVisible(False)
+
                 if "error" in download:
-                    self.ui.download_progress.setVisible(False)
                     self.ui.download_error.setVisible(True)
                     self.ui.download_error.setText(download["error"])
                 else:
-                    self.ui.download_progress.setVisible(False)
                     self.ui.download_error.setVisible(False)
             else:
                 print(f"WARN: unknown status: {download['status']}")
@@ -121,7 +135,11 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             print(f"WARN: no download found for video {youtube_track.video_id}")
             self.ui.download_progress.setVisible(False)
             self.ui.download_error.setVisible(False)
+            self.ui.cancel_button.setVisible(False)
 
+    def _on_cancel_button_clicked(self):
+        debug(f"_on_cancel_button_clicked({self.track_id})")
+        self.cancel_button_clicked.emit(self.track_id)
 
 class DownloadsModel(ListWidgetModel):
     def __init__(self):
@@ -144,10 +162,16 @@ class FinishedDownloadsModel(ListWidgetModel):
         return len(ytdownloader.finished_downloads)
 
 class DownloadsWidget(ListWidgetModelView):
+    cancel_button_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
         w = DownloadsItemItemWidget(entry)
+        w.cancel_button_clicked.connect(self._on_cancel_button_clicked)
         return w
+
+    def _on_cancel_button_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.cancel_button_clicked.emit(row)

@@ -1,3 +1,5 @@
 - Do not put the worker in the threads instantly but only when a workers finishes
   its job, and use a priority queue in the middle
 - Maximum number of concurrent downloads
+- Back cover button text is wrong
+- Download All is disabled sometimes?

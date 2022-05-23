@@ -8,13 +8,14 @@ from eyed3.core import AudioFile
 from eyed3.id3 import Tag
 from youtube_dl import YoutubeDL
 
+import preferences
 import workers
 from log import debug
 from utils import j
 from workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
-
+YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 10
 
 def yt_video_id_to_url(video_id: str):
     return f"https://youtube.com/watch?v={video_id}"
@@ -40,6 +41,7 @@ def get_finished_download(video_id: str):
 class TrackDownloaderWorker(Worker):
     progress = pyqtSignal(str, float, str)
     error = pyqtSignal(str, str, str)
+    # canceled = pyqtSignal(str, str)
     download_finished = pyqtSignal(str, str)
     conversion_finished = pyqtSignal(str, str)
     tagging_finished = pyqtSignal(str, str)
@@ -74,19 +76,19 @@ class TrackDownloaderWorker(Worker):
             def error(self, msg):
                 print(f"ERROR: {msg}", file=sys.stderr)
 
-        def progress_hook(d):
-            if d["status"] == "downloading":
+        def progress_hook(hook_info):
+            if hook_info["status"] == "downloading":
                 debug("YOUTUBE_DL update: downloading")
 
-                if "_percent_str" in d:
-                    self.progress.emit(self.video_id, float(d["_percent_str"].strip("%")), self.user_data)
+                if "_percent_str" in hook_info:
+                    self.progress.emit(self.video_id, float(hook_info["_percent_str"].strip("%")), self.user_data)
 
-            if d["status"] == "finished":
+            if hook_info["status"] == "finished":
                 debug("YOUTUBE_DL update: finished")
                 self.download_finished.emit(self.video_id, self.user_data)
 
-            if d["status"] == "error":
-                debug(f"YOUTUBE_DL update: error\n{j(d)}")
+            if hook_info["status"] == "error":
+                debug(f"YOUTUBE_DL update: error\n{j(hook_info)}")
                 self.error.emit(self.video_id, "ERROR", self.user_data)
 
 
@@ -126,54 +128,85 @@ class TrackDownloaderWorker(Worker):
         }
 
         # TODO: download speed up?
-        try:
-            with YoutubeDL(ydl_opts) as ydl:
-                yt_url = yt_video_id_to_url(self.video_id)
-                debug(f"Going to download from '{yt_url}'")
 
-                ydl.download([yt_url])
+        last_error = None
+        for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
+            debug(f"Download attempt n. {attempt} for {self.video_id}")
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    yt_url = yt_video_id_to_url(self.video_id)
+                    debug(f"Going to download from '{yt_url}'")
 
-                debug("Conversion completed")
+                    ydl.download([yt_url])
 
-                self.conversion_finished.emit(self.video_id, self.user_data)
+                    debug("Conversion completed")
 
-                if self.apply_tags:
-                    debug(f"Applying mp3 tags to {output}")
+                    self.conversion_finished.emit(self.video_id, self.user_data)
 
-                    try:
-                        f: AudioFile = eyed3.load(output)
-                        if f:
-                            if not f.tag:
-                                f.tag.initTag()
+                    if self.apply_tags:
+                        debug(f"Applying mp3 tags to {output}")
 
-                            tag: eyed3.id3.Tag = f.tag
-                            if self.artist is not None:
-                                tag.artist = self.artist
-                            if self.album is not None:
-                                tag.album = self.album
-                            if self.song is not None:
-                                tag.title = self.song
-                            if self.track_num is not None:
-                                tag.track_num = self.track_num
-                            if self.image:
-                                # TODO: use better cover
-                                tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, self.image, "image/jpeg")
-                            tag.save()
-                            debug("Tagging completed")
-                            self.tagging_finished.emit(self.video_id, self.user_data)
-                        else:
+                        try:
+                            f: AudioFile = eyed3.load(output)
+                            if f:
+                                if not f.tag:
+                                    f.tag.initTag()
+
+                                tag: eyed3.id3.Tag = f.tag
+                                if self.artist is not None:
+                                    tag.artist = self.artist
+                                if self.album is not None:
+                                    tag.album = self.album
+                                if self.song is not None:
+                                    tag.title = self.song
+                                if self.track_num is not None:
+                                    tag.track_num = self.track_num
+                                if self.image:
+                                    # TODO: use better cover
+                                    tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, self.image, "image/jpeg")
+                                tag.save()
+                                debug("Tagging completed")
+                                self.tagging_finished.emit(self.video_id, self.user_data)
+                            else:
+                                print(f"WARN: failed to apply mp3 tags to {output}")
+                        except:
                             print(f"WARN: failed to apply mp3 tags to {output}")
-                    except:
-                        print(f"WARN: failed to apply mp3 tags to {output}")
-        except Exception as e:
-            print(f"ERROR: download for video {self.video_id} failed: {e}", file=sys.stderr)
-            self.error.emit(self.video_id, f"ERROR: {e}", self.user_data)
-            return
+                return # download done
+            except Exception as e:
+                print(f"WARN: download attempt n. {attempt} failed for video {self.video_id}: {e}")
+                last_error = e
+
+        print(f"ERROR: all download attempts ({YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS} "
+              f"failed for video {self.video_id}: {last_error}", file=sys.stderr)
+        self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
+
+    def can_execute(self):
+        down = downloads.get(self.video_id)
+        if not down:
+            print(f"WARN: no download waiting for video id {self.video_id}")
+            return False
+
+        down = downloads[self.video_id]
+        if down["status"] != "queued":
+            return False
+
+        downloading_count = [d["status"] == "downloading" for d in downloads.values()].count(True)
+        max_download_count = preferences.max_simultaneous_downloads()
+        can = downloading_count < max_download_count
+        debug(f"Checking whether can download {down['user_data']} with status {down['status']}: "
+              f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
+        return can
+
+    def is_canceled(self):
+        down = downloads.get(self.video_id)
+        return True if down is None else False # not found means canceled
+
 
 def start_track_download(
         video_id: str,
         artist: str, album: str, song: str, track_num: int, image: bytes,
         output_directory: str, output_format: str,
+        queued_callback,
         started_callback,
         progress_callback,
         finished_callback,
@@ -231,56 +264,19 @@ def start_track_download(
         "user_data": user_data,
         "status": "queued",
         "progress": 0,
+        "attempt": 0
     }
     for video_id, down in downloads.items():
         debug(f"{video_id}: {down['status']} ({down['progress']}%)")
 
-    workers.schedule(worker)
+    workers.schedule(worker, priority=workers.WorkerScheduler.PRIORITY_BELOW_NORMAL)
 
+    # call directly
+    queued_callback(video_id, user_data)
 
-# class YtDownloader(QObject):
-#     track_download_started = pyqtSignal(YtTrack)
-#     track_download_progress = pyqtSignal(YtTrack, float)
-#     track_download_finished = pyqtSignal(YtTrack)
-#
-#     def __init__(self):
-#         super().__init__()
-#         self.queue: List[YtTrack] = []
-#         # self.current_download_task: Optional[TrackDownloaderRunnable] = None
-#
-#     def enqueue(self, yttrack: YtTrack):
-#         self.queue.append(yttrack)
-#         if len(self.queue) == 1:
-#             self.start_next_download()
-#
-#     def start_next_download(self):
-#         debug("start_next_download")
-#         if self.queue:
-#             debug(f"start_next_download: downloading {self.queue[0].mb_track.title}")
-#             track_downloader_runnable = TrackDownloaderRunnable(
-#                 self.queue[0],
-#                 output_directory=preferences.directory(),
-#                 output_format=preferences.output_format()
-#             )
-#             track_downloader_runnable.signals.started.connect(self.on_download_started)
-#             track_downloader_runnable.signals.progress.connect(self.on_download_progress)
-#             track_downloader_runnable.signals.finished.connect(self.on_download_finished)
-#             QThreadPool.globalInstance().start(track_downloader_runnable)
-#         else:
-#             debug("start_next_download: nothing to do")
-#
-#     def on_download_started(self, track: YtTrack):
-#         debug(f"on_download_started(track={track.mb_track.title})")
-#         self.track_download_started.emit(track)
-#
-#     def on_download_progress(self, track: YtTrack, progress: float):
-#         debug(f"on_download_progress(track={track.mb_track.title}, progress={progress})")
-#         self.track_download_progress.emit(track, progress)
-#
-#     def on_download_finished(self, track: YtTrack):
-#         debug(f"on_download_finished(track={track.mb_track.title})")
-#         done = self.queue[0]
-#         assert(done.video_id == track.video_id)
-#         self.queue = self.queue[1:]
-#         self.track_download_finished.emit(track)
-#         self.start_next_download()
+def stop_track_download(video_id: str):
+    try:
+        d = downloads.pop(video_id)
+        d["status"] = "canceled"
+    except KeyError:
+        print(f"WARN: no track with video id = {video_id} was in download")

@@ -52,12 +52,14 @@ class PreferencesWindow(QDialog):
         self.ui.coverSize.setCurrentIndex(PreferencesWindow.COVER_SIZE_INDEXES[preferences.cover_size()])
         self.ui.outputFormat.setText(preferences.output_format())
         self.ui.threadNumber.setValue(preferences.thread_number())
+        self.ui.maxSimultaneousDownloads.setValue(preferences.max_simultaneous_downloads())
 
     def save_settings(self):
         preferences.set_directory(self.ui.directory.text())
         preferences.set_cover_size(PreferencesWindow.COVER_SIZE_VALUES[self.ui.coverSize.currentIndex()])
         preferences.set_output_format(self.ui.outputFormat.text())
         preferences.set_thread_number(self.ui.threadNumber.value())
+        preferences.set_max_simultaneous_downloads(self.ui.maxSimultaneousDownloads.value())
 
 
     def on_download_directory_clicked(self):

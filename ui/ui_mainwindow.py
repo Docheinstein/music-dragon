@@ -327,7 +327,7 @@ class Ui_MainWindow(object):
         self.downloadsPageButton.setText(_translate("MainWindow", "Downloads"))
         self.label.setText(_translate("MainWindow", "WORK IN PROGRESS"))
         self.searchBar.setPlaceholderText(_translate("MainWindow", "Search for artist..."))
-        self.downloadsTabs.setTabText(self.downloadsTabs.indexOf(self.downloadsQueuedTab), _translate("MainWindow", "Queued"))
+        self.downloadsTabs.setTabText(self.downloadsTabs.indexOf(self.downloadsQueuedTab), _translate("MainWindow", "Queue"))
         self.downloadsTabs.setTabText(self.downloadsTabs.indexOf(self.downloadsFinishedTab), _translate("MainWindow", "Completed"))
         self.albumCoverNumber.setText(_translate("MainWindow", "1/2"))
         self.albumTitle.setText(_translate("MainWindow", "Fear of the Dark"))

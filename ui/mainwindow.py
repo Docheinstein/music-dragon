@@ -100,6 +100,7 @@ class MainWindow(QMainWindow):
         # Downloads
         self.downloads_model = DownloadsModel()
         self.ui.queuedDownloads.set_model(self.downloads_model)
+        self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_track_cancel_download_button_clicked)
 
         # Completed downloads
         self.finished_downloads_model = FinishedDownloadsModel()
@@ -621,6 +622,12 @@ class MainWindow(QMainWindow):
             self.ui.albumDownloadStatus.setText(f"Official tracks: {official}/{downloadable}")
 
 
+    def on_youtube_track_download_queued(self, track_id: str):
+        debug(f"on_youtube_track_download_queued(track_id={track_id})")
+        self.ui.queuedDownloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_count()
+
     def on_youtube_track_download_started(self, track_id: str):
         debug(f"on_youtube_track_download_started(track_id={track_id})")
         self.ui.queuedDownloads.invalidate()
@@ -650,7 +657,7 @@ class MainWindow(QMainWindow):
         queued_count = ytdownloader.download_count()
         finished_count = ytdownloader.finished_download_count()
         self.ui.downloadsPageButton.setText(f"Downloads ({queued_count})" if queued_count else "Downloads")
-        self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_QUEUED_INDEX, f"Queued ({queued_count})" if queued_count else "Queued")
+        self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_QUEUED_INDEX, f"Queue ({queued_count})" if queued_count else "Queue")
         self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_COMPLETED_INDEX, f"Completed ({finished_count})" if finished_count else "Completed")
 
     def on_download_all_album_tracks_clicked(self):
@@ -661,165 +668,19 @@ class MainWindow(QMainWindow):
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,
+                                          queued_callback=self.on_youtube_track_download_queued,
                                           started_callback=self.on_youtube_track_download_started,
                                           progress_callback=self.on_youtube_track_download_progress,
                                           finished_callback=self.on_youtube_track_download_finished,
                                           error_callback=self.on_youtube_track_download_error)
 
-    # def on_youtube_track_fetched(self, mbtrack: MbTrack, yttrack: YtTrack):
-    #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")
-    #
-    #     if not (self.current_release_group and self.current_release_group.id == mbtrack.release.release_group.id):
-    #         print("WARN: got youtube track details outside album page")
-    #         return
-    #
-    #     self.ui.albumTracks.set_youtube_track(mbtrack, yttrack)
-    #
-    #     # for idx, track in enumerate(self.album_model.tracks):
-    #     #     if track.id == mbtrack.id:
-    #     #         track.youtube_track = yttrack
-    #     #         self.album_model.invalidate(idx)
-    #
-    # def on_youtube_tracks_fetch_finished(self, mbtrack: MbTrack):
-    #     debug(f"on_youtube_track_fetched(track_id={mbtrack.id})")
-    #
-    #     if not (self.current_release_group and self.current_release_group.id == mbtrack.release.release_group.id):
-    #         print("WARN: got youtube track details outside album page")
-    #         return
-    #
-    #     self.ui.albumDownloadAllButton.setEnabled(True)
+    def on_track_cancel_download_button_clicked(self, row: int):
+        debug("on_cancel_download_button_clicked")
+        track_id = self.downloads_model.entry(row)
+        repository.stop_download_youtube_track(track_id)
 
-    # def on_album_track_mouse_pressed(self, ev: QMouseEvent):
-    #     debug(f"on_album_track_mouse_pressed at x={ev.x()}, y={ev.y()}")
-
-    # def on_album_download_clicked(self):
-    #     if self.ui.pages.currentIndex() != ALBUM_PAGE_INDEX:
-    #         print("WARN: currently outside of album widget")
-    #         return
-    #
-    #     debug(j(shown_album.release.info))
-    #     debug(j(shown_album.release_details))
-    #
-    #     self.do_album_download(
-    #         shown_album.release.info["artist-credit"][0]["name"],
-    #         shown_album.release.info["title"])
-
-    # def on_download_album_tracks_clicked(self):
-    #     debug(f"on_download_album_tracks_clicked")
-    #     for track in self.ui.albumTracks.tracks:
-    #         self.download_track(track)
-    #
-    # def on_download_track_clicked(self, track: MbTrack):
-    #     debug(f"on_download_track_clicked(track_id={track.id})")
-    #     self.download_track(track)
-    #
-    # def download_track(self, mbtrack: MbTrack):
-    #     if not mbtrack.youtube_track:
-    #         print(f"WARN: no youtube video has been found for track: {mbtrack.title}")
-    #         return
-    #
-    #     self.enqueue_download(mbtrack.youtube_track)
-    #     # TODO: show loader instead of download button
-    #     self.ui.albumTracks.set_download_enabled(mbtrack, False)
-    #
-    # def enqueue_download(self, track: YtTrack):
-    #     self.downloader.enqueue(track)
-    #     self.ui.queuedDownloads.add_track(track)
-
-    # def on_album_clicked(self, mb_release_group: MbReleaseGroup):
-    #     self.open_release_group(mb_release_group)
-    #
-    # def on_track_download_started(self, track: YtTrack):
-    #     debug(f"on_track_download_started(track={track.mb_track.title})")
-    #     self.ui.albumTracks.set_download_progress_visible(track.mb_track, True)
-    #     self.ui.albumTracks.set_download_progress(track.mb_track, percentage=0)
-    #
-    #     self.ui.queuedDownloads.set_download_progress_visible(track, True)
-    #     self.ui.queuedDownloads.set_download_progress(track, percentage=0)
-    #
-    # def on_track_download_progress(self, track: YtTrack, progress: float):
-    #     debug(f"on_track_download_progress(track={track.mb_track.title}, progress={progress})")
-    #     self.ui.albumTracks.set_download_progress(track.mb_track, percentage=int(progress))
-    #     self.ui.queuedDownloads.set_download_progress(track, percentage=int(progress))
-    #
-    # def on_track_download_finished(self, track: YtTrack):
-    #     debug(f"on_track_download_finished(track={track.mb_track.title})")
-    #     self.ui.albumTracks.set_download_progress_visible(track.mb_track, False)
-    #     self.ui.queuedDownloads.remove_track(track)
-
-    #
-    # def do_album_download(self, artist_query, album_query):
-    #     debug(f"do_album_download(artist={artist_query}, album={album_query})")
-    #
-    #
-    #     # Find artist
-    #     result = yt.search(artist_query, filter="artists")
-    #     debug(j(result))
-    #
-    #     artist_found = False
-    #     album_found = False
-    #
-    #     closest_artist_name = get_close_matches(artist_query, [artist["artist"] for artist in result])
-    #
-    #     if not closest_artist_name:
-    #         print(f"WARN: cannot find artist with name {artist_query}")
-    #         self.ui.albumDownloadStatus.text("Download failed")
-    #         return
-    #
-    #     closest_artist_name = closest_artist_name[0]
-    #
-    #     for artist in result:
-    #         if artist["artist"] == closest_artist_name:
-    #             debug(f"ARTIST FOUND: {artist['browseId']}")
-    #             artist_found = True
-    #             artist_details = yt.get_artist(artist["browseId"])
-    #             artist_albums = yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
-    #             debug(j(artist_albums))
-    #
-    #             closest_album_name = get_close_matches(album_query, [album["title"] for album in artist_albums])
-    #
-    #             if not closest_album_name:
-    #                 print(f"WARN: cannot find album with title {album_query}")
-    #                 self.ui.albumDownloadStatus.text("Download failed")
-    #                 return
-    #
-    #             closest_album_name = closest_album_name[0]
-    #
-    #             for album in artist_albums:
-    #                 if album["title"] == closest_album_name:
-    #                     debug(f"ALBUM FOUND: {album['browseId']}")
-    #                     album_found = True
-    #                     album_details = yt.get_album(album["browseId"])
-    #                     debug(j(album_details))
-    #                     tracks = album_details["tracks"]
-    #                     for track in tracks:
-    #                         track_name = track["title"]
-    #                         duration = track["duration"]
-    #                         video_id = track["videoId"]
-    #                         debug(f"- {track_name}: {video_id} [{duration}]")
-    #
-    #                     tracks_downloader = TrackDownloaderRunnable(closest_artist_name, closest_album_name, tracks)
-    #                     tracks_downloader.signals.track_download_started.connect(self.on_track_download_started)
-    #                     tracks_downloader.signals.track_download_progress.connect(self.on_track_download_progress)
-    #                     tracks_downloader.signals.track_download_finished.connect(self.on_track_download_finished)
-    #                     QThreadPool.globalInstance().start(tracks_downloader)
-    #                     return
-    #
-    #     if not artist_found:
-    #         print(f"WARN: cannot find artist with name {artist_query}")
-    #         self.ui.albumDownloadStatus.text("Download failed")
-    #         return
-    #
-    #     if not album_found:
-    #         print(f"WARN: cannot find album with title {album_query}")
-    #         self.ui.albumDownloadStatus.text("Download failed")
-    #         return
-
-    # def on_track_download_started(self, track_name):
-    #     print(f"Started download of {track_name}")
-    #
-    # def on_track_download_progress(self, track_name, progress_str):
-    #     self.ui.albumDownloadStatus.setText(f"{track_name}: {progress_str}")
-    #
-    # def on_track_download_finished(self, track_name):
-    #     print(f"Finished download of {track_name}")
+        # sync update
+        self.ui.queuedDownloads.invalidate()
+        # self.ui.finishedDownloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_count()
