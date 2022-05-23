@@ -80,6 +80,8 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         self.album_title = album_title
 
     def run(self) -> None:
+        emission = []
+
         artist_query = self.artist_name
         album_query = self.album_title
 
@@ -121,7 +123,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                     debug(j(artist_albums))
 
                     closest_album_names = get_close_matches(album_query, [album["title"] for album in artist_albums])
-                    debug(f"closest_album_names={closest_artist_names}")
+                    debug(f"closest_album_names={closest_album_names}")
 
                     if closest_album_names:
                         closest_album_name = closest_album_names[0]
@@ -145,13 +147,15 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                                 "id": album['browseId'],
                                 "name": album["title"]
                             }
-                        self.result.emit(self.artist_name, self.album_title, [YtTrack(yttrack) for yttrack in result])
+                        emission = [YtTrack(yttrack) for yttrack in result]
                 else:
                     print("WARN: no 'params' key for artist albums")
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")
         else:
             print(f"WARN: no artist close to '{artist_query}'")
+
+        self.result.emit(self.artist_name, self.album_title, emission)
 
 
 def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):

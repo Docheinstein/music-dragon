@@ -12,6 +12,10 @@ from workers import Worker
 def initialize():
     mb.set_useragent("MusicDragon", "0.1")
 
+def _release_group_is_official_album(mb_release_group):
+    return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] and \
+           ("secondary-type-list" not in mb_release_group or not mb_release_group.get("secondary-type-list"))
+
 class MbTrack:
     def __init__(self, mb_track, release_id):
         self.id = mb_track["recording"]["id"]
@@ -63,7 +67,12 @@ class MbArtist:
 
         if "release-group-list" in mb_artist:
             for release_group in mb_artist["release-group-list"]:
+                if not _release_group_is_official_album(release_group):
+                    debug(f"Skipping release group: {release_group['title']}")
+                    continue
+
                 mb_release_group = MbReleaseGroup(release_group)
+
                 # TODO: what if there is more than an artist?
                 mb_release_group.artists.append({
                     "id": self.id,
@@ -115,9 +124,9 @@ def search_artists(query, callback, limit, priority=workers.WorkerScheduler.PRIO
     workers.schedule(worker, priority=priority)
 
 
-# ========== SEARCH RELEASE GROUP ==========
+# ========== SEARCH RELEASE GROUPS ==========
 # Search the release groups for a given query
-# ==========================================
+# ===========================================
 
 class SearchReleaseGroupsWorker(Worker):
     result = pyqtSignal(str, list)
@@ -140,7 +149,7 @@ class SearchReleaseGroupsWorker(Worker):
             "======================"
         )
         release_groups = [MbReleaseGroup(release_group) for release_group in result
-                          if "primary-type" in release_group and release_group["primary-type"] in ["Album", "EP"]]
+                          if _release_group_is_official_album(release_group)]
 
         self.result.emit(self.query, release_groups)
 
@@ -207,31 +216,6 @@ class FetchReleaseGroupReleasesWorker(Worker):
 
         releases = [MbRelease(release) for release in result]
 
-        # # TODO remove
-        # try:
-        #     debug(f"MUSICBRAINZ: get_release_group_image_list: '{self.release_group_id}'")
-        #     result = mb.get_release_group_image_list(self.release_group_id)
-        #     debug(
-        #         "=== get_release_group_image_list ==="
-        #         f"{j(result)}"
-        #         "======================"
-        #     )
-        # except mb.ResponseError:
-        #     print(f"WARN: no image list for release group '{self.release_group_id}'")
-        #
-        # for release in releases:
-        #     try:
-        #         debug(f"MUSICBRAINZ: get_image_list: '{release.id}'")
-        #         result = mb.get_image_list(release.id)
-        #         debug(
-        #             "=== get_image_list ==="
-        #             f"{j(result)}"
-        #             "======================"
-        #         )
-        #     except mb.ResponseError:
-        #         print(f"WARN: no image list for release group '{release.id}'")
-        #
-
         self.result.emit(self.release_group_id, releases)
 
 
@@ -258,7 +242,9 @@ class FetchArtistWorker(Worker):
         debug(f"MUSICBRAINZ: get_artist_by_id: '{self.artist_id}'")
         result = mb.get_artist_by_id(
             self.artist_id,
-            includes=["aliases", "release-groups", "releases", "url-rels"]
+            includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
+            release_status=["official"],
+            release_type=["album"],
         )["artist"]
         debug(
             "=== get_artist_by_id ==="
@@ -272,6 +258,46 @@ def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_
     worker = FetchArtistWorker(artist_id)
     worker.result.connect(callback)
     workers.schedule(worker, priority=priority)
+
+
+
+# ============ FETCH ARTIST RELEASE GROUPS =============
+# Fetch the release groups of the given artist
+# ======================================================
+#
+# class FetchArtistReleaseGroupsWorker(Worker):
+#     result = pyqtSignal(str, list)
+#
+#     def __init__(self, artist_id: str):
+#         super().__init__()
+#         self.artist_id = artist_id
+#
+#     def run(self):
+#         # Fetch all the releases and releases tracks for the release groups
+#         # result = mb.get_artist_by_id(self.artist_id, includes=["aliases", "release-groups", "url-rels", "annotation", "releases", "isrcs"])
+#         debug(f"MUSICBRAINZ: browse_release_groups: '{self.artist_id}'")
+#         result = mb.browse_release_groups(
+#             self.artist_id,
+#             # includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
+#             # release_status=["official"],
+#             release_type=["album"],
+#         )["release-group-list"]
+#         debug(
+#             "=== browser_release_groups ==="
+#             f"{j(result)}"
+#             "======================"
+#         )
+#
+#         release_groups = [MbReleaseGroup(release_group) for release_group in result
+#                           if "primary-type" in release_group and release_group["primary-type"] in ["Album", "EP"] and not release_group.get("secondary-type")]
+#
+#         self.result.emit(self.artist_id, release_groups)
+#
+# def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+#     worker = FetchArtistWorker(artist_id)
+#     worker.result.connect(callback)
+#     workers.schedule(worker, priority=priority)
+#
 
 
 # ======= FETCH RELEASE COVER ======
