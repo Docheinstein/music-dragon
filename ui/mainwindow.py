@@ -102,7 +102,9 @@ class MainWindow(QMainWindow):
         # Downloads
         self.downloads_model = DownloadsModel()
         self.ui.queuedDownloads.set_model(self.downloads_model)
-        self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_track_cancel_download_button_clicked)
+        self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_download_cancel_button_clicked)
+        self.ui.queuedDownloads.artist_clicked.connect(self.on_download_artist_clicked)
+        self.ui.queuedDownloads.album_clicked.connect(self.on_download_album_clicked)
 
         # Completed downloads
         self.finished_downloads_model = FinishedDownloadsModel()
@@ -688,10 +690,23 @@ class MainWindow(QMainWindow):
                                           canceled_callback=self.on_youtube_track_download_canceled,
                                           error_callback=self.on_youtube_track_download_error)
 
-    def on_track_cancel_download_button_clicked(self, row: int):
-        debug("on_cancel_download_button_clicked")
+    def on_download_cancel_button_clicked(self, row: int):
+        debug("on_download_cancel_button_clicked")
         track_id = self.downloads_model.entry(row)
         repository.cancel_youtube_track_download(track_id)
+
+    def on_download_artist_clicked(self, row: int):
+        debug("on_download_artist_clicked")
+        track_id = self.downloads_model.entry(row)
+        # TODO: more than an artist
+        artist = get_track(track_id).release().release_group().artists()[0]
+        self.open_artist(artist)
+
+    def on_download_album_clicked(self, row: int):
+        debug("on_download_album_clicked")
+        track_id = self.downloads_model.entry(row)
+        rg = get_track(track_id).release().release_group()
+        self.open_release_group(rg)
 
 
     def on_mp3_loaded(self, artist: str, album: str, title: str, path: str):

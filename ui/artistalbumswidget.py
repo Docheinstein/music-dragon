@@ -46,7 +46,7 @@ class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         font = self.ui.subtitle.font()
-        font.setPointSize(font.pointSize() - 2)
+        font.setPointSize(10)
         self.ui.subtitle.setFont(font)
 
         # build

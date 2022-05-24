@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="homePage">
          <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -179,8 +179,11 @@
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
            <widget class="QLineEdit" name="searchBar">
+            <property name="text">
+             <string/>
+            </property>
             <property name="placeholderText">
-             <string>Search for artist...</string>
+             <string>Search for artists, album, songs...</string>
             </property>
            </widget>
           </item>

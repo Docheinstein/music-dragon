@@ -1,23 +1,29 @@
 from typing import List, Optional
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton, QVBoxLayout, \
+    QSpacerItem
 
 import ui
 import ytdownloader
 from log import debug
 from repository import get_track, Track, get_youtube_track
+from ui.clickablelabel import ClickableLabel
 from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from utils import make_pixmap_from_data
 
 
 class DownloadsItemItemWidget(ListWidgetModelViewItem):
+    artist_clicked = pyqtSignal(str)
+    album_clicked = pyqtSignal(str)
     cancel_button_clicked = pyqtSignal(str)
 
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
+            self.artist: Optional[QLabel] = None
+            self.album: Optional[QLabel] = None
             self.download_progress: Optional[QProgressBar] = None
             self.download_error: Optional[QLabel] = None
             self.cancel_button: Optional[QPushButton] = None
@@ -47,7 +53,36 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+
+        # artist
+        self.ui.artist = ClickableLabel()
+        self.ui.artist.set_underline_on_hover(True)
+        f = self.ui.artist.font()
+        f.setPointSize(10)
+        self.ui.artist.setFont(f)
+        self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.artist.set_underline_on_hover(True)
+        self.ui.artist.clicked.connect(self._on_artist_clicked)
+
+        # -
+        dash = QLabel(" - ")
+        f = dash.font()
+        f.setPointSize(10)
+        dash.setFont(f)
+        dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+
+        # album
+        self.ui.album = ClickableLabel()
+        self.ui.album.set_underline_on_hover(True)
+        f = self.ui.album.font()
+        f.setPointSize(10)
+        self.ui.album.setFont(f)
+        self.ui.album.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.album.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.album.clicked.connect(self._on_album_clicked)
 
         # download progress
         self.ui.download_progress = QProgressBar()
@@ -74,20 +109,33 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         self.ui.cancel_button.clicked.connect(self._on_cancel_button_clicked)
 
         # build
-        layout = QHBoxLayout()
-        layout.setSpacing(4)
-        layout.addWidget(self.ui.cover)
+        outer_layout = QHBoxLayout()
+        outer_layout.setSpacing(4)
+        outer_layout.addWidget(self.ui.cover)
 
-        inner_layout = QGridLayout()
-        inner_layout.setContentsMargins(8, 0, 0, 0)
-        inner_layout.addWidget(self.ui.title, 0, 0)
-        inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
-        inner_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignBottom)
-        layout.addLayout(inner_layout)
+        content_layout = QVBoxLayout()
+        content_layout.setSpacing(0)
 
-        layout.addWidget(self.ui.cancel_button)
+        subtitle_layout = QHBoxLayout()
+        subtitle_layout.addWidget(self.ui.artist)
+        subtitle_layout.addWidget(dash)
+        subtitle_layout.addWidget(self.ui.album)
+        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        self.setLayout(layout)
+        content_layout.addWidget(self.ui.title)
+        content_layout.addLayout(subtitle_layout)
+
+        grid_layout = QGridLayout()
+        grid_layout.setContentsMargins(8, 0, 0, 0)
+
+        grid_layout.addLayout(content_layout, 0, 0)
+        grid_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
+        grid_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignBottom)
+
+        outer_layout.addLayout(grid_layout)
+        outer_layout.addWidget(self.ui.cancel_button)
+
+        self.setLayout(outer_layout)
 
     def invalidate(self):
         if self.track_id is None:
@@ -102,6 +150,12 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
 
         # title
         self.ui.title.setText(self.track.title)
+
+        # artist
+        self.ui.artist.setText(self.track.release().release_group().artists_string())
+
+        # album
+        self.ui.album.setText(self.track.release().release_group().title)
 
         # progress
         youtube_track = get_youtube_track(self.track.youtube_track_id)
@@ -141,6 +195,14 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
         debug(f"_on_cancel_button_clicked({self.track_id})")
         self.cancel_button_clicked.emit(self.track_id)
 
+    def _on_artist_clicked(self):
+        debug(f"_on_artist_clicked({self.track_id})")
+        self.artist_clicked.emit(self.track_id)
+
+    def _on_album_clicked(self):
+        debug(f"_on_album_clicked({self.track_id})")
+        self.album_clicked.emit(self.track_id)
+
 class DownloadsModel(ListWidgetModel):
     def __init__(self):
         super().__init__()
@@ -163,6 +225,8 @@ class FinishedDownloadsModel(ListWidgetModel):
 
 class DownloadsWidget(ListWidgetModelView):
     cancel_button_clicked = pyqtSignal(int)
+    artist_clicked = pyqtSignal(int)
+    album_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,8 +234,18 @@ class DownloadsWidget(ListWidgetModelView):
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
         w = DownloadsItemItemWidget(entry)
         w.cancel_button_clicked.connect(self._on_cancel_button_clicked)
+        w.artist_clicked.connect(self._on_artist_clicked)
+        w.album_clicked.connect(self._on_album_clicked)
         return w
 
     def _on_cancel_button_clicked(self, entry: str):
         row = self.model.index(entry)
         self.cancel_button_clicked.emit(row)
+
+    def _on_artist_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.artist_clicked.emit(row)
+
+    def _on_album_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.album_clicked.emit(row)

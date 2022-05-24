@@ -96,6 +96,7 @@ class Ui_MainWindow(object):
         self.verticalLayout = QtWidgets.QVBoxLayout(self.searchPage)
         self.verticalLayout.setObjectName("verticalLayout")
         self.searchBar = QtWidgets.QLineEdit(self.searchPage)
+        self.searchBar.setText("")
         self.searchBar.setObjectName("searchBar")
         self.verticalLayout.addWidget(self.searchBar)
         self.searchResults = SearchResultsWidget(self.searchPage)
@@ -315,7 +316,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuEdit.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.pages.setCurrentIndex(2)
+        self.pages.setCurrentIndex(1)
         self.downloadsTabs.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -326,7 +327,7 @@ class Ui_MainWindow(object):
         self.searchPageButton.setText(_translate("MainWindow", "Search"))
         self.downloadsPageButton.setText(_translate("MainWindow", "Downloads"))
         self.label.setText(_translate("MainWindow", "WORK IN PROGRESS"))
-        self.searchBar.setPlaceholderText(_translate("MainWindow", "Search for artist..."))
+        self.searchBar.setPlaceholderText(_translate("MainWindow", "Search for artists, album, songs..."))
         self.downloadsTabs.setTabText(self.downloadsTabs.indexOf(self.downloadsQueuedTab), _translate("MainWindow", "Queue"))
         self.downloadsTabs.setTabText(self.downloadsTabs.indexOf(self.downloadsFinishedTab), _translate("MainWindow", "Completed"))
         self.albumCoverNumber.setText(_translate("MainWindow", "1/2"))
