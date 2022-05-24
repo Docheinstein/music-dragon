@@ -4,7 +4,9 @@ from PyQt5.QtCore import QTimer, QUrl
 from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices
 from PyQt5.QtWidgets import QMainWindow, QLabel
 
+import preferences
 import repository
+import storage
 import ui.resources
 import ytdownloader
 from log import debug
@@ -110,6 +112,11 @@ class MainWindow(QMainWindow):
         # self.downloader.track_download_started.connect(self.on_track_download_started)
         # self.downloader.track_download_progress.connect(self.on_track_download_progress)
         # self.downloader.track_download_finished.connect(self.on_track_download_finished)
+
+        # Load local mp3s
+        storage.load_mp3s_background(preferences.directory(),
+                                     mp3_loaded_callback=self.on_mp3_loaded,
+                                     finished_callback=self.on_mp3s_loaded)
 
     def set_home_page(self):
         self.push_page(self.ui.homePage)
@@ -646,6 +653,12 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
+    def on_youtube_track_download_canceled(self, track_id: str):
+        debug(f"on_youtube_track_download_canceled(track_id={track_id})")
+        self.ui.queuedDownloads.invalidate()
+        self.ui.albumTracks.update_row(track_id)
+        self.update_downloads_count()
+
     def on_youtube_track_download_error(self, track_id: str, error_msg: str):
         debug(f"on_youtube_track_download_error(track_id={track_id}): {error_msg}")
         self.ui.queuedDownloads.invalidate()
@@ -672,15 +685,17 @@ class MainWindow(QMainWindow):
                                           started_callback=self.on_youtube_track_download_started,
                                           progress_callback=self.on_youtube_track_download_progress,
                                           finished_callback=self.on_youtube_track_download_finished,
+                                          canceled_callback=self.on_youtube_track_download_canceled,
                                           error_callback=self.on_youtube_track_download_error)
 
     def on_track_cancel_download_button_clicked(self, row: int):
         debug("on_cancel_download_button_clicked")
         track_id = self.downloads_model.entry(row)
-        repository.stop_download_youtube_track(track_id)
+        repository.cancel_youtube_track_download(track_id)
 
-        # sync update
-        self.ui.queuedDownloads.invalidate()
-        # self.ui.finishedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
-        self.update_downloads_count()
+
+    def on_mp3_loaded(self, artist: str, album: str, title: str, path: str):
+        pass
+
+    def on_mp3s_loaded(self):
+        pass

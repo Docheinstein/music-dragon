@@ -1,5 +1,3 @@
-from typing import Optional
-
 import musicbrainzngs as mb
 from PyQt5.QtCore import pyqtSignal
 
@@ -118,10 +116,11 @@ class SearchArtistsWorker(Worker):
 
         self.result.emit(self.query, artists)
 
-def search_artists(query, callback, limit, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def search_artists(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchArtistsWorker(query, limit)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 
 # ========== SEARCH RELEASE GROUPS ==========
@@ -153,10 +152,11 @@ class SearchReleaseGroupsWorker(Worker):
 
         self.result.emit(self.query, release_groups)
 
-def search_release_groups(query, callback, limit, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def search_release_groups(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchReleaseGroupsWorker(query, limit)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 
 # ======= FETCH RELEASE GROUP COVER ======
@@ -184,10 +184,11 @@ class FetchReleaseGroupCoverWorker(Worker):
             self.result.emit(self.release_group_id, bytes())
 
 
-def fetch_release_group_cover(release_group_id, size, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def fetch_release_group_cover(release_group_id, size, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = FetchReleaseGroupCoverWorker(release_group_id, size)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 
 # ======= FETCH RELEASE GROUP RELEASES RUNNABLE ========
@@ -219,10 +220,11 @@ class FetchReleaseGroupReleasesWorker(Worker):
         self.result.emit(self.release_group_id, releases)
 
 
-def fetch_release_group_releases(release_group_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def fetch_release_group_releases(release_group_id, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = FetchReleaseGroupReleasesWorker(release_group_id)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 
 # ============ FETCH ARTIST =============
@@ -254,10 +256,11 @@ class FetchArtistWorker(Worker):
 
         self.result.emit(self.artist_id, MbArtist(result))
 
-def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def fetch_artist(artist_id, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = FetchArtistWorker(artist_id)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 
 
@@ -293,10 +296,10 @@ def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_
 #
 #         self.result.emit(self.artist_id, release_groups)
 #
-# def fetch_artist(artist_id, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+# def fetch_artist(artist_id, callback, priority=workers.Worker.PRIORITY_NORMAL):
 #     worker = FetchArtistWorker(artist_id)
 #     worker.result.connect(callback)
-#     workers.schedule(worker, priority=priority)
+#     workers.schedule(worker)
 #
 
 
@@ -325,7 +328,8 @@ class FetchReleaseCoverWorker(Worker):
             self.result.emit(self.release_id, bytes())
 
 
-def fetch_release_cover(release_id, size, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def fetch_release_cover(release_id, size, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = FetchReleaseCoverWorker(release_id, size)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)

@@ -38,10 +38,13 @@ def finished_download_count():
 def get_finished_download(video_id: str):
     return finished_downloads.get(video_id)
 
+class CancelException(Exception):
+    def __init__(self):
+        super(CancelException, self).__init__("canceled by user")
+
 class TrackDownloaderWorker(Worker):
     progress = pyqtSignal(str, float, str)
     error = pyqtSignal(str, str, str)
-    # canceled = pyqtSignal(str, str)
     download_finished = pyqtSignal(str, str)
     conversion_finished = pyqtSignal(str, str)
     tagging_finished = pyqtSignal(str, str)
@@ -77,6 +80,10 @@ class TrackDownloaderWorker(Worker):
                 print(f"ERROR: {msg}", file=sys.stderr)
 
         def progress_hook(hook_info):
+            if self.is_canceled:
+                debug("YOUTUBE_DL hook invoked while worker is canceled: raising CancelException")
+                raise CancelException()
+
             if hook_info["status"] == "downloading":
                 debug("YOUTUBE_DL update: downloading")
 
@@ -172,6 +179,11 @@ class TrackDownloaderWorker(Worker):
                         except:
                             print(f"WARN: failed to apply mp3 tags to {output}")
                 return # download done
+
+            except CancelException as ce:
+                print(f"WARN: cancel request received during attempt n. {attempt} for video {self.video_id}")
+                return
+
             except Exception as e:
                 print(f"WARN: download attempt n. {attempt} failed for video {self.video_id}: {e}")
                 last_error = e
@@ -197,12 +209,7 @@ class TrackDownloaderWorker(Worker):
               f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
         return can
 
-    def is_canceled(self):
-        down = downloads.get(self.video_id)
-        return True if down is None else False # not found means canceled
-
-
-def start_track_download(
+def enqueue_track_download(
         video_id: str,
         artist: str, album: str, song: str, track_num: int, image: bytes,
         output_directory: str, output_format: str,
@@ -210,6 +217,7 @@ def start_track_download(
         started_callback,
         progress_callback,
         finished_callback,
+        canceled_callback,
         error_callback,
         apply_tags=True, user_data=None):
 
@@ -217,7 +225,7 @@ def start_track_download(
         video_id, artist, album, song, track_num, image,
         output_directory, output_format,
         apply_tags, user_data)
-
+    worker.priority = Worker.PRIORITY_BELOW_NORMAL
 
     def internal_started_callback():
         v = downloads.get(video_id)
@@ -245,6 +253,14 @@ def start_track_download(
             print(f"WARN: no track with video id = {video_id} was in download")
         finished_callback(video_id, user_data)
 
+    def internal_canceled_callback():
+        try:
+            d = downloads.pop(video_id)
+            d["status"] = "canceled"
+        except KeyError:
+            print(f"WARN: no track with video id = {video_id} was in download")
+        canceled_callback(video_id, user_data)
+
     def internal_error_callback(video_id_, error_msg, user_data_):
         try:
             d = downloads.pop(video_id)
@@ -258,25 +274,27 @@ def start_track_download(
     worker.started.connect(internal_started_callback)
     worker.progress.connect(internal_progress_callback)
     worker.finished.connect(internal_finished_callback)
+    worker.canceled.connect(internal_canceled_callback)
     worker.error.connect(internal_error_callback)
 
     downloads[video_id] = {
         "user_data": user_data,
         "status": "queued",
         "progress": 0,
-        "attempt": 0
+        "attempt": 0,
+        "worker": worker
     }
     for video_id, down in downloads.items():
         debug(f"{video_id}: {down['status']} ({down['progress']}%)")
 
-    workers.schedule(worker, priority=workers.WorkerScheduler.PRIORITY_BELOW_NORMAL)
+    workers.schedule(worker)
 
     # call directly
     queued_callback(video_id, user_data)
 
-def stop_track_download(video_id: str):
-    try:
-        d = downloads.pop(video_id)
-        d["status"] = "canceled"
-    except KeyError:
-        print(f"WARN: no track with video id = {video_id} was in download")
+def cancel_track_download(video_id: str):
+    d = downloads.get(video_id)
+    if not d:
+        print(f"WARN: no track with video id = {video_id} found")
+        return
+    d["worker"].cancel()

@@ -62,10 +62,11 @@ class SearchYoutubeTrackWorker(Worker):
         if result:
             self.result.emit(self.query, YtTrack(result[0]))
 
-def search_youtube_track(query: str, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def search_youtube_track(query: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchYoutubeTrackWorker(query)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 # =============== SEARCH YOUTUBE ALBUM TRACKS  =================
 # Search youtube tracks for a given (Artist Name, Album Title)
@@ -158,9 +159,10 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         self.result.emit(self.artist_name, self.album_title, emission)
 
 
-def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.WorkerScheduler.PRIORITY_NORMAL):
+def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
+    worker.priority = priority
     worker.result.connect(callback)
-    workers.schedule(worker, priority=priority)
+    workers.schedule(worker)
 
 

@@ -119,7 +119,7 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
                 self.ui.download_progress.setVisible(True)
                 self.ui.download_progress.setValue(round(download["progress"]))
                 self.ui.download_error.setVisible(False)
-                self.ui.cancel_button.setVisible(False) # TODO: handle this
+                self.ui.cancel_button.setVisible(True) # TODO: handle this
             elif download["status"] == "finished":
                 self.ui.download_progress.setVisible(False)
                 self.ui.cancel_button.setVisible(False)

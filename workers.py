@@ -14,40 +14,93 @@ def initialize(max_num_threads):
 
 
 class Worker(QObject):
+    # Status
+
+    # The job is in scheduler queue but has not been passed to any thread yet
+    STATUS_WAITING = "waiting"
+
+    # The job has been passed (moveToThread) to a thread
+    STATUS_DISPATCHED = "dispatched"
+
+    # The job is executing on the thread
+    STATUS_RUNNING = "running"
+
+    # The job finished its execution
+    STATUS_FINISHED = "finished"
+
+    # Priority
+    PRIORITY_LOW = 10
+    PRIORITY_BELOW_NORMAL = 20
+    PRIORITY_NORMAL = 30
+    PRIORITY_ABOVE_NORMAL = 40
+    PRIORITY_HIGH = 50
+
+    # Signals
+    started = pyqtSignal() # emitted when started
+    canceled = pyqtSignal() # emitted when (actually) canceled; could eventually be emitted before started
+    finished = pyqtSignal() # emitted when completed (not canceled)
+
     next_id = 0
 
-    started = pyqtSignal()
-    finished = pyqtSignal()
-
-    def __init__(self, tag=None):
+    def __init__(self, priority=PRIORITY_NORMAL, tag=None):
         super().__init__()
         self.worker_id = str(Worker.next_id)
-        Worker.next_id += 1
         self.tag = tag
+        self.priority = priority
+        self.status = Worker.STATUS_WAITING
+        self.is_canceled = False
+        self.born = current_millis()
+
+        Worker.next_id += 1
+
+    @pyqtSlot()
+    def exec(self):
+        self.status = Worker.STATUS_RUNNING
+        self.started.emit()
+        self.run()
+        self.status = Worker.STATUS_FINISHED
+        if self.is_canceled:
+            self.canceled.emit()
+        else:
+            self.finished.emit()
 
     def run(self):
         raise NotImplementedError("run() must be implemented by Worker subclasses")
 
-    @pyqtSlot()
-    def exec(self):
-        self.started.emit()
-        self.run()
-        self.finished.emit()
-
     def can_execute(self):
         return True
 
-    def is_canceled(self):
-        return False
+    def cancel(self):
+        debug(f"Cancelling {self}")
+        self.is_canceled = True
+
+        # Notify the cancellation only if the worker is not running yet,
+        # otherwise do not notify since we cannot stop it actually: it must
+        # be handled by the worker's run function instead
+        if self.status == Worker.STATUS_RUNNING:
+            debug("Note: worker is running: cancel flag must be checked by worker run() itself")
+        else:
+            self.canceled.emit()
 
     def __str__(self):
         if self.tag:
             return f"Worker {self.worker_id} ({self.tag})"
         return f"Worker {self.worker_id}"
 
+    # Returns True if schedule this worker is better than scheduling the other worker
+    def __lt__(self, other):
+        # Higher priority is better
+        if self.priority > other.priority:
+            return True
+        if self.priority < other.priority:
+            return False
+
+        # Later is better
+        return self.born > other.born
 
 class Thread(QThread):
     worker_started = pyqtSignal(str)
+    worker_canceled = pyqtSignal(str)
     worker_finished = pyqtSignal(str)
 
     def __init__(self, tag=None):
@@ -64,6 +117,7 @@ class Thread(QThread):
         debug(f"Enqueued {w} to {self}: {self.active_workers()} workers now")
         w.moveToThread(self)
         w.started.connect(self._on_worker_started)
+        w.canceled.connect(self._on_worker_canceled)
         w.finished.connect(self._on_worker_finished)
         QMetaObject.invokeMethod(w, "exec", Qt.QueuedConnection)
 
@@ -80,6 +134,16 @@ class Thread(QThread):
         self.worker_started.emit(w.worker_id)
 
     @pyqtSlot()
+    def _on_worker_canceled(self):
+        w: Worker = self.sender()
+        try:
+            self.workers.pop(w.worker_id)
+            debug(f"Removed {w} from {self}: {self.active_workers()} workers now")
+        except KeyError:
+            print(f"WARN: no worker with id {w.worker_id} among workers of {self}")
+        self.worker_canceled.emit(w.worker_id)
+
+    @pyqtSlot()
     def _on_worker_finished(self):
         w: Worker = self.sender()
         try:
@@ -90,78 +154,45 @@ class Thread(QThread):
         self.worker_finished.emit(w.worker_id)
 
 
-class WorkerJob:
-    # The job is in scheduler queue but has not been passed to any thread yet
-    STATUS_WAITING = "waiting"
-
-    # The job has been passed (moveToThread) to a thread
-    STATUS_DISPATCHED = "dispatched"
-
-    # The job is executing on the thread
-    STATUS_RUNNING = "running"
-
-    # The job finished its execution
-    STATUS_FINISHED = "finished"
-
-    def __init__(self, worker: Worker, priority: int, status=STATUS_WAITING):
-        self.worker = worker
-        self.priority = priority
-        self.status = status
-        self.born = current_millis()
-
-    # Returns True if schedule this job is better than scheduling the other job
-    def __lt__(self, other):
-        # Higher priority is better
-        if self.priority > other.priority:
-            return True
-        if self.priority < other.priority:
-            return False
-
-        # Latest is better
-        return self.born > other.born
-
 
 class WorkerScheduler(QObject):
-    PRIORITY_LOW = 10
-    PRIORITY_BELOW_NORMAL = 20
-    PRIORITY_NORMAL = 30
-    PRIORITY_ABOVE_NORMAL = 40
-    PRIORITY_HIGH = 50
-
     def __init__(self, max_num_threads: int):
         super().__init__()
         self.max_num_threads = max_num_threads
         self.threads: List[Thread] = []
-        self.jobs = {}
+        self.workers = {}
 
         debug(f"Initializing WorkerScheduler with {self.max_num_threads} threads")
 
         for i in range(self.max_num_threads):
             t = Thread(tag=f"{i}")
             t.worker_started.connect(self._on_worker_started)
+            t.worker_canceled.connect(self._on_worker_canceled)
             t.worker_finished.connect(self._on_worker_finished)
             self.threads.append(t)
 
             # TODO: start only when required
             t.start()
 
-    def schedule(self, worker: Worker, priority=PRIORITY_NORMAL):
-        debug(f"Inserting Worker {worker.worker_id} into the scheduler queue with priority {priority}")
+    def schedule(self, worker: Worker):
+        debug(f"Inserting Worker {worker.worker_id} into the scheduler queue with priority {worker.priority}")
 
-        # Push in the queue as waiting
-        job = WorkerJob(worker, priority=priority, status=WorkerJob.STATUS_WAITING)
-        self.jobs[worker.worker_id] = job
+        # Push in the queue or dispatch if possible
+        worker.status = Worker.STATUS_WAITING
+        self.workers[worker.worker_id] = worker
         self._dispatch_next_job_if_possible()
 
     def _on_worker_started(self, worker_id):
-        # Change status
-        job: WorkerJob = self.jobs.get(worker_id)
-        job.status = WorkerJob.STATUS_RUNNING
+        pass
+
+    def _on_worker_canceled(self, worker_id):
+        self._on_worker_finished(worker_id)
 
     def _on_worker_finished(self, worker_id):
-        # Remove job
-        self.jobs.pop(worker_id)
+        # Remove worker
+        self.workers.pop(worker_id)
 
+        # Dispatch next worker if possible
         self._dispatch_next_job_if_possible()
 
     def _dispatch_next_job_if_possible(self):
@@ -169,7 +200,7 @@ class WorkerScheduler(QObject):
 
         self._remove_canceled()
 
-        # Dispatch a job to an available thread, if any
+        # Dispatch a worker to an available thread, if any is available
 
         # PRIORITY
         available_thread = self._get_first_available_thread()
@@ -182,27 +213,25 @@ class WorkerScheduler(QObject):
         debug(f"Available thread found: {available_thread}")
 
         # Get the job with the highest priority
-        # TODO: smarter: priority queue with keys
+        # TODO: smarter/faster implementation: priority queue with keys
 
-        best_job_priority = None
-        best_job = None
+        best_worker = None
 
-        for wid, job in self.jobs.items():
-            if job.status != WorkerJob.STATUS_WAITING:
+        for wid, worker in self.workers.items():
+            if worker.status != Worker.STATUS_WAITING:
                 continue
-            if job.worker.can_execute() is True:
-                if best_job_priority is None or job.priority > best_job_priority:
-                    best_job = job
-                    best_job_priority = job.priority
+            if worker.can_execute() is True:
+                if best_worker is None or worker < best_worker:
+                    best_worker = worker
 
-        if not best_job:
-            debug("No job to dispatch")
+        if not best_worker:
+            debug("No worker to dispatch")
             return
 
-        debug(f"Scheduler selected the job to dispatch: Worker {best_job.worker.worker_id} with priority {best_job.priority}")
+        debug(f"Scheduler selected the worker to dispatch: {best_worker} with priority {best_worker.priority}")
 
-        best_job.status = WorkerJob.STATUS_DISPATCHED
-        available_thread.enqueue_worker(best_job.worker)
+        best_worker.status = Worker.STATUS_DISPATCHED
+        available_thread.enqueue_worker(best_worker)
 
     def _get_first_available_thread(self) -> Optional[Thread]:
         for t in self.threads:
@@ -223,17 +252,17 @@ class WorkerScheduler(QObject):
         return [t.active_workers() for t in self.threads].count(0)
 
     def _remove_canceled(self):
-        wid_zombies = []
-        for wid, job in self.jobs.items():
-            if job.worker.is_canceled():
-                wid_zombies.append(wid)
+        canceled_worker_ids = []
+        for wid, worker in self.workers.items():
+            if worker.is_canceled:
+                canceled_worker_ids.append(wid)
 
-        if wid_zombies:
-            debug(f"Killing zombie workers: {wid_zombies}")
-        for wid in wid_zombies:
-            self.jobs.pop(wid)
+        if canceled_worker_ids:
+            debug(f"Removing canceled workers: {canceled_worker_ids}")
+
+        for wid in canceled_worker_ids:
+            self.workers.pop(wid)
 
 
-
-def schedule(worker: Worker, priority=WorkerScheduler.PRIORITY_NORMAL):
-    _worker_scheduler.schedule(worker, priority=priority)
+def schedule(worker: Worker):
+    _worker_scheduler.schedule(worker)

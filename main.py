@@ -3,6 +3,7 @@ import sys
 
 import musicbrainz
 import preferences
+import storage
 import ui
 
 from PyQt5.QtWidgets import QApplication
@@ -27,6 +28,7 @@ def main():
     workers.initialize(max_num_threads=preferences.thread_number())
     musicbrainz.initialize()
     ytmusic.initialize("res/other/yt_auth.json")
+
 
     window = MainWindow()
     window.show()
