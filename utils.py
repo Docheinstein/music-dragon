@@ -1,19 +1,20 @@
 import json
 import time
+from typing import Sequence
 
 from PyQt5.QtGui import QPixmap, QIcon
 
 from log import debug
 
 
-def make_pixmap_from_data(data, default=None):
+def make_pixmap_from_data(data, default=None) -> QPixmap:
     pixmap = QPixmap()
     if data:
         pixmap.loadFromData(data)
         return pixmap
     return default
 
-def make_icon_from_data(data, default=None):
+def make_icon_from_data(data, default=None) -> QIcon:
     if data:
         return QIcon(make_pixmap_from_data(data))
     return default
@@ -24,6 +25,8 @@ def j(x):
 def current_millis():
     return round(time.time() * 1000)
 
+def min_index(sequence: Sequence):
+    return sequence.index(min(sequence))
 
 class Mergeable:
     def merge(self, other):

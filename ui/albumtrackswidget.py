@@ -6,7 +6,6 @@ from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPush
 
 import ui
 import ytdownloader
-from ytmusic import ytmusic_video_id_to_url
 from log import debug
 from repository import Track, get_release, get_track, get_youtube_track
 from ui.listwidgetmodelview import ListWidgetModel, ListWidgetModelViewItem, ListWidgetModelView
@@ -24,8 +23,6 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
             self.download_button: Optional[QPushButton] = None
             self.open_video_button: Optional[QPushButton] = None
             self.download_progress: Optional[QProgressBar] = None
-            self.layout = None
-            self.inner_layout = None
 
     def __init__(self, track_id: str):
         super().__init__(entry=track_id)

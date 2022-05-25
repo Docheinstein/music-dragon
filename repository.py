@@ -2,17 +2,18 @@ from difflib import get_close_matches
 from statistics import mean
 from typing import List, Dict, Optional
 
+import Levenshtein as levenshtein
 import musicbrainz
 import preferences
 import wiki
 import workers
 import ytdownloader
 import ytmusic
+from localsongs import Mp3
 from ytmusic import YtTrack
 from log import debug
 from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
-from utils import j, Mergeable
-
+from utils import j, Mergeable, min_index
 
 _artists: Dict[str, 'Artist'] = {}
 _release_groups: Dict[str, 'ReleaseGroup'] = {}
@@ -329,6 +330,103 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
 
     musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
 
+
+def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):
+    debug(f"fetch_mp3_release_group({mp3})")
+
+    if mp3.fetched_release_group:
+        mp3_release_group_callback(mp3, get_release_group(mp3.release_group_id))
+    else:
+        if not mp3.album:
+            print("WARN: no album for mp3")
+            mp3.fetched_release_group = True
+            # TODO: ... callback?
+            return
+
+
+        def release_groups_callback_wrapper(query_, result: List[MbReleaseGroup]):
+            release_groups = [ReleaseGroup(rg) for rg in result]
+            for rg in release_groups:
+                _add_release_group(rg)
+
+            debug("Figuring out which is the most appropriate release group...")
+            if release_groups:
+                album_title_distances = [levenshtein.distance(rg.title, mp3.album) for rg in release_groups]
+                artist_distances = [levenshtein.distance(rg.artists_string(), mp3.artist) for rg in release_groups]
+
+                weighted_distance = [2 * album_title_distances[i] + artist_distances[i] for i in range(len(release_groups))]
+
+                debug("Computed edit distances for best candidates")
+                for idx, rg in enumerate(release_groups):
+                    debug(f"[{idx}] (album={rg.title}, artist={rg.artists_string()}): {weighted_distance[idx]}")
+
+                best_release_group = release_groups[min_index(weighted_distance)]
+
+                mp3.fetched_release_group = True
+                mp3.release_group_id = best_release_group.id
+
+                mp3.fetched_artist = True
+
+                # TODO: more than an artist
+                mp3.artist_id = best_release_group.artist_ids[0]
+
+                mp3_release_group_callback(mp3, best_release_group)
+
+                # (eventually) image
+                if mp3_release_group_image_callback:
+                    fetch_release_group_cover(best_release_group.id, mp3_release_group_image_callback)
+
+
+        musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=10)
+
+
+def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
+    debug(f"fetch_mp3_artist({mp3})")
+
+    if mp3.fetched_artist:
+        mp3_artist_callback(mp3, get_artist(mp3.artist_id))
+    else:
+        if not mp3.artist:
+            print("WARN: no artist for mp3")
+            mp3.fetched_artist = True
+            # TODO: ... callback?
+            return
+
+
+        def artists_callback_wrapper(query_, result: List[MbReleaseGroup]):
+            artists = [Artist(a) for a in result]
+            for a in artists:
+                _add_artist(a)
+
+            debug("Figuring out which is the most appropriate artist...")
+            if artists:
+                # album_title_distances = [levenshtein.distance(rg.title, mp3.album) for rg in release_groups]
+                artist_distances = [levenshtein.distance(a.name, mp3.artist) for a in artists]
+
+                weighted_distance = [artist_distances[i] for i in range(len(artists))]
+
+                debug("Computed edit distances for best candidates")
+                for idx, a in enumerate(artists):
+                    debug(f"[{idx}] (artist={a.name}): {weighted_distance[idx]}")
+
+                best_artist = artists[min_index(weighted_distance)]
+
+                mp3.fetched_artist = True
+                mp3.artist_id = best_artist.id
+
+                mp3_artist_callback(mp3, best_artist)
+
+                # (eventually) image
+                if mp3_artist_image_callback:
+                    def artist_callback(_1, _2):
+                        pass
+
+                    for a in result:
+                        fetch_artist(a.id, artist_callback, mp3_artist_image_callback)
+
+        musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=10)
+
+
 def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
     debug(f"fetch_release_group_cover(release_group_id={release_group_id})")
 
@@ -377,7 +475,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 #    to the average number of tracks of the releases
                 avg_track_count = mean([r.track_count() for r in releases])
                 deltas = [abs(r.track_count() - avg_track_count) for r in releases]
-                main_release_id = releases[deltas.index(min(deltas))].id
+                main_release_id = releases[min_index(deltas)].id
                 release_group.main_release_id = main_release_id
 
             release_group_releases_callback(release_group_id_, releases)
@@ -550,7 +648,7 @@ def download_youtube_track(track_id: str,
         finished_callback=finished_callback_wrapper,
         canceled_callback=canceled_callback_wrapper,
         error_callback=error_callback_wrapper,
-        apply_tags=True,
+        metadata=True,
         user_data=track.id
     )
 

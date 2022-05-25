@@ -190,7 +190,7 @@ class Ui_PreferencesWindow(object):
         self.verticalLayout.addWidget(self.buttonBox)
 
         self.retranslateUi(PreferencesWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         self.buttonBox.accepted.connect(PreferencesWindow.accept) # type: ignore
         self.buttonBox.rejected.connect(PreferencesWindow.reject) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(PreferencesWindow)

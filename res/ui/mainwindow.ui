@@ -46,21 +46,6 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="ClickableLabel" name="homePageButton">
-         <property name="font">
-          <font>
-           <pointsize>13</pointsize>
-          </font>
-         </property>
-         <property name="cursor">
-          <cursorShape>PointingHandCursor</cursorShape>
-         </property>
-         <property name="text">
-          <string>Home</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="ClickableLabel" name="searchPageButton">
          <property name="font">
           <font>
@@ -72,6 +57,21 @@
          </property>
          <property name="text">
           <string>Search</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="ClickableLabel" name="localPageButton">
+         <property name="font">
+          <font>
+           <pointsize>13</pointsize>
+          </font>
+         </property>
+         <property name="cursor">
+          <cursorShape>PointingHandCursor</cursorShape>
+         </property>
+         <property name="text">
+          <string>Local</string>
          </property>
         </widget>
        </item>
@@ -164,17 +164,6 @@
         <property name="currentIndex">
          <number>1</number>
         </property>
-        <widget class="QWidget" name="homePage">
-         <layout class="QVBoxLayout" name="verticalLayout_4">
-          <item>
-           <widget class="QLabel" name="label">
-            <property name="text">
-             <string>WORK IN PROGRESS</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
         <widget class="QWidget" name="searchPage">
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
@@ -202,8 +191,64 @@
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="localPage">
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="LocalSongsView" name="localSongs">
+            <property name="mouseTracking">
+             <bool>true</bool>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>64</width>
+              <height>64</height>
+             </size>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <property name="uniformItemSizes">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="localSongCount">
+            <property name="font">
+             <font>
+              <pointsize>10</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>0 Songs</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
         <widget class="QWidget" name="downloadsPage">
          <layout class="QVBoxLayout" name="verticalLayout_11">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_7">
+            <item>
+             <widget class="QLineEdit" name="manualDownloadURL">
+              <property name="placeholderText">
+               <string>YouTube URL...</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="manualDownloadButton">
+              <property name="text">
+               <string>Download</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
           <item>
            <widget class="QTabWidget" name="downloadsTabs">
             <property name="currentIndex">
@@ -583,6 +628,7 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionReload"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -597,6 +643,14 @@
   <action name="actionPreferences">
    <property name="text">
     <string>Preferences</string>
+   </property>
+  </action>
+  <action name="actionReload">
+   <property name="text">
+    <string>Reload</string>
+   </property>
+   <property name="shortcut">
+    <string>F5</string>
    </property>
   </action>
  </widget>
@@ -625,6 +679,11 @@
    <class>SearchResultsWidget</class>
    <extends>QListWidget</extends>
    <header>ui/searchresultswidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>LocalSongsView</class>
+   <extends>QListView</extends>
+   <header>ui/localsongsview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

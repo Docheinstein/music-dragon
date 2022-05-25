@@ -3,7 +3,7 @@ import sys
 
 import musicbrainz
 import preferences
-import storage
+import localsongs
 import ui
 
 from PyQt5.QtWidgets import QApplication

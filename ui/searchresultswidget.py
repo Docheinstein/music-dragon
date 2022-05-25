@@ -21,8 +21,6 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.subtitle: Optional[ClickableLabel] = None
-            self.layout = None
-            self.inner_layout = None
 
     def __init__(self, item_id):
         super().__init__(entry=item_id)
@@ -58,20 +56,20 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         self.ui.subtitle.set_underline_on_hover(True)
 
         # build
-        self.ui.layout = QHBoxLayout()
-        self.ui.layout.setSpacing(12)
-        self.ui.layout.addWidget(self.ui.cover)
+        layout = QHBoxLayout()
+        layout.setSpacing(12)
+        layout.addWidget(self.ui.cover)
 
-        self.ui.inner_layout = QVBoxLayout()
-        self.ui.inner_layout.setSpacing(0)
-        self.ui.inner_layout.addWidget(self.ui.title)
-        self.ui.inner_layout.addWidget(self.ui.subtitle)
+        inner_layout = QVBoxLayout()
+        inner_layout.setSpacing(0)
+        inner_layout.addWidget(self.ui.title)
+        inner_layout.addWidget(self.ui.subtitle)
 
-        self.ui.layout.addLayout(self.ui.inner_layout)
+        layout.addLayout(inner_layout)
 
-        self.ui.layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
-        self.setLayout(self.ui.layout)
+        self.setLayout(layout)
 
     def invalidate(self):
         if self.result_id is None:
@@ -124,9 +122,9 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
             self.ui.subtitle.setVisible(False)
 
     def _on_subtitle_clicked(self, ev: QMouseEvent):
-        debug(f"on_subtitle_clicked({self.result_id})")
+        debug(f"on_subtitle_clicked({self.entry})")
         ev.accept() # prevent propagation
-        self.subtitle_clicked.emit(self.result_id)
+        self.subtitle_clicked.emit(self.entry)
 
 class SearchResultsModel(ListWidgetModel):
     def __init__(self):

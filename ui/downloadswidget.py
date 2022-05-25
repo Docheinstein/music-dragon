@@ -13,7 +13,7 @@ from ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem,
 from utils import make_pixmap_from_data
 
 
-class DownloadsItemItemWidget(ListWidgetModelViewItem):
+class DownloadsItemWidget(ListWidgetModelViewItem):
     artist_clicked = pyqtSignal(str)
     album_clicked = pyqtSignal(str)
     cancel_button_clicked = pyqtSignal(str)
@@ -27,8 +27,6 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             self.download_progress: Optional[QProgressBar] = None
             self.download_error: Optional[QLabel] = None
             self.cancel_button: Optional[QPushButton] = None
-            self.layout = None
-            self.inner_layout = None
 
     def __init__(self, track_id: str):
         super().__init__(entry=track_id)
@@ -39,7 +37,7 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             print(f"WARN: no track for id '{self.track_id}'")
             return
 
-        self.ui = DownloadsItemItemWidget.Ui()
+        self.ui = DownloadsItemWidget.Ui()
         self.setup()
         self.invalidate()
 
@@ -192,16 +190,16 @@ class DownloadsItemItemWidget(ListWidgetModelViewItem):
             self.ui.cancel_button.setVisible(False)
 
     def _on_cancel_button_clicked(self):
-        debug(f"_on_cancel_button_clicked({self.track_id})")
-        self.cancel_button_clicked.emit(self.track_id)
+        debug(f"_on_cancel_button_clicked({self.entry})")
+        self.cancel_button_clicked.emit(self.entry)
 
     def _on_artist_clicked(self):
-        debug(f"_on_artist_clicked({self.track_id})")
-        self.artist_clicked.emit(self.track_id)
+        debug(f"_on_artist_clicked({self.entry})")
+        self.artist_clicked.emit(self.entry)
 
     def _on_album_clicked(self):
-        debug(f"_on_album_clicked({self.track_id})")
-        self.album_clicked.emit(self.track_id)
+        debug(f"_on_album_clicked({self.entry})")
+        self.album_clicked.emit(self.entry)
 
 class DownloadsModel(ListWidgetModel):
     def __init__(self):
@@ -232,7 +230,7 @@ class DownloadsWidget(ListWidgetModelView):
         super().__init__(parent)
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
-        w = DownloadsItemItemWidget(entry)
+        w = DownloadsItemWidget(entry)
         w.cancel_button_clicked.connect(self._on_cancel_button_clicked)
         w.artist_clicked.connect(self._on_artist_clicked)
         w.album_clicked.connect(self._on_album_clicked)

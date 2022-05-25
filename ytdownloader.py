@@ -1,8 +1,10 @@
 import json
 import os.path
 import sys
+from pathlib import Path
 
 import eyed3
+import youtube_dl
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from eyed3.core import AudioFile
 from eyed3.id3 import Tag
@@ -10,6 +12,7 @@ from youtube_dl import YoutubeDL
 
 import preferences
 import workers
+import ytcommons
 from log import debug
 from utils import j
 from workers import Worker
@@ -17,11 +20,6 @@ from workers import Worker
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 10
 
-def yt_video_id_to_url(video_id: str):
-    return f"https://youtube.com/watch?v={video_id}"
-
-def yt_video_url_to_id(video_url: str):
-    return video_url.split("=")[-1]
 
 downloads = {}
 finished_downloads = {}
@@ -38,6 +36,34 @@ def finished_download_count():
 def get_finished_download(video_id: str):
     return finished_downloads.get(video_id)
 
+def ytdl_download(ytdl, url_list):
+    """Download a given list of URLs."""
+    outtmpl = ytdl.params.get('outtmpl', youtube_dl.DEFAULT_OUTTMPL)
+    if (len(url_list) > 1
+            and outtmpl != '-'
+            and '%' not in outtmpl
+            and ytdl.params.get('max_downloads') != 1):
+        raise youtube_dl.SameFileError(outtmpl)
+
+    res = None
+
+    for url in url_list:
+        try:
+            # It also downloads the videos
+            res = ytdl.extract_info(
+                url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
+        except youtube_dl.UnavailableVideoError:
+            ytdl.report_error('unable to download video')
+        except youtube_dl.MaxDownloadsReached:
+            ytdl.to_screen('[info] Maximum number of downloaded files reached.')
+            raise
+        else:
+            if ytdl.params.get('dump_single_json', False):
+                ytdl.to_stdout(json.dumps(res))
+
+    res["_filename"] = ytdl.prepare_filename(res) # as performed internally
+    return res
+
 class CancelException(Exception):
     def __init__(self):
         super(CancelException, self).__init__("canceled by user")
@@ -53,7 +79,7 @@ class TrackDownloaderWorker(Worker):
                  video_id: str,
                  artist: str, album: str, song: str, track_num: int, image: bytes,
                  output_directory: str, output_format: str,
-                 apply_tags=True, user_data=None):
+                 metadata=True, user_data=None):
         super().__init__()
         self.video_id = video_id
         self.artist = artist
@@ -61,7 +87,7 @@ class TrackDownloaderWorker(Worker):
         self.song = song
         self.track_num = track_num
         self.image = image
-        self.apply_tags = apply_tags
+        self.metadata = metadata
         self.user_data = user_data
         self.output_directory = output_directory
         self.output_format = output_format
@@ -106,18 +132,23 @@ class TrackDownloaderWorker(Worker):
         debug(f"Output template before wildcards substitutions: '{outtmpl}'")
 
         # Output format substitutions
-        outtmpl = outtmpl.replace("{artist}", self.artist)
-        outtmpl = outtmpl.replace("{album}", self.album)
-        outtmpl = outtmpl.replace("{song}", self.song)
+        if self.metadata is True:
+            outtmpl = outtmpl.replace("{artist}", self.artist)
+            outtmpl = outtmpl.replace("{album}", self.album)
+            outtmpl = outtmpl.replace("{song}", self.song)
+        elif self.metadata == "auto":
+            outtmpl = outtmpl.replace("{artist}", "%(artist)s")
+            outtmpl = outtmpl.replace("{album}", "%(album)s")
+            outtmpl = outtmpl.replace("{song}", "%(track)s")
+
         outtmpl = outtmpl.replace("{ext}", "%(ext)s")
 
         debug(f"Output template after wildcards substitutions: '{outtmpl}'")
 
         outtmpl = os.path.join(self.output_directory, outtmpl)
-        output = outtmpl.replace("%(ext)s", "mp3") # hack
 
         debug(f"Destination template: '{outtmpl}'")
-        debug(f"Destination [real]: '{output}'")
+        # debug(f"Destination [real]: '{output}'")
 
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -130,8 +161,8 @@ class TrackDownloaderWorker(Worker):
             'progress_hooks': [progress_hook],
             'outtmpl': outtmpl,
             'cachedir': False,
-            'verbose': True
-            # 'ignoreerrors': True
+            'verbose': True,
+            # 'writeinfojson': self.metadata == "auto"
         }
 
         # TODO: download speed up?
@@ -141,43 +172,69 @@ class TrackDownloaderWorker(Worker):
             debug(f"Download attempt n. {attempt} for {self.video_id}")
             try:
                 with YoutubeDL(ydl_opts) as ydl:
-                    yt_url = yt_video_id_to_url(self.video_id)
+                    yt_url = ytcommons.youtube_video_id_to_youtube_url(self.video_id)
                     debug(f"Going to download from '{yt_url}'")
 
-                    ydl.download([yt_url])
+                    result = ytdl_download(ydl, [yt_url])
+                    debug(
+                        "=== ytdl_download ==="
+                        f"{j(result)}"
+                        "======================"
+                    )
+
+                    output = Path(result['_filename']).with_suffix(".mp3").absolute()
+                    debug(f"Download destination: {output}")
 
                     debug("Conversion completed")
 
                     self.conversion_finished.emit(self.video_id, self.user_data)
 
-                    if self.apply_tags:
-                        debug(f"Applying mp3 tags to {output}")
+                    if self.metadata is True or self.metadata == "auto":
+                        if self.metadata is True:
+                            artist = self.artist
+                            album = self.album
+                            song = self.song
+                            track_num = self.track_num
+                            image = None
+                        else:
+                            artist = result.get("artist")
+                            album = result.get("album")
+                            song = result.get("track")
+                            track_num = None
+                            image = None
 
-                        try:
-                            f: AudioFile = eyed3.load(output)
-                            if f:
-                                if not f.tag:
-                                    f.tag.initTag()
+                    debug(f"Applying mp3 tags to {output}\n"
+                          f"artist={artist}"
+                          f"album={album}"
+                          f"song={song}"
+                          f"track_num={track_num}"
+                          f"image={'yes' if image else 'no'}"
+                      )
 
-                                tag: eyed3.id3.Tag = f.tag
-                                if self.artist is not None:
-                                    tag.artist = self.artist
-                                if self.album is not None:
-                                    tag.album = self.album
-                                if self.song is not None:
-                                    tag.title = self.song
-                                if self.track_num is not None:
-                                    tag.track_num = self.track_num
-                                if self.image:
-                                    # TODO: use better cover
-                                    tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, self.image, "image/jpeg")
-                                tag.save()
-                                debug("Tagging completed")
-                                self.tagging_finished.emit(self.video_id, self.user_data)
-                            else:
-                                print(f"WARN: failed to apply mp3 tags to {output}")
-                        except:
-                            print(f"WARN: failed to apply mp3 tags to {output}")
+                    try:
+                        f: AudioFile = eyed3.load(output)
+                        if f:
+                            if not f.tag:
+                                f.tag.initTag()
+
+                            tag: eyed3.id3.Tag = f.tag
+                            if artist is not None:
+                                tag.artist = artist
+                            if album is not None:
+                                tag.album = album
+                            if song is not None:
+                                tag.title = song
+                            if track_num is not None:
+                                tag.track_num = track_num
+                            if image:
+                                tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
+                            tag.save()
+                            debug("Tagging completed")
+                            self.tagging_finished.emit(self.video_id, self.user_data)
+                        else:
+                            print(f"WARN: failed to apply mp3 tags to {output}: cannot load mp3")
+                    except Exception as e:
+                        print(f"WARN: failed to apply mp3 tags to {output}: {e}")
                 return # download done
 
             except CancelException as ce:
@@ -219,12 +276,12 @@ def enqueue_track_download(
         finished_callback,
         canceled_callback,
         error_callback,
-        apply_tags=True, user_data=None):
+        metadata=True, user_data=None):
 
     worker = TrackDownloaderWorker(
         video_id, artist, album, song, track_num, image,
         output_directory, output_format,
-        apply_tags, user_data)
+        metadata, user_data)
     worker.priority = Worker.PRIORITY_BELOW_NORMAL
 
     def internal_started_callback():
@@ -234,7 +291,8 @@ def enqueue_track_download(
             return
 
         v["status"] = "downloading"
-        started_callback(video_id, user_data)
+        if started_callback:
+            started_callback(video_id, user_data)
 
     def internal_progress_callback(video_id_, progress, user_data_):
         v = downloads.get(video_id)
@@ -242,7 +300,8 @@ def enqueue_track_download(
             print(f"WARN: no track with video id = {video_id} was in download")
             return
         v["progress"] = progress
-        progress_callback(video_id_, progress, user_data_)
+        if progress_callback:
+            progress_callback(video_id_, progress, user_data_)
 
     def internal_finished_callback():
         try:
@@ -251,7 +310,8 @@ def enqueue_track_download(
             finished_downloads[video_id] = d
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        finished_callback(video_id, user_data)
+        if finished_callback:
+            finished_callback(video_id, user_data)
 
     def internal_canceled_callback():
         try:
@@ -259,7 +319,8 @@ def enqueue_track_download(
             d["status"] = "canceled"
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        canceled_callback(video_id, user_data)
+        if canceled_callback:
+            canceled_callback(video_id, user_data)
 
     def internal_error_callback(video_id_, error_msg, user_data_):
         try:
@@ -269,7 +330,8 @@ def enqueue_track_download(
             finished_downloads[video_id] = d
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        error_callback(video_id, error_msg, user_data)
+        if error_callback:
+            error_callback(video_id, error_msg, user_data)
 
     worker.started.connect(internal_started_callback)
     worker.progress.connect(internal_progress_callback)
@@ -290,7 +352,8 @@ def enqueue_track_download(
     workers.schedule(worker)
 
     # call directly
-    queued_callback(video_id, user_data)
+    if queued_callback:
+        queued_callback(video_id, user_data)
 
 def cancel_track_download(video_id: str):
     d = downloads.get(video_id)

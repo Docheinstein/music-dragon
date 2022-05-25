@@ -48,6 +48,7 @@ class ListWidgetModelView(QListWidget):
         super().__init__(parent)
         self.model: Optional[ListWidgetModel] = None
         self.itemClicked.connect(self._on_item_clicked)
+        self.setUniformItemSizes(True)
 
     def set_model(self, model: ListWidgetModel) -> None:
         self.model = model

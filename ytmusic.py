@@ -20,12 +20,6 @@ def initialize(auth_file):
     _yt = YTMusic(auth_file)
 
 
-def ytmusic_video_id_to_url(video_id: str):
-    return f"https://music.youtube.com/watch?v={video_id}"
-
-def ytmusic_video_url_to_id(video_url: str):
-    return video_url.split("=")[-1]
-
 class YtTrack(Mergeable):
     def __init__(self, yt_track: dict):
         self.id = yt_track["videoId"]
@@ -164,5 +158,3 @@ def search_youtube_album_tracks(artist_name: str, album_title: str, callback, pr
     worker.priority = priority
     worker.result.connect(callback)
     workers.schedule(worker)
-
-

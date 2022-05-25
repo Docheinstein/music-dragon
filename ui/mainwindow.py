@@ -2,12 +2,13 @@ from typing import List
 
 from PyQt5.QtCore import QTimer, QUrl
 from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices
-from PyQt5.QtWidgets import QMainWindow, QLabel
+from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
 import preferences
 import repository
-import storage
+import localsongs
 import ui.resources
+import ytcommons
 import ytdownloader
 from log import debug
 from repository import Artist, ReleaseGroup, Release, get_artist, \
@@ -16,12 +17,13 @@ from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
 from ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
 from ui.imagepreviewwindow import ImagePreviewWindow
+from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
 from utils import make_pixmap_from_data
 from ytmusic import YtTrack
-from ytmusic import ytmusic_video_id_to_url
+from localsongs import Mp3
 
 SEARCH_DEBOUNCE_MS = 800
 
@@ -40,15 +42,16 @@ class MainWindow(QMainWindow):
         self.pages_stack = []
         self.pages_stack_cursor = -1
 
-        self.ui.homePageButton.clicked.connect(self.on_home_page_button_clicked)
+        self.ui.localPageButton.clicked.connect(self.on_local_page_button_clicked)
         self.ui.searchPageButton.clicked.connect(self.on_search_page_button_clicked)
         self.ui.downloadsPageButton.clicked.connect(self.on_downloads_page_button_clicked)
 
         self.pages_buttons = [
-            self.ui.homePageButton,
+            self.ui.localPageButton,
             self.ui.searchPageButton,
             self.ui.downloadsPageButton
         ]
+        # self.set_local_page()
         self.set_search_page()
 
         self.ui.backButton.clicked.connect(self.on_back_button_clicked)
@@ -98,6 +101,7 @@ class MainWindow(QMainWindow):
 
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
+        self.ui.actionReload.triggered.connect(self.on_action_reload)
 
         # Downloads
         self.downloads_model = DownloadsModel()
@@ -110,18 +114,36 @@ class MainWindow(QMainWindow):
         self.finished_downloads_model = FinishedDownloadsModel()
         self.ui.finishedDownloads.set_model(self.finished_downloads_model)
 
+        # Manual download
+        self.ui.manualDownloadButton.clicked.connect(self.on_manual_download_button_clicked)
         # self.downloader = YtDownloader()
         # self.downloader.track_download_started.connect(self.on_track_download_started)
         # self.downloader.track_download_progress.connect(self.on_track_download_progress)
         # self.downloader.track_download_finished.connect(self.on_track_download_finished)
 
-        # Load local mp3s
-        storage.load_mp3s_background(preferences.directory(),
-                                     mp3_loaded_callback=self.on_mp3_loaded,
-                                     finished_callback=self.on_mp3s_loaded)
+        # Local songs
+        # - widget
+        # self.local_songs_model = LocalSongsModel()
+        # self.ui.localSongs.set_model(self.local_songs_model)
+        # - view
+        self.local_songs_model = LocalSongsModel()
+        self.local_songs_delegate = LocalSongsItemDelegate()
+        self.local_songs_delegate.artist_clicked.connect(self.on_local_song_artist_clicked)
+        self.local_songs_delegate.album_clicked.connect(self.on_local_song_album_clicked)
+        self.ui.localSongs.setSpacing(6)
+        self.ui.localSongs.setModel(self.local_songs_model)
+        self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
 
-    def set_home_page(self):
-        self.push_page(self.ui.homePage)
+        # Load mp3s
+        localsongs.load_mp3s_background(
+            preferences.directory(),
+            mp3_loaded_callback=self.on_mp3_loaded,
+            finished_callback=self.on_mp3s_loaded,
+            load_images=False
+        )
+
+    def set_local_page(self):
+        self.push_page(self.ui.localPage)
 
     def set_search_page(self):
         self.push_page(self.ui.searchPage)
@@ -135,24 +157,30 @@ class MainWindow(QMainWindow):
     def set_artist_page(self):
         self.push_page(self.ui.artistPage)
 
+    def current_page(self):
+        return self.pages_stack[self.pages_stack_cursor] if 0 <= self.pages_stack_cursor <= len(self.pages_stack) - 1 else None
+
     def push_page(self, page):
+        if self.current_page() == page:
+            return
+
         self.pages_stack_cursor = self.pages_stack_cursor + 1
         self.pages_stack = self.pages_stack[:self.pages_stack_cursor]
         self.pages_stack.append(page)
-        self._update_current_page()
+        self.update_current_page()
 
     def prev_page(self):
         self.pages_stack_cursor = self.pages_stack_cursor - 1
-        self._update_current_page()
+        self.update_current_page()
 
     def next_page(self):
         self.pages_stack_cursor = self.pages_stack_cursor + 1
-        self._update_current_page()
+        self.update_current_page()
 
-    def _update_current_page(self):
+    def update_current_page(self):
         def page_to_string(p):
-            if p == self.ui.homePage:
-                return "home"
+            if p == self.ui.localPage:
+                return "local"
             if p == self.ui.searchPage:
                 return "search"
             if p == self.ui.downloadsPage:
@@ -168,8 +196,8 @@ class MainWindow(QMainWindow):
              for idx, p in enumerate(self.pages_stack)])
         self.unselect_pages_buttons()
 
-        if next_page == self.ui.homePage:
-            self.select_page_button(self.ui.homePageButton)
+        if next_page == self.ui.localPage:
+            self.select_page_button(self.ui.localPageButton)
         elif next_page == self.ui.searchPage:
             self.select_page_button(self.ui.searchPageButton)
         elif next_page == self.ui.downloadsPage:
@@ -231,6 +259,48 @@ class MainWindow(QMainWindow):
         repository.fetch_release_group_releases(release_group.id, self.on_release_group_releases_result)
 
 
+    def open_mp3_release_group(self, mp3: Mp3):
+        # already fetched: open directly
+        if mp3.fetched_release_group and mp3.release_group_id:
+            self.open_release_group(get_release_group(mp3.release_group_id))
+            return
+
+        # fetch it by name
+        self.current_release_group_id = None
+
+        # title
+        self.ui.albumTitle.setText(mp3.album)
+
+        # artist
+        self.ui.albumArtist.setText(mp3.artist or "")
+
+        # icon
+        self.ui.albumCover.setPixmap(make_pixmap_from_data(mp3.image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.albumCoverNumber.setText("")
+
+        # download
+        self.ui.albumDownloadAllButton.setEnabled(False)
+        self.ui.albumDownloadAllButton.setText(f"Download All")
+        self.ui.albumDownloadStatus.setText("")
+
+        # tracks
+        self.album_tracks_model.release_id = None
+        self.ui.albumTracks.invalidate()
+
+        # switch page
+        self.set_album_page()
+
+        # TODO: handle image blink
+
+        def mp3_release_group_callback(mp3_, release_group):
+            self.open_release_group(release_group)
+
+        def mp3_release_group_image_callback(release_group_id, img):
+            self.handle_album_cover_update(release_group_id)
+
+        repository.fetch_mp3_release_group(mp3, mp3_release_group_callback, mp3_release_group_image_callback)
+
+
     def open_artist(self, artist: Artist):
         if not isinstance(artist, Artist):
             raise TypeError(f"Expected object of type 'Artist', found {type(artist)}")
@@ -255,13 +325,44 @@ class MainWindow(QMainWindow):
         # fetch the artist details (e.g. artist release groups)
         repository.fetch_artist(artist.id, self.on_artist_result, self.on_artist_image_result)
 
+
+    def open_mp3_artist(self, mp3: Mp3):
+        # already fetched: open directly
+        if mp3.fetched_artist and mp3.artist_id:
+            self.open_artist(get_artist(mp3.artist_id))
+            return
+
+        self.current_artist_id = None
+
+        # title
+        self.ui.artistName.setText(mp3.artist)
+
+        # icon
+        self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+
+        # albums
+        self.artist_albums_model.artist_id = None
+        self.ui.artistAlbums.invalidate()
+
+        # switch page
+        self.set_artist_page()
+
+        def mp3_artist_callback(mp3_, artist):
+            self.open_artist(artist)
+
+        def mp3_artist_image_callback(artist_id, img):
+            self.on_artist_image_result(artist_id, img)
+
+        repository.fetch_mp3_artist(mp3, mp3_artist_callback, mp3_artist_image_callback)
+
+
     def on_action_preferences(self):
         debug("on_action_preferences")
         preferences_window = PreferencesWindow()
         preferences_window.exec()
 
-    def on_home_page_button_clicked(self, ev: QMouseEvent):
-        self.set_home_page()
+    def on_local_page_button_clicked(self, ev: QMouseEvent):
+        self.set_local_page()
 
     def on_search_page_button_clicked(self, ev: QMouseEvent):
         self.set_search_page()
@@ -606,7 +707,7 @@ class MainWindow(QMainWindow):
         track = get_track(track_id)
         yttrack = get_youtube_track(track.youtube_track_id)
 
-        QDesktopServices.openUrl(QUrl(ytmusic_video_id_to_url(yttrack.video_id)))
+        QDesktopServices.openUrl(QUrl(ytcommons.youtube_video_id_to_youtube_url(yttrack.video_id)))
 
     def handle_youtube_tracks_update(self, release_id):
         release = get_release(release_id)
@@ -709,8 +810,89 @@ class MainWindow(QMainWindow):
         self.open_release_group(rg)
 
 
-    def on_mp3_loaded(self, artist: str, album: str, title: str, path: str):
+    def on_mp3_loaded(self, mp3: Mp3):
+        self.update_local_song_count()
+
+    def on_mp3s_loaded(self, with_images):
+        # self.ui.localSongs.invalidate()
+        debug("Reloading mp3s model")
+        self.local_songs_model.beginResetModel()
+        self.local_songs_model.endResetModel()
+        self.ui.localSongs.foo()
+
+        if not with_images:
+            debug("Loading images now")
+            localsongs.load_mp3s_images_background(
+                mp3_image_loaded_callback=self.on_mp3_image_loaded,
+                finished_callback=self.on_mp3s_images_loaded)
+
+
+    def on_mp3_image_loaded(self, mp3: Mp3):
         pass
 
-    def on_mp3s_loaded(self):
-        pass
+    def on_mp3s_images_loaded(self):
+        debug("Reloading mp3s model")
+        # self.ui.localSongs.invalidate()
+        self.local_songs_model.beginResetModel()
+        self.local_songs_model.endResetModel()
+        self.ui.localSongs.foo()
+
+    def on_action_reload(self):
+        # Reload mp3s
+        localsongs.clear_mp3s()
+        # self.ui.localSongs.invalidate()
+        self.local_songs_model.beginResetModel()
+        self.local_songs_model.endResetModel()
+        self.ui.localSongs.foo()
+
+        self.update_local_song_count()
+        localsongs.load_mp3s_background(preferences.directory(),
+                                        mp3_loaded_callback=self.on_mp3_loaded,
+                                        finished_callback=self.on_mp3s_loaded,
+                                        load_images=False)
+
+    def update_local_song_count(self):
+        self.ui.localSongCount.setText(f"{len(localsongs.mp3s)} songs")
+
+    def on_manual_download_button_clicked(self):
+        debug("on_manual_download_button_clicked")
+        url = self.ui.manualDownloadURL.text()
+        self.ui.manualDownloadURL.setText("")
+        if not ytcommons.is_youtube_url(url):
+            print("WARN: invalid youtube url")
+            QMessageBox.warning(self, "Invalid URL",
+                                "Invalid YouTube URL",
+                                QMessageBox.Ok)
+            return
+
+        video_id = ytcommons.youtube_url_to_video_id(url)
+
+        ytdownloader.enqueue_track_download(
+            video_id=video_id,
+            artist=None,
+            album=None,
+            song=None,
+            track_num=None,
+            image=None,
+            output_directory=preferences.directory(),
+            output_format=preferences.output_format(),
+            queued_callback=None,
+            started_callback=None,
+            progress_callback=None,
+            finished_callback=None,
+            canceled_callback=None,
+            error_callback=None,
+            metadata="auto",
+            user_data=None
+        )
+
+
+    def on_local_song_artist_clicked(self, row: int):
+        mp3 = localsongs.mp3s[row]
+        debug(f"on_local_song_artist_clicked: {mp3}")
+        self.open_mp3_artist(mp3)
+
+    def on_local_song_album_clicked(self, row: int):
+        mp3 = localsongs.mp3s[row]
+        debug(f"on_local_song_album_clicked: {mp3}")
+        self.open_mp3_release_group(mp3)
