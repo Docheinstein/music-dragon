@@ -97,6 +97,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
     def invalidate(self):
         if self.track_id is None:
             return
+        locally_available = self.track.is_available_locally()
 
         self.track = get_track(self.track_id)
         release_group = self.track.release().release_group()
@@ -104,6 +105,10 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # cover
         cover = release_group.images.preferred_image()
         self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        if locally_available:
+            self.ui.cover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)
+        else:
+            self.ui.cover.setStyleSheet(ui.resources.LOCALLY_UNAVAILABLE_STYLESHEET)
 
         # title
         self.ui.title.setText(self.track.title)
@@ -111,6 +116,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # download
         youtube_track = get_youtube_track(self.track.youtube_track_id)
         download = ytdownloader.get_download(youtube_track.video_id) if youtube_track else None
+
 
         if youtube_track:
             if download:
@@ -123,11 +129,15 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
             else:
                 self.ui.download_progress.setVisible(False)
 
-                self.ui.download_button.setVisible(True)
-                self.ui.download_button.setToolTip(f"Download")
+                if locally_available:
+                    self.ui.download_button.setVisible(False)
+                    self.ui.open_video_button.setVisible(False)
+                else:
+                    self.ui.download_button.setVisible(True)
+                    self.ui.download_button.setToolTip(f"Download")
 
-                self.ui.open_video_button.setVisible(True)
-                self.ui.open_video_button.setToolTip(f"Open")
+                    self.ui.open_video_button.setVisible(True)
+                    self.ui.open_video_button.setToolTip(f"Open")
         else:
             self.ui.download_progress.setVisible(False)
             self.ui.download_button.setVisible(False)

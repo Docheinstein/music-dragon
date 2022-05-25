@@ -52,7 +52,7 @@ def ytdl_download(ytdl, url_list):
             # It also downloads the videos
             res = ytdl.extract_info(
                 url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
-        except youtube_dl.UnavailableVideoError:
+        except youtube_dl.utils.UnavailableVideoError:
             ytdl.report_error('unable to download video')
         except youtube_dl.MaxDownloadsReached:
             ytdl.to_screen('[info] Maximum number of downloaded files reached.')
@@ -68,9 +68,14 @@ class CancelException(Exception):
     def __init__(self):
         super(CancelException, self).__init__("canceled by user")
 
+# ============= TRACK DOWNLOADER ============
+# Download youtube track
+# =========================================
+
 class TrackDownloaderWorker(Worker):
     progress = pyqtSignal(str, float, str)
     error = pyqtSignal(str, str, str)
+    output_destination_known = pyqtSignal(str, str, str)
     download_finished = pyqtSignal(str, str)
     conversion_finished = pyqtSignal(str, str)
     tagging_finished = pyqtSignal(str, str)
@@ -175,6 +180,7 @@ class TrackDownloaderWorker(Worker):
                     yt_url = ytcommons.youtube_video_id_to_youtube_url(self.video_id)
                     debug(f"Going to download from '{yt_url}'")
 
+                    debug(f"YOUTUBE_DL: download: '{self.video_id}'")
                     result = ytdl_download(ydl, [yt_url])
                     debug(
                         "=== ytdl_download ==="
@@ -182,8 +188,9 @@ class TrackDownloaderWorker(Worker):
                         "======================"
                     )
 
-                    output = Path(result['_filename']).with_suffix(".mp3").absolute()
+                    output = str(Path(result['_filename']).with_suffix(".mp3").absolute())
                     debug(f"Download destination: {output}")
+                    self.output_destination_known.emit(self.video_id, output, self.user_data)
 
                     debug("Conversion completed")
 
@@ -195,8 +202,8 @@ class TrackDownloaderWorker(Worker):
                             album = self.album
                             song = self.song
                             track_num = self.track_num
-                            image = None
-                        else:
+                            image = self.image
+                        else: # TODO remove this branch of auto
                             artist = result.get("artist")
                             album = result.get("album")
                             song = result.get("track")
@@ -250,20 +257,30 @@ class TrackDownloaderWorker(Worker):
         self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
 
     def can_execute(self):
-        down = downloads.get(self.video_id)
-        if not down:
-            print(f"WARN: no download waiting for video id {self.video_id}")
-            return False
+        # down = downloads.get(self.video_id)
+        # if not down:
+        #     print(f"WARN: no download waiting for video id {self.video_id}")
+        #     return False
+        #
+        # if down["status"] != "queued":
+        #     return False
+        #
+        # downloading_count = [d["status"] == "downloading" for d in downloads.values()].count(True)
+        # can = downloading_count < max_download_count
+        # debug(f"Checking whether can download {down['user_data']} with status {down['status']}: "
+        #       f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
+        # return can
 
-        down = downloads[self.video_id]
-        if down["status"] != "queued":
-            return False
+        downloading_count = 0
+        for w in workers.worker_scheduler.workers.values():
+            if isinstance(w, TrackDownloaderWorker) and w.status == Worker.STATUS_DISPATCHED or w.status == Worker.STATUS_RUNNING:
+                downloading_count += 1
 
-        downloading_count = [d["status"] == "downloading" for d in downloads.values()].count(True)
         max_download_count = preferences.max_simultaneous_downloads()
         can = downloading_count < max_download_count
-        debug(f"Checking whether can download {down['user_data']} with status {down['status']}: "
+        debug(f"Checking whether can download track: "
               f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
+
         return can
 
 def enqueue_track_download(
@@ -285,33 +302,43 @@ def enqueue_track_download(
     worker.priority = Worker.PRIORITY_BELOW_NORMAL
 
     def internal_started_callback():
-        v = downloads.get(video_id)
-        if not v:
+        d = downloads.get(video_id)
+        if not d:
             print(f"WARN: no track with video id = {video_id} was in queue")
             return
 
-        v["status"] = "downloading"
+        d["status"] = "downloading"
         if started_callback:
             started_callback(video_id, user_data)
 
     def internal_progress_callback(video_id_, progress, user_data_):
-        v = downloads.get(video_id)
-        if not v:
+        d = downloads.get(video_id)
+        if not d:
             print(f"WARN: no track with video id = {video_id} was in download")
             return
-        v["progress"] = progress
+        d["progress"] = progress
         if progress_callback:
             progress_callback(video_id_, progress, user_data_)
 
+    def internal_output_destination_known_callback(video_id_, output, user_data_):
+        d = downloads.get(video_id)
+        if not d:
+            print(f"WARN: no track with video id = {video_id} was in download")
+            return
+
+        d["file"] = output
+
     def internal_finished_callback():
+        file = None
         try:
             d = downloads.pop(video_id)
             d["status"] = "finished"
+            file = d["file"]
             finished_downloads[video_id] = d
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
         if finished_callback:
-            finished_callback(video_id, user_data)
+            finished_callback(video_id, file, user_data)
 
     def internal_canceled_callback():
         try:
@@ -335,6 +362,7 @@ def enqueue_track_download(
 
     worker.started.connect(internal_started_callback)
     worker.progress.connect(internal_progress_callback)
+    worker.output_destination_known.connect(internal_output_destination_known_callback)
     worker.finished.connect(internal_finished_callback)
     worker.canceled.connect(internal_canceled_callback)
     worker.error.connect(internal_error_callback)
@@ -361,3 +389,63 @@ def cancel_track_download(video_id: str):
         print(f"WARN: no track with video id = {video_id} found")
         return
     d["worker"].cancel()
+
+# ============= TRACK INFO FETCHER ============
+# Fetch track info
+# =========================================
+
+class TrackInfoFetcherWorker(Worker):
+    result = pyqtSignal(str, dict, str)
+
+    def __init__(self, video_id: str, user_data=None):
+        super().__init__()
+        self.video_id = video_id
+        self.user_data = user_data
+
+    @pyqtSlot()
+    def run(self) -> None:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '320',
+            }],
+            'verbose': True,
+        }
+
+        # TODO: download speed up?
+
+        last_error = None
+        for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
+            debug(f"Retrieval attempt n. {attempt} for {self.video_id}")
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    yt_url = ytcommons.youtube_video_id_to_youtube_url(self.video_id)
+                    debug(f"YOUTUBE_DL: extract_info: '{self.video_id}'")
+                    info = ydl.extract_info(yt_url, download=False)
+                    debug(
+                        "=== extract_info ==="
+                        f"{j(info)}"
+                        "======================"
+                    )
+
+                    self.result.emit(self.video_id, info, self.user_data)
+                    return  # done
+            except CancelException as ce:
+                print(f"WARN: cancel request received during retrieval n. {attempt} for video {self.video_id}")
+                return
+
+            except Exception as e:
+                print(f"WARN: retrieval attempt n. {attempt} failed for video {self.video_id}: {e}")
+                last_error = e
+
+        print(f"ERROR: all retrieval attempts ({YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS} "
+              f"failed for video {self.video_id}: {last_error}", file=sys.stderr)
+        # self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
+
+def fetch_track_info(video_id: str, callback, user_data=None):
+    worker = TrackInfoFetcherWorker(video_id, user_data)
+    worker.priority = Worker.PRIORITY_BELOW_NORMAL
+    worker.result.connect(callback)
+    workers.schedule(worker)

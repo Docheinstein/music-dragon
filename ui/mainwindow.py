@@ -134,15 +134,17 @@ class MainWindow(QMainWindow):
         self.ui.localSongs.setModel(self.local_songs_model)
         self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
 
-        # Load mp3s
-        localsongs.load_mp3s_background(
-            preferences.directory(),
-            mp3_loaded_callback=self.on_mp3_loaded,
-            finished_callback=self.on_mp3s_loaded,
-            load_images=False
-        )
-
     def set_local_page(self):
+        # Load mp3s
+        if not localsongs.mp3s:
+            localsongs.load_mp3s_background(
+                preferences.directory(),
+                mp3_loaded_callback=self.on_mp3_loaded,
+                finished_callback=self.on_mp3s_loaded,
+                load_images=False
+            )
+
+
         self.push_page(self.ui.localPage)
 
     def set_search_page(self):
@@ -665,6 +667,21 @@ class MainWindow(QMainWindow):
         else:
             self.ui.albumCoverNumber.setText("")
 
+        not_available = True
+        main = release_group.main_release()
+        if main:
+            tracks = main.tracks()
+            if tracks:
+                available_count = [t.is_available_locally() for t in tracks].count(True)
+                debug(f"available_count={available_count}")
+                not_available = available_count == 0
+                if available_count == len(tracks):
+                    self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)
+                elif available_count > 0:
+                    self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET)
+        if not_available:
+            self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_UNAVAILABLE_STYLESHEET)
+
     def on_album_cover_double_clicked(self, ev: QMouseEvent):
         debug("on_album_cover_double_clicked")
         image_preview_window = ImagePreviewWindow()
@@ -732,37 +749,43 @@ class MainWindow(QMainWindow):
             self.ui.albumDownloadStatus.setText(f"Official tracks: {official}/{downloadable}")
 
 
-    def on_youtube_track_download_queued(self, track_id: str):
+    def on_youtube_track_download_queued(self, track_id: str, _):
         debug(f"on_youtube_track_download_queued(track_id={track_id})")
         self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
-    def on_youtube_track_download_started(self, track_id: str):
+    def on_youtube_track_download_started(self, track_id: str, _):
         debug(f"on_youtube_track_download_started(track_id={track_id})")
         self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
-    def on_youtube_track_download_progress(self, track_id: str, progress: float):
+    def on_youtube_track_download_progress(self, track_id: str, progress: float, _):
         debug(f"on_youtube_track_download_progress(track_id={track_id}, progress={progress})")
         self.ui.queuedDownloads.update_row(track_id)
         self.ui.albumTracks.update_row(track_id)
 
-    def on_youtube_track_download_finished(self, track_id: str):
+    def on_youtube_track_download_finished(self, track_id: str, _):
         debug(f"on_youtube_track_download_finished(track_id={track_id})")
         self.ui.queuedDownloads.invalidate()
         self.ui.finishedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
-    def on_youtube_track_download_canceled(self, track_id: str):
+        debug("Reloading mp3s model")
+        self.update_local_song_count()
+        self.local_songs_model.beginResetModel()
+        self.local_songs_model.endResetModel()
+
+
+    def on_youtube_track_download_canceled(self, track_id: str, _):
         debug(f"on_youtube_track_download_canceled(track_id={track_id})")
         self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
-    def on_youtube_track_download_error(self, track_id: str, error_msg: str):
+    def on_youtube_track_download_error(self, track_id: str, error_msg: str, _):
         debug(f"on_youtube_track_download_error(track_id={track_id}): {error_msg}")
         self.ui.queuedDownloads.invalidate()
         self.ui.finishedDownloads.invalidate()
@@ -818,7 +841,6 @@ class MainWindow(QMainWindow):
         debug("Reloading mp3s model")
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
-        self.ui.localSongs.foo()
 
         if not with_images:
             debug("Loading images now")
@@ -835,7 +857,6 @@ class MainWindow(QMainWindow):
         # self.ui.localSongs.invalidate()
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
-        self.ui.localSongs.foo()
 
     def on_action_reload(self):
         # Reload mp3s
@@ -843,7 +864,6 @@ class MainWindow(QMainWindow):
         # self.ui.localSongs.invalidate()
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
-        self.ui.localSongs.foo()
 
         self.update_local_song_count()
         localsongs.load_mp3s_background(preferences.directory(),
@@ -855,6 +875,9 @@ class MainWindow(QMainWindow):
         self.ui.localSongCount.setText(f"{len(localsongs.mp3s)} songs")
 
     def on_manual_download_button_clicked(self):
+        # TODO: implement musicbrainz fetching based on yt metadata?
+        # actually this is bugged since the down its not shown
+
         debug("on_manual_download_button_clicked")
         url = self.ui.manualDownloadURL.text()
         self.ui.manualDownloadURL.setText("")
@@ -867,24 +890,30 @@ class MainWindow(QMainWindow):
 
         video_id = ytcommons.youtube_url_to_video_id(url)
 
-        ytdownloader.enqueue_track_download(
-            video_id=video_id,
-            artist=None,
-            album=None,
-            song=None,
-            track_num=None,
-            image=None,
-            output_directory=preferences.directory(),
-            output_format=preferences.output_format(),
-            queued_callback=None,
-            started_callback=None,
-            progress_callback=None,
-            finished_callback=None,
-            canceled_callback=None,
-            error_callback=None,
-            metadata="auto",
-            user_data=None
-        )
+        def track_info_result(video_id_, result, user_data):
+            debug("track_info_result")
+            # TODO: fetch mb track?
+            #
+            # ytdownloader.enqueue_track_download(
+            #     video_id=video_id,
+            #     artist=result.get("artist"),
+            #     album=result.get("album"),
+            #     song=result.get("track") or result.get("title"),
+            #     track_num=None,
+            #     image=None,
+            #     output_directory=preferences.directory(),
+            #     output_format=preferences.output_format(),
+            #     queued_callback=self.on_youtube_track_download_queued,
+            #     started_callback=self.on_youtube_track_download_started,
+            #     progress_callback=self.on_youtube_track_download_progress,
+            #     finished_callback=self.on_youtube_track_download_finished,
+            #     canceled_callback=self.on_youtube_track_download_canceled,
+            #     error_callback=self.on_youtube_track_download_error,
+            #     metadata=True,
+            #     user_data=None
+            # )
+
+        ytdownloader.fetch_track_info(video_id, track_info_result)
 
 
     def on_local_song_artist_clicked(self, row: int):

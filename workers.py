@@ -5,12 +5,12 @@ from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 from log import debug
 from utils import current_millis
 
-_worker_scheduler: Optional['WorkerScheduler'] = None
+worker_scheduler: Optional['WorkerScheduler'] = None
 
 def initialize(max_num_threads):
-    global _worker_scheduler
+    global worker_scheduler
     debug(f"Initializing {max_num_threads} workers")
-    _worker_scheduler = WorkerScheduler(max_num_threads)
+    worker_scheduler = WorkerScheduler(max_num_threads)
 
 
 class Worker(QObject):
@@ -96,7 +96,11 @@ class Worker(QObject):
             return False
 
         # Later is better
-        return self.born > other.born
+        # return self.born > other.born
+
+        # Earlier is better
+        return self.born < other.born
+
 
 class Thread(QThread):
     worker_started = pyqtSignal(str)
@@ -180,7 +184,7 @@ class WorkerScheduler(QObject):
         # Push in the queue or dispatch if possible
         worker.status = Worker.STATUS_WAITING
         self.workers[worker.worker_id] = worker
-        self._dispatch_next_job_if_possible()
+        self._dispatch_job_while_possible()
 
     def _on_worker_started(self, worker_id):
         pass
@@ -193,7 +197,11 @@ class WorkerScheduler(QObject):
         self.workers.pop(worker_id)
 
         # Dispatch next worker if possible
-        self._dispatch_next_job_if_possible()
+        self._dispatch_job_while_possible()
+
+    def _dispatch_job_while_possible(self):
+        while self._dispatch_next_job_if_possible():
+            pass
 
     def _dispatch_next_job_if_possible(self):
         debug("Eventually dispatching next job")
@@ -206,7 +214,7 @@ class WorkerScheduler(QObject):
         available_thread = self._get_first_available_thread()
         if not available_thread:
             debug("No available thread, not executing job by now")
-            return
+            return False
         # FIFO
         # available_thread = self._get_most_available_thread()
 
@@ -226,12 +234,13 @@ class WorkerScheduler(QObject):
 
         if not best_worker:
             debug("No worker to dispatch")
-            return
+            return False
 
         debug(f"Scheduler selected the worker to dispatch: {best_worker} with priority {best_worker.priority}")
 
         best_worker.status = Worker.STATUS_DISPATCHED
         available_thread.enqueue_worker(best_worker)
+        return True
 
     def _get_first_available_thread(self) -> Optional[Thread]:
         for t in self.threads:
@@ -265,4 +274,4 @@ class WorkerScheduler(QObject):
 
 
 def schedule(worker: Worker):
-    _worker_scheduler.schedule(worker)
+    worker_scheduler.schedule(worker)

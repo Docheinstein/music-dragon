@@ -3,6 +3,8 @@ from statistics import mean
 from typing import List, Dict, Optional
 
 import Levenshtein as levenshtein
+
+import localsongs
 import musicbrainz
 import preferences
 import wiki
@@ -198,6 +200,10 @@ class Track(Mergeable):
 
     def youtube_track(self):
         return get_youtube_track(self.youtube_track_id)
+
+    def is_available_locally(self):
+        rg = self.release().release_group()
+        return True if localsongs.get_by_metadata(rg.artists_string(), rg.title, self.title) else None
 
 def _add_artist(artist: Artist):
     debug(f"add_artist({artist.id})")
@@ -616,22 +622,26 @@ def download_youtube_track(track_id: str,
         return
 
     def queued_callback_wrapper(video_id: str, track_id_: str):
-        queued_callback(track_id)
+        queued_callback(track_id, None)
 
     def started_callback_wrapper(video_id: str, track_id_: str):
-        started_callback(track_id)
+        started_callback(track_id, None)
 
     def progress_callback_wrapper(video_id: str, progress: float, track_id_: str):
-        progress_callback(track_id, progress)
+        progress_callback(track_id, progress, None)
 
-    def finished_callback_wrapper(video_id: str, track_id_: str):
-        finished_callback(track_id)
+    def finished_callback_wrapper(video_id: str, output_file: str, track_id_: str):
+        def finished_and_loaded_callback(mp3: Mp3):
+            finished_callback(track_id, None)
+
+        localsongs.load_mp3_background(output_file, finished_and_loaded_callback, load_image=True)
+
 
     def canceled_callback_wrapper(video_id: str, track_id_: str):
-        canceled_callback(track_id)
+        canceled_callback(track_id, None)
 
     def error_callback_wrapper(video_id: str, error_msg: str, track_id_: str):
-        error_callback(track_id, error_msg)
+        error_callback(track_id, error_msg, None)
 
     ytdownloader.enqueue_track_download(
         video_id=track.youtube_track().video_id,

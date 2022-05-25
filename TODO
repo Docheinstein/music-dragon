@@ -1,5 +1,6 @@
-- Back cover button text is wrong
-- Download All is disabled sometimes?
-- Cancel button for tracks in download too
-- Title/Subtitle for downloads
-- Better handling of worker state/cancel
+- If back cover button is pressed the text is wrong
+- Manual YT download: fetch musicbrainz track from metadata? or handle non-official/non-musicbrainz around the application?
+- caching of requests/covers
+- fetch tracks of each release group on open_artist?
+- download all button -> download missing?
+- do checks on mainwindow before invalidate stuff (current release group id/current artist id)

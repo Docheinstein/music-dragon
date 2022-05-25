@@ -2,6 +2,9 @@ from typing import Optional
 
 from PyQt5.QtGui import QIcon, QPixmap
 
+LOCALLY_AVAILABLE_STYLESHEET = "border: 3px solid #32CD32;"
+LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET = "border: 3px solid orange;"
+LOCALLY_UNAVAILABLE_STYLESHEET = "border: 3px solid gray;"
 
 IMAGES_PATH = "res/images/"
 

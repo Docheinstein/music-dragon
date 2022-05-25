@@ -12,7 +12,7 @@ from workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 
-# mp3s = {}
+mp3s_indexes_by_metadata = {}
 mp3s = []
 
 class Mp3:
@@ -84,13 +84,17 @@ class Mp3:
         return f"{self.artist} - {self.album} - {self.song}"
 
 
-# def get_mp3(artist: str, album: str, song: str) -> Mp3:
-#     return mp3s.get((artist, album, song))
+def get_by_metadata(artist: str, album: str, song: str):
+    idx = mp3s_indexes_by_metadata.get((artist, album, song))
+    debug(f"Checking availability of ({artist}, {album}, {song})")
+    if idx is not None and 0 <= idx < len(mp3s):
+        return mp3s[idx]
+    return None
 
 def load_mp3(file: str, load_image=True):
     mp3: Mp3 = Mp3()
     if mp3.load_from_file(file, load_image=load_image):
-        # mp3s[(mp3.artist, mp3.album, mp3.song)] = mp3
+        mp3s_indexes_by_metadata[(mp3.artist, mp3.album, mp3.song)] = len(mp3s)
         mp3s.append(mp3)
         return mp3
     return None
@@ -147,6 +151,34 @@ def load_mp3s_background(directory, mp3_loaded_callback=None, finished_callback=
         worker.mp3_loaded.connect(mp3_loaded_callback)
     if finished_callback:
         worker.finished.connect(lambda: finished_callback(load_images))
+    workers.schedule(worker)
+
+# ============ LOAD MP3  ===============
+# Load mp3 and its tags from file
+# =======================================
+
+class LoadMp3Worker(Worker):
+    mp3_loaded = pyqtSignal(Mp3)
+
+    def __init__(self, file: str, load_image):
+        super().__init__()
+        self.file = file
+        self.load_image = load_image
+
+    def run(self):
+        # Fetch all the releases and releases tracks for the release groups
+        debug(f"LOCALSONGS: load_mp3: '{self.file}'")
+
+        mp3 = load_mp3(self.file, load_image=self.load_image)
+        if mp3:
+            self.mp3_loaded.emit(mp3)
+
+def load_mp3_background(file, mp3_loaded_callback=None, load_image=True,
+                        priority=workers.Worker.PRIORITY_BELOW_NORMAL):
+    worker = LoadMp3Worker(file, load_image=load_image)
+    worker.priority = priority
+    if mp3_loaded_callback:
+        worker.mp3_loaded.connect(mp3_loaded_callback)
     workers.schedule(worker)
 
 

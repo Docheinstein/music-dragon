@@ -289,7 +289,3 @@ class LocalSongsView(QListView):
 
         self.edit_index = index
         self.openPersistentEditor(self.edit_index)
-
-    def foo(self):
-        pass
-
