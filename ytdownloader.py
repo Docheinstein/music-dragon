@@ -257,29 +257,25 @@ class TrackDownloaderWorker(Worker):
         self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
 
     def can_execute(self):
-        # down = downloads.get(self.video_id)
-        # if not down:
-        #     print(f"WARN: no download waiting for video id {self.video_id}")
-        #     return False
-        #
-        # if down["status"] != "queued":
-        #     return False
-        #
-        # downloading_count = [d["status"] == "downloading" for d in downloads.values()].count(True)
-        # can = downloading_count < max_download_count
-        # debug(f"Checking whether can download {down['user_data']} with status {down['status']}: "
-        #       f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
-        # return can
+        # Can execute only if there are less running (or dispatched) workers than max_simultaneous_downloads
+        # This would be enough if the workers_scheduler would schedule the jobs
+        # as a queue, but since the jobs are scheduled as a stack (on purpose)#
+        # we have to return True only if this worker is actually the earlier one
 
+        earlier_worker = None
         downloading_count = 0
         for w in workers.worker_scheduler.workers.values():
-            if isinstance(w, TrackDownloaderWorker) and w.status == Worker.STATUS_DISPATCHED or w.status == Worker.STATUS_RUNNING:
-                downloading_count += 1
+            if isinstance(w, TrackDownloaderWorker):
+                if w.status == Worker.STATUS_WAITING and (earlier_worker is None or w.born < earlier_worker.born):
+                    earlier_worker = w
+
+                if w.status == Worker.STATUS_DISPATCHED or w.status == Worker.STATUS_RUNNING:
+                    downloading_count += 1
 
         max_download_count = preferences.max_simultaneous_downloads()
-        can = downloading_count < max_download_count
+        can = downloading_count < max_download_count and earlier_worker.worker_id == self.worker_id
         debug(f"Checking whether can download track: "
-              f"{'yes' if can else 'no'} (was downloading {downloading_count} tracks, max is {max_download_count})")
+              f"{'yes' if can else 'no'} (dispatched/running workers {downloading_count}, max is {max_download_count}, born = {self.born})")
 
         return can
 

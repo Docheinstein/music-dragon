@@ -8,6 +8,7 @@ import ui
 
 from PyQt5.QtWidgets import QApplication
 
+import utils
 import workers
 import ytmusic
 from ui.mainwindow import MainWindow
@@ -23,6 +24,7 @@ def main():
 
     app = QApplication(sys.argv)
 
+    utils.initialize_execution_time()
     preferences.initialize()
     ui.resources.initialize()
     workers.initialize(max_num_threads=preferences.thread_number())

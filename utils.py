@@ -1,11 +1,10 @@
 import json
 import time
-from typing import Sequence
+from typing import Sequence, Optional
 
 from PyQt5.QtGui import QPixmap, QIcon
 
-from log import debug
-
+application_start_time: Optional[int] = None
 
 def make_pixmap_from_data(data, default=None) -> QPixmap:
     pixmap = QPixmap()
@@ -25,16 +24,26 @@ def j(x):
 def current_millis():
     return round(time.time() * 1000)
 
+def initialize_execution_time():
+    global application_start_time
+    application_start_time = current_millis()
+
+def current_execution_millis():
+    return current_millis() - application_start_time
+
+def current_execution_seconds():
+    return current_execution_millis() / 1000
+
 def min_index(sequence: Sequence):
     return sequence.index(min(sequence))
 
 class Mergeable:
     def merge(self, other):
-        debug("===== merging =====\n"
-              f"{(vars(self))}\n"
-              "------ with -----\n"
-              f"{(vars(other))}\n"
-        )
+        # debug("===== merging =====\n"
+        #       f"{(vars(self))}\n"
+        #       "------ with -----\n"
+        #       f"{(vars(other))}\n"
+        # )
         # TODO: recursive check of better()? evaluate len() if hasattr(len) eventually?
 
         # object overriding better

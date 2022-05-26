@@ -11,7 +11,7 @@ import ui.resources
 import ytcommons
 import ytdownloader
 from log import debug
-from repository import Artist, ReleaseGroup, Release, get_artist, \
+from repository import Artist, ReleaseGroup, Release, Track, get_artist, \
     get_release_group, get_entity, get_track, get_release, get_youtube_track
 from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
@@ -68,7 +68,8 @@ class MainWindow(QMainWindow):
 
         self.ui.searchResults.set_model(self.search_results_model)
         self.ui.searchResults.row_clicked.connect(self.on_search_result_clicked)
-        self.ui.searchResults.subtitle_clicked.connect(self.on_search_result_subtitle_clicked)
+        self.ui.searchResults.subtitle_first_clicked.connect(self.on_search_result_subtitle_first_clicked)
+        self.ui.searchResults.subtitle_second_clicked.connect(self.on_search_result_subtitle_second_clicked)
 
         self.last_search_query = None
 
@@ -122,10 +123,6 @@ class MainWindow(QMainWindow):
         # self.downloader.track_download_finished.connect(self.on_track_download_finished)
 
         # Local songs
-        # - widget
-        # self.local_songs_model = LocalSongsModel()
-        # self.ui.localSongs.set_model(self.local_songs_model)
-        # - view
         self.local_songs_model = LocalSongsModel()
         self.local_songs_delegate = LocalSongsItemDelegate()
         self.local_songs_delegate.artist_clicked.connect(self.on_local_song_artist_clicked)
@@ -134,17 +131,16 @@ class MainWindow(QMainWindow):
         self.ui.localSongs.setModel(self.local_songs_model)
         self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
 
+        # Load local songs
+        # TODO: preferences flag?
+        localsongs.load_mp3s_background(
+            preferences.directory(),
+            mp3_loaded_callback=self.on_mp3_loaded,
+            finished_callback=self.on_mp3s_loaded,
+            load_images=False
+        )
+
     def set_local_page(self):
-        # Load mp3s
-        if not localsongs.mp3s:
-            localsongs.load_mp3s_background(
-                preferences.directory(),
-                mp3_loaded_callback=self.on_mp3_loaded,
-                finished_callback=self.on_mp3s_loaded,
-                load_images=False
-            )
-
-
         self.push_page(self.ui.localPage)
 
     def set_search_page(self):
@@ -231,6 +227,8 @@ class MainWindow(QMainWindow):
     def open_release_group(self, release_group: ReleaseGroup):
         if not isinstance(release_group, ReleaseGroup):
             raise TypeError(f"Expected object of type 'ReleaseGroup', found {type(release_group)}")
+
+        debug(f"open_release_group({release_group.id})")
 
         self.current_release_group_id = release_group.id
 
@@ -401,6 +399,11 @@ class MainWindow(QMainWindow):
             artists_callback=self.on_search_artists_result,
             artist_image_callback=self.on_artist_image_result,
         )
+        repository.search_tracks(
+            query,
+            tracks_callback=self.on_search_tracks_result,
+            track_image_callback=self.on_track_image_result,
+        )
 
 
     def on_search_release_groups_result(self, query, release_groups: List[ReleaseGroup]):
@@ -453,11 +456,37 @@ class MainWindow(QMainWindow):
         repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
 
 
+    def on_search_tracks_result(self, query, tracks: List[Track]):
+        debug(f"on_search_tracks_result(query={query}")
+
+        pending_changes = False
+
+        if query != self.last_search_query:
+            debug("Clearing search results")
+            self.last_search_query = query
+            self.search_results_model.results.clear()
+            pending_changes = True
+
+        for track in tracks:
+            self.search_results_model.results.append(track.id)
+            pending_changes = True
+
+        if pending_changes:
+            self.ui.searchResults.invalidate()
+
     def on_release_group_image_result(self, release_group_id, image):
         debug(f"on_release_group_image_result(release_group_id={release_group_id})")
 
         self.handle_album_cover_update(release_group_id)
 
+    def on_track_image_result(self, track_id, image):
+        debug(f"on_track_image_result(track_id={track_id})")
+
+        self.handle_album_cover_update(get_track(track_id).release().release_group_id)
+
+        # TODO: not here/better
+        # search page
+        self.ui.searchResults.update_row(track_id)
 
     def on_artist_result(self, artist_id, artist: Artist):
         debug(f"on_artist_result(artist_id={artist_id})")
@@ -493,8 +522,8 @@ class MainWindow(QMainWindow):
         else:
             print("WARN: not supported yet")
 
-    def on_search_result_subtitle_clicked(self, row: int):
-        debug(f"on_search_result_subtitle_clicked({row})")
+    def on_search_result_subtitle_first_clicked(self, row: int):
+        debug(f"on_search_result_subtitle_first_clicked({row})")
 
         result_id = self.search_results_model.results[row]
         result = get_entity(result_id)
@@ -505,6 +534,23 @@ class MainWindow(QMainWindow):
             self.open_artist(result.artists()[0])
         elif isinstance(result, Artist):
             print("WARN: wtf?")
+        elif isinstance(result, Track):
+            self.open_artist(result.release().release_group().artists()[0])
+        else:
+            print("WARN: not supported yet")
+
+    def on_search_result_subtitle_second_clicked(self, row: int):
+        debug(f"on_search_result_subtitle_second_clicked({row})")
+
+        result_id = self.search_results_model.results[row]
+        result = get_entity(result_id)
+
+        if isinstance(result, ReleaseGroup):
+            print("WARN: wtf?")
+        elif isinstance(result, Artist):
+            print("WARN: wtf?")
+        elif isinstance(result, Track):
+            self.open_release_group(result.release().release_group())
         else:
             print("WARN: not supported yet")
 

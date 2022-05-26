@@ -61,7 +61,6 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.ui.artist.setFont(f)
         self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.ui.artist.set_underline_on_hover(True)
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
         # -

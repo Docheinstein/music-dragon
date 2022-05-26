@@ -279,7 +279,7 @@ class LocalSongsView(QListView):
         self.setMouseTracking(True)
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
-        debug("mouseMoveEvent")
+        # debug("mouseMoveEvent")
         index = self.indexAt(e.pos())
         if self.edit_index == index:
             return

@@ -1,9 +1,10 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
+from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt, QCoreApplication
+from PyQt5.QtWidgets import QApplication
 
 from log import debug
-from utils import current_millis
+from utils import current_millis, current_execution_millis
 
 worker_scheduler: Optional['WorkerScheduler'] = None
 
@@ -49,7 +50,7 @@ class Worker(QObject):
         self.priority = priority
         self.status = Worker.STATUS_WAITING
         self.is_canceled = False
-        self.born = current_millis()
+        self.born = current_execution_millis()
 
         Worker.next_id += 1
 
@@ -84,8 +85,8 @@ class Worker(QObject):
 
     def __str__(self):
         if self.tag:
-            return f"Worker {self.worker_id} ({self.tag})"
-        return f"Worker {self.worker_id}"
+            return f"{self.__class__.__name__} {self.worker_id} ({self.tag})"
+        return f"{self.__class__.__name__} {self.worker_id}"
 
     # Returns True if schedule this worker is better than scheduling the other worker
     def __lt__(self, other):
@@ -96,10 +97,10 @@ class Worker(QObject):
             return False
 
         # Later is better
-        # return self.born > other.born
+        return self.born > other.born
 
         # Earlier is better
-        return self.born < other.born
+        # return self.born < other.born
 
 
 class Thread(QThread):
@@ -229,6 +230,7 @@ class WorkerScheduler(QObject):
             if worker.status != Worker.STATUS_WAITING:
                 continue
             if worker.can_execute() is True:
+                debug(f"- found dispatchable worker {worker} with priority {worker.priority} born on {worker.born}")
                 if best_worker is None or worker < best_worker:
                     best_worker = worker
 
@@ -236,7 +238,7 @@ class WorkerScheduler(QObject):
             debug("No worker to dispatch")
             return False
 
-        debug(f"Scheduler selected the worker to dispatch: {best_worker} with priority {best_worker.priority}")
+        debug(f"Scheduler selected the worker to dispatch: {best_worker} with priority {best_worker.priority} born on {best_worker.born}")
 
         best_worker.status = Worker.STATUS_DISPATCHED
         available_thread.enqueue_worker(best_worker)

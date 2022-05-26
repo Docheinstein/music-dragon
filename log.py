@@ -3,6 +3,8 @@ import time
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QApplication
 
+from utils import current_execution_millis, current_execution_seconds
+
 debug_enabled = True
 
 _main_thread_id = None
@@ -23,7 +25,7 @@ def debug(*args, **kwargs):
             thread_str = f"background {len(_threads_strings)}"
             _threads_strings[thread_id] = thread_str
 
-        print(f"[{round(time.time() * 1000)}] "
+        print(f"[{current_execution_millis()}] "
               f"{{{'main' if thread_id == _main_thread_id else thread_str}}}",
               *args, **kwargs)
 

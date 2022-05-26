@@ -1,5 +1,5 @@
 from difflib import get_close_matches
-from statistics import mean
+from statistics import mean, mode, multimode
 from typing import List, Dict, Optional
 
 import Levenshtein as levenshtein
@@ -14,7 +14,7 @@ import ytmusic
 from localsongs import Mp3
 from ytmusic import YtTrack
 from log import debug
-from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack
+from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack, MbRecording
 from utils import j, Mergeable, min_index
 
 _artists: Dict[str, 'Artist'] = {}
@@ -336,6 +336,55 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
 
     musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
 
+def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
+    debug(f"search_tracks(query={query})")
+
+    def recordings_callback_wrapper(query_, result: List[MbRecording]):
+        # add a track for each release the recoding belongs to
+        tracks = []
+        for rec in result:
+            for release in rec.releases:
+                mb_release_group = MbReleaseGroup()
+                mb_release_group.id = release["release-group"]["id"]
+                mb_release_group.title = release["release-group"]["title"]
+                mb_release_group.artists = [{
+                    "id": a["id"],
+                    "name": a["name"],
+                    "aliases": [alias["alias"] for alias in a["aliases"]]
+                } for a in rec.artists]
+
+                mb_release = MbRelease()
+                mb_release.id = release["id"]
+                mb_release.title = release["title"]
+                mb_release.release_group_id = mb_release_group.id
+
+                mb_track = MbTrack()
+                mb_track.id = f'{rec.id}@{mb_release.id}'
+                mb_track.title = rec.title
+                mb_track.release_id = mb_release.id
+
+                rg = ReleaseGroup(mb_release_group)
+                r = Release(mb_release)
+                t = Track(mb_track)
+
+                _add_release_group(rg)
+                _add_release(r)
+                _add_track(t)
+
+                tracks.append(t)
+        tracks_callback(query_, tracks)
+
+        # (eventually) image
+        if track_image_callback:
+            debug("Fetching tracks image too")
+            for t in tracks:
+                def tracks_image_callback_wrapper(rg_id, img):
+                    debug(f"Received image for track {t.id} with rg_id = {rg_id}")
+                    track_image_callback(t.id, img)
+                fetch_release_group_cover(t.release().release_group_id, tracks_image_callback_wrapper)
+
+    musicbrainz.search_recordings(query, recordings_callback_wrapper, limit)
+
 
 def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):
     debug(f"fetch_mp3_release_group({mp3})")
@@ -427,8 +476,7 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
                     def artist_callback(_1, _2):
                         pass
 
-                    for a in result:
-                        fetch_artist(a.id, artist_callback, mp3_artist_image_callback)
+                    fetch_artist(best_artist.id, artist_callback, mp3_artist_image_callback)
 
         musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=10)
 
@@ -476,13 +524,27 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 release_group.fetched_releases = True
 
                 # Try to figure out which is the more appropriate (main) release
-                # with heuristics:
-                # 1. Take the release with the number of track which is more near
-                #    to the average number of tracks of the releases
-                avg_track_count = mean([r.track_count() for r in releases])
-                deltas = [abs(r.track_count() - avg_track_count) for r in releases]
-                main_release_id = releases[min_index(deltas)].id
-                release_group.main_release_id = main_release_id
+                # with a combination of these heuristics:
+                # 1. Take the release with the number of track nearest to the mean
+                # 2. Take the release with the number of track nearest to the mode
+
+                releases_track_count = [r.track_count() for r in releases]
+                mean_track_count = mean(releases_track_count)
+                modes_track_count = multimode(releases_track_count)
+
+                debug(f"releases_track_count={releases_track_count}")
+                debug(f"mean_track_count={mean_track_count}")
+                debug(f"modes_track_count={modes_track_count}")
+
+                if len(modes_track_count) == 1:
+                    debug(f"Taking main release with track count equal to the mode = {modes_track_count[0]}")
+                    # there is a best track count candidate, take it
+                    release_group.main_release_id = releases[releases_track_count.index(modes_track_count[0])].id
+                else:
+                    debug(f"Taking main release with track count nearest to mean = {mean_track_count}")
+                    # take the release with the number of track nearest to the mean
+                    mean_deltas = [abs(tc - mean_track_count) for tc in releases_track_count]
+                    release_group.main_release_id = releases[min_index(mean_deltas)].id
 
             release_group_releases_callback(release_group_id_, releases)
 
