@@ -1,8 +1,10 @@
 import json
 import time
-from typing import Sequence, Optional
+from pathlib import Path
+from typing import Sequence, Optional, Union
 
-from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices
 
 application_start_time: Optional[int] = None
 
@@ -36,6 +38,17 @@ def current_execution_seconds():
 
 def min_index(sequence: Sequence):
     return sequence.index(min(sequence))
+
+def sanitize_filename(f: str):
+    return f.replace("/", "-")
+
+def open_url(url: str):
+    QDesktopServices.openUrl(QUrl(url))
+
+def open_folder(directory: Union[Path, str]):
+    if isinstance(directory, Path):
+        directory = str(directory.absolute())
+    QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
 class Mergeable:
     def merge(self, other):

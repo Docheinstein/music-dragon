@@ -173,6 +173,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         else:
             self.ui.subtitle_first.setVisible(False)
         self.ui.subtitle_first.set_clickable(subtitle_first_clickable)
+        self.ui.subtitle_first.set_underline_on_hover(subtitle_first_clickable)
 
 
         if subtitle_second:
@@ -180,6 +181,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         else:
             self.ui.subtitle_second.setVisible(False)
         self.ui.subtitle_second.set_clickable(subtitle_second_clickable)
+        self.ui.subtitle_second.set_underline_on_hover(subtitle_second_clickable)
 
 
         self.ui.subtitle_sep.setVisible(True if (subtitle_first and subtitle_second) else False)

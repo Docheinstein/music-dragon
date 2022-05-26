@@ -43,11 +43,13 @@ class ListWidgetModelViewItem(QWidget):
 
 class ListWidgetModelView(QListWidget):
     row_clicked = pyqtSignal(int)
+    row_double_clicked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.model: Optional[ListWidgetModel] = None
         self.itemClicked.connect(self._on_item_clicked)
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.setUniformItemSizes(True)
 
     def set_model(self, model: ListWidgetModel) -> None:
@@ -97,3 +99,7 @@ class ListWidgetModelView(QListWidget):
     def _on_item_clicked(self, item: QListWidgetItem):
         debug(f"{type(self).__name__}.on_item_clicked at row {self.row(item)}")
         self.row_clicked.emit(self.row(item))
+
+    def _on_item_double_clicked(self, item: QListWidgetItem):
+        debug(f"{type(self).__name__}._on_item_double_clicked at row {self.row(item)}")
+        self.row_double_clicked.emit(self.row(item))

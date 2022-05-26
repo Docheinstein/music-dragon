@@ -1,10 +1,8 @@
 - If back cover button is pressed the text is wrong
 - Manual YT download: fetch musicbrainz track from metadata? or handle non-official/non-musicbrainz around the application?
 - caching of requests/covers
-- fetch tracks of each release group on open_artist?
 - download all button -> download missing?
 - do checks on mainwindow before invalidate stuff (current release group id/current artist id)
 - bug: empty rows at the beginning and at the end
-- track belonging to multiple release groups: set the cover of the shown release group instead the one of the track?
-- click on album artist of completed down
 - implement custom check of workers directly on WorkerScheduler but customizable by worker (among the same worker.__class__)
+- fetch album tracks even on artist page? for figure out availability of local songs

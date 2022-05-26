@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 
 from PyQt5.QtCore import QTimer, QUrl
@@ -21,7 +22,7 @@ from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
-from utils import make_pixmap_from_data
+from utils import make_pixmap_from_data, open_url, open_folder
 from ytmusic import YtTrack
 from localsongs import Mp3
 
@@ -104,7 +105,7 @@ class MainWindow(QMainWindow):
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
 
-        # Downloads
+        # Queued ownloads
         self.downloads_model = DownloadsModel()
         self.ui.queuedDownloads.set_model(self.downloads_model)
         self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_download_cancel_button_clicked)
@@ -114,6 +115,9 @@ class MainWindow(QMainWindow):
         # Completed downloads
         self.finished_downloads_model = FinishedDownloadsModel()
         self.ui.finishedDownloads.set_model(self.finished_downloads_model)
+        self.ui.finishedDownloads.artist_clicked.connect(self.on_finished_download_artist_clicked)
+        self.ui.finishedDownloads.album_clicked.connect(self.on_finished_download_album_clicked)
+        self.ui.finishedDownloads.row_double_clicked.connect(self.on_finished_download_double_clicked)
 
         # Manual download
         self.ui.manualDownloadButton.clicked.connect(self.on_manual_download_button_clicked)
@@ -127,9 +131,13 @@ class MainWindow(QMainWindow):
         self.local_songs_delegate = LocalSongsItemDelegate()
         self.local_songs_delegate.artist_clicked.connect(self.on_local_song_artist_clicked)
         self.local_songs_delegate.album_clicked.connect(self.on_local_song_album_clicked)
+        self.ui.localSongs.row_clicked.connect(self.on_local_song_clicked)
+        self.ui.localSongs.row_double_clicked.connect(self.on_local_song_double_clicked)
+
         self.ui.localSongs.setSpacing(6)
         self.ui.localSongs.setModel(self.local_songs_model)
         self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
+
 
         # Load local songs
         # TODO: preferences flag?
@@ -620,6 +628,8 @@ class MainWindow(QMainWindow):
             next_image_release_index = None
 
         while True:
+
+            debug(f"next_image_release_index before={next_image_release_index}")
             if delta > 0:
                 if next_image_release_index is None: # current is release group
                     next_image_release_index = 0 # next is first release
@@ -630,12 +640,15 @@ class MainWindow(QMainWindow):
                     next_image_release_index = len(releases) - 1 # next is last release
                 else: # current is release
                     next_image_release_index -= 1 # next is prev release
+            debug(f"next_image_release_index after delta={next_image_release_index}")
 
             if next_image_release_index < 0: # below release -> release group
                 next_image_release_index = None
 
             if next_image_release_index == len(releases): # above release -> release group
                 next_image_release_index = None
+
+            debug(f"next_image_release_index after normalization={next_image_release_index}")
 
             if next_image_release_index is None:
                 # release group
@@ -770,7 +783,7 @@ class MainWindow(QMainWindow):
         track = get_track(track_id)
         yttrack = get_youtube_track(track.youtube_track_id)
 
-        QDesktopServices.openUrl(QUrl(ytcommons.youtube_video_id_to_youtube_url(yttrack.video_id)))
+        open_url(ytcommons.youtube_video_id_to_youtube_url(yttrack.video_id))
 
     def handle_youtube_tracks_update(self, release_id):
         release = get_release(release_id)
@@ -879,6 +892,20 @@ class MainWindow(QMainWindow):
         self.open_release_group(rg)
 
 
+    def on_finished_download_artist_clicked(self, row: int):
+        debug("on_download_artist_clicked")
+        track_id = self.finished_downloads_model.entry(row)
+        # TODO: more than an artist
+        artist = get_track(track_id).release().release_group().artists()[0]
+        self.open_artist(artist)
+
+    def on_finished_download_album_clicked(self, row: int):
+        debug("on_download_album_clicked")
+        track_id = self.finished_downloads_model.entry(row)
+        rg = get_track(track_id).release().release_group()
+        self.open_release_group(rg)
+
+
     def on_mp3_loaded(self, mp3: Mp3):
         self.update_local_song_count()
 
@@ -907,7 +934,7 @@ class MainWindow(QMainWindow):
     def on_action_reload(self):
         # Reload mp3s
         localsongs.clear_mp3s()
-        # self.ui.localSongs.invalidate()
+
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
 
@@ -971,3 +998,25 @@ class MainWindow(QMainWindow):
         mp3 = localsongs.mp3s[row]
         debug(f"on_local_song_album_clicked: {mp3}")
         self.open_mp3_release_group(mp3)
+
+    def on_local_song_clicked(self, row: int):
+        mp3 = localsongs.mp3s[row]
+        debug(f"on_local_song_clicked: {mp3}")
+
+    def on_local_song_double_clicked(self, row: int):
+        mp3 = localsongs.mp3s[row]
+        debug(f"on_local_song_double_clicked: {mp3}")
+        if mp3.path:
+            debug(f"Mp3 path: {mp3.path}")
+            open_folder(mp3.path.parent)
+
+    def on_finished_download_double_clicked(self, row: int):
+        debug("on_finished_download_double_clicked")
+        track_id = self.finished_downloads_model.entry(row)
+        down = ytdownloader.finished_downloads.get(get_track(track_id).youtube_track_id)
+        if down:
+            debug(f"Associated download: {down}")
+            folder = down.get("file")
+            if folder:
+                debug(f"Opening folder of {folder}")
+                open_folder(Path(folder).parent)

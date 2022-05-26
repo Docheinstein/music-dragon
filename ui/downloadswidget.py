@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton, QVBoxLayout, \
-    QSpacerItem
+    QSpacerItem, QListWidgetItem
 
 import ui
 import ytdownloader
@@ -227,6 +227,7 @@ class DownloadsWidget(ListWidgetModelView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.itemDoubleClicked.connect(self._on_item_double_clicked)
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
         w = DownloadsItemWidget(entry)

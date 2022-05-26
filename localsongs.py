@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import eyed3
 from PyQt5.QtCore import pyqtSignal
@@ -25,7 +25,7 @@ class Mp3:
         self.track_num = None
         self.image = None
 
-        self.filename = None
+        self.path: Optional[Path] = None
 
         #
         self.fetched_release_group = False
@@ -47,11 +47,10 @@ class Mp3:
         if p.suffix != ".mp3":
             return False
 
-        self.filename = p.stem
-        abs_file_path = str(p.absolute())
+        self.path = p.absolute()
 
         try:
-            mp3: AudioFile = eyed3.load(abs_file_path)
+            mp3: AudioFile = eyed3.load(self.path)
             if mp3:
                 if not mp3.tag:
                     print(f"WARN: not tag for mp3 '{file}', skipping")
@@ -65,7 +64,7 @@ class Mp3:
                 if load_image:
                     self._load_image_from_tag()
 
-                debug(f"Loaded {abs_file_path}: "
+                debug(f"Loaded {self.path}: "
                       f"(artist={self.artist}, album={self.album}, "
                       f"title={self.album}, image={'yes' if self.image else 'no'})")
                 return True
@@ -118,6 +117,7 @@ def load_mp3s(directory: str, load_images=True, mp3_loaded_callback=None):
     debug(f"Loaded {loaded_file_count}/{file_count} mp3 files")
 
 def clear_mp3s():
+    mp3s_indexes_by_metadata.clear()
     mp3s.clear()
 
 # ============ LOAD MP3s  ===============

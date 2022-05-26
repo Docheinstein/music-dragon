@@ -157,7 +157,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
         icon_size = QSize(64, 64)
         icon_rect = QRect(x, y, icon_size.width(), icon_size.height())
         icon.paint(painter, icon_rect)
-        debug(f"Drawing icon of size {icon_size}")
+        # debug(f"Drawing icon of size {icon_size}")
 
         # Title
         if song:
@@ -210,7 +210,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
         return editor
 
     def updateEditorGeometry(self, editor: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
-        debug("updateEditorGeometry")
+        # debug("updateEditorGeometry")
         rect = option.rect
         rect.setX(rect.x() + 64)
         rect.setY(rect.y())
@@ -247,7 +247,7 @@ class LocalSongsModel(QAbstractListModel):
         mp3 = localsongs.mp3s[row]
 
         if role == LocalSongsItemRole.SONG:
-            return mp3.song or mp3.filename
+            return mp3.song or mp3.path
 
         if role == LocalSongsItemRole.ARTIST:
             if mp3.artist:
@@ -273,10 +273,15 @@ class LocalSongsModel(QAbstractListModel):
         self.dataChanged.emit(index, index, roles or [])
 
 class LocalSongsView(QListView):
+    row_clicked = pyqtSignal(int)
+    row_double_clicked = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.edit_index = None
         self.setMouseTracking(True)
+        self.clicked.connect(self._on_item_clicked)
+        self.doubleClicked.connect(self._on_item_double_clicked)
 
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         # debug("mouseMoveEvent")
@@ -289,3 +294,9 @@ class LocalSongsView(QListView):
 
         self.edit_index = index
         self.openPersistentEditor(self.edit_index)
+
+    def _on_item_clicked(self, idx: QModelIndex):
+        self.row_clicked.emit(idx.row())
+
+    def _on_item_double_clicked(self, idx: QModelIndex):
+        self.row_double_clicked.emit(idx.row())

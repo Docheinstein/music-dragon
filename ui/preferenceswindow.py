@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QDialog, QFileDialog
 from log import debug
 import preferences
 from ui.ui_preferenceswindow import Ui_PreferencesWindow
+from utils import open_folder
 
 
 class PreferencesWindow(QDialog):
@@ -83,6 +84,4 @@ class PreferencesWindow(QDialog):
         if not directory.exists():
             print(f"WARN: cannot open directory: '{directory_str}' does not exist")
             return
-        # debug(f"abs: {str(directory.absolute())}")
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory.absolute())))
-        # QDesktopServices.openUrl(QUrl(f"file://{str(directory.absolute())}"))
+        open_folder(directory)

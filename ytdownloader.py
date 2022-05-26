@@ -14,7 +14,7 @@ import preferences
 import workers
 import ytcommons
 from log import debug
-from utils import j
+from utils import j, sanitize_filename
 from workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
@@ -138,13 +138,9 @@ class TrackDownloaderWorker(Worker):
 
         # Output format substitutions
         if self.metadata is True:
-            outtmpl = outtmpl.replace("{artist}", self.artist)
-            outtmpl = outtmpl.replace("{album}", self.album)
-            outtmpl = outtmpl.replace("{song}", self.song)
-        elif self.metadata == "auto":
-            outtmpl = outtmpl.replace("{artist}", "%(artist)s")
-            outtmpl = outtmpl.replace("{album}", "%(album)s")
-            outtmpl = outtmpl.replace("{song}", "%(track)s")
+            outtmpl = outtmpl.replace("{artist}", sanitize_filename(self.artist))
+            outtmpl = outtmpl.replace("{album}", sanitize_filename(self.album))
+            outtmpl = outtmpl.replace("{song}", sanitize_filename(self.song))
 
         outtmpl = outtmpl.replace("{ext}", "%(ext)s")
 
@@ -196,52 +192,45 @@ class TrackDownloaderWorker(Worker):
 
                     self.conversion_finished.emit(self.video_id, self.user_data)
 
-                    if self.metadata is True or self.metadata == "auto":
-                        if self.metadata is True:
-                            artist = self.artist
-                            album = self.album
-                            song = self.song
-                            track_num = self.track_num
-                            image = self.image
-                        else: # TODO remove this branch of auto
-                            artist = result.get("artist")
-                            album = result.get("album")
-                            song = result.get("track")
-                            track_num = None
-                            image = None
+                    if self.metadata is True:
+                        artist = self.artist
+                        album = self.album
+                        song = self.song
+                        track_num = self.track_num
+                        image = self.image
 
-                    debug(f"Applying mp3 tags to {output}\n"
-                          f"artist={artist}"
-                          f"album={album}"
-                          f"song={song}"
-                          f"track_num={track_num}"
-                          f"image={'yes' if image else 'no'}"
-                      )
+                        debug(f"Applying mp3 tags to {output}\n"
+                              f"artist={artist}"
+                              f"album={album}"
+                              f"song={song}"
+                              f"track_num={track_num}"
+                              f"image={'yes' if image else 'no'}"
+                          )
 
-                    try:
-                        f: AudioFile = eyed3.load(output)
-                        if f:
-                            if not f.tag:
-                                f.tag.initTag()
+                        try:
+                            f: AudioFile = eyed3.load(output)
+                            if f:
+                                if not f.tag:
+                                    f.tag.initTag()
 
-                            tag: eyed3.id3.Tag = f.tag
-                            if artist is not None:
-                                tag.artist = artist
-                            if album is not None:
-                                tag.album = album
-                            if song is not None:
-                                tag.title = song
-                            if track_num is not None:
-                                tag.track_num = track_num
-                            if image:
-                                tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
-                            tag.save()
-                            debug("Tagging completed")
-                            self.tagging_finished.emit(self.video_id, self.user_data)
-                        else:
-                            print(f"WARN: failed to apply mp3 tags to {output}: cannot load mp3")
-                    except Exception as e:
-                        print(f"WARN: failed to apply mp3 tags to {output}: {e}")
+                                tag: eyed3.id3.Tag = f.tag
+                                if artist is not None:
+                                    tag.artist = artist
+                                if album is not None:
+                                    tag.album = album
+                                if song is not None:
+                                    tag.title = song
+                                if track_num is not None:
+                                    tag.track_num = track_num
+                                if image:
+                                    tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
+                                tag.save()
+                                debug("Tagging completed")
+                                self.tagging_finished.emit(self.video_id, self.user_data)
+                            else:
+                                print(f"WARN: failed to apply mp3 tags to {output}: cannot load mp3")
+                        except Exception as e:
+                            print(f"WARN: failed to apply mp3 tags to {output}: {e}")
                 return # download done
 
             except CancelException as ce:
