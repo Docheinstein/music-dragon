@@ -119,14 +119,14 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         pixmap = None
         if isinstance(self.result, ReleaseGroup):
-            cover = self.result.images.preferred_image()
+            cover = self.result.preferred_front_cover()
             pixmap = make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
         elif isinstance(self.result, Artist):
-            image = self.result.images.preferred_image()
+            image = self.result.image
             pixmap = make_pixmap_from_data(image, default=ui.resources.PERSON_PLACEHOLDER_PIXMAP)
         elif isinstance(self.result, Track):
             if self.result.release():
-                image = self.result.release().release_group().images.preferred_image()
+                image = self.result.release().release_group().preferred_front_cover()
             else:
                 image = None # hack
             pixmap = make_pixmap_from_data(image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)

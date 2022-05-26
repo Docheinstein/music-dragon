@@ -103,7 +103,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         release_group = self.track.release().release_group()
 
         # cover
-        cover = release_group.images.preferred_image()
+        cover = release_group.preferred_front_cover()
         self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
         if locally_available:
             self.ui.cover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)

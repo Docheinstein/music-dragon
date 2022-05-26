@@ -23,63 +23,49 @@ _releases: Dict[str, 'Release'] = {}
 _tracks: Dict[str, 'Track'] = {}
 _youtube_tracks: Dict[str, 'YtTrack'] = {}
 
-class Images:
-    def __init__(self):
-        self.images = {}
-        self.preferred_image_id = None
+RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX = 0
+RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX = 1
+#
+# class Images:
+#     def __init__(self):
+#         self.images = []
+#         self.preferred_image_index = None
 
-    def set_image(self, image_id, image, preferred=None):
-        self.images[image_id] = image
-        if preferred is True:
-            # True: always override
-            self.preferred_image_id = image_id
-        elif preferred is None and self.preferred_image_id is None:
-            # None: override only if there is no preferred image yet
-            self.preferred_image_id = image_id
-        else:
-            # False: don't override
-            pass
-        debug(f"set_image: images now are {self}")
+    # def set_image(self, image_id, image, preferred=None):
+    #     self.images[image_id] = image
+    #     if preferred is True:
+    #         # True: always override
+    #         self.preferred_image_id = image_id
+    #     elif preferred is None and self.preferred_image_id is None:
+    #         # None: override only if there is no preferred image yet
+    #         self.preferred_image_id = image_id
+    #     else:
+    #         # False: don't override
+    #         pass
+    #     debug(f"set_image: images now are {self}")
 
-    def get_image(self, image_id):
-        return self.images.get(image_id)
-
-    def preferred_image(self):
-        return self.images.get(self.preferred_image_id)
-
-    def preferred_image_index(self):
-        try:
-            return list(self.images.keys()).index(self.preferred_image_id)
-        except ValueError:
-            return None
-
-    def set_preferred_image_next(self):
-        debug("set_preferred_image_next")
-        try:
-            keys = list(self.images.keys())
-            preferred_image_idx = keys.index(self.preferred_image_id)
-            next_preferred_image_idx = (preferred_image_idx + 1) % len(keys)
-            debug(f"set_preferred_image_next: old is {self.preferred_image_id} (at index {preferred_image_idx})")
-            self.preferred_image_id = keys[next_preferred_image_idx]
-            debug(f"set_preferred_image_next: new is {self.preferred_image_id} (at index {next_preferred_image_idx})")
-        except ValueError:
-            pass
-
-    def count(self):
-        return len(self.images)
-
-    def better(self, other: 'Images'):
-        return len(self.images.keys()) > len(other.images.keys())
-
-    def __str__(self):
-        return ", ".join([f'(key={key}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_id == key})' for key, img in self.images.items()])
+    # def get_image(self, image_id):
+    #     return self.images.get(image_id)
+    #
+    # def preferred_image(self):
+    #     return self.images[self.preferred_image_index]
+    #
+    # def count(self):
+    #     return len(self.images)
+    #
+    # def better(self, other: 'Images'):
+    #     return len(self.images) > len(other.images)
+    #
+    # def __str__(self):
+    #     return ", ".join([f'(idx={idx}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_index == idx})' for idx, img in enumerate(self.images)])
 
 class Artist(Mergeable):
     def __init__(self, mb_artist: MbArtist):
         self.id = mb_artist.id
         self.name = mb_artist.name
         self.aliases = mb_artist.aliases
-        self.images = Images()
+        # self.images = Images()
+        self.image = None
         self.release_group_ids = [rg.id for rg in mb_artist.release_groups]
 
         for release_group in mb_artist.release_groups:
@@ -107,7 +93,9 @@ class ReleaseGroup(Mergeable):
         self.id = mb_release_group.id
         self.title = mb_release_group.title
         self.date = mb_release_group.date
-        self.images = Images()
+        # self.images = Images()
+        self.front_cover = None
+        self.preferred_front_cover_index = 0
         self.artist_ids = [a["id"] for a in mb_release_group.artists]
         self.release_ids = []
         self.main_release_id = None
@@ -147,6 +135,33 @@ class ReleaseGroup(Mergeable):
         except:
             return self.date
 
+    def move_preferred_front_cover_index(self, delta):
+        self.preferred_front_cover_index = (self.preferred_front_cover_index + delta) % self.front_cover_count()
+
+    def set_preferred_front_cover_release_group(self):
+        self.preferred_front_cover_index = RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX
+
+
+    def set_preferred_front_cover_release(self, release_id):
+        try:
+            idx = self.release_ids.index(release_id)
+            self.preferred_front_cover_index = RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX + idx
+        except:
+            print(f"WARN: no release with id {release_id}, not chaning preferred cover")
+
+    def preferred_front_cover(self):
+        if self.preferred_front_cover_index == RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX:
+            return self.front_cover
+        else:
+            preferred_release_index = self.preferred_front_cover_index - RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX
+            if 0 <= preferred_release_index < len(self.release_ids):
+                r = get_release(self.release_ids[preferred_release_index])
+                return r.front_cover
+        return None
+
+    def front_cover_count(self):
+        return len(self.release_ids) + 1
+
 class Release(Mergeable):
     def __init__(self, mb_release: MbRelease):
         self.id = mb_release.id
@@ -177,6 +192,7 @@ class Release(Mergeable):
 
     def track_count(self):
         return len(self.track_ids)
+
 
 class Track(Mergeable):
     def __init__(self, mb_track: MbTrack):
@@ -488,14 +504,14 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
     if rg and rg.fetched_front_cover:
         # cached
         debug(f"Release group ({release_group_id}) cover already fetched, calling release_group_cover_callback directly")
-        release_group_cover_callback(release_group_id, rg.images.get_image(release_group_id))
+        release_group_cover_callback(release_group_id, rg.front_cover)
     else:
         # actually fetch
         debug(f"Release group ({release_group_id}) cover not fetched yet")
         def release_group_cover_callback_wrapper(rg_id, image):
             _release_groups[rg_id].fetched_front_cover = True
             if image:
-                _release_groups[rg_id].images.set_image(rg_id, image)
+                _release_groups[rg_id].front_cover = image
             release_group_cover_callback(rg_id, image)
 
         musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
@@ -563,7 +579,7 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
             debug("Artist not fetched yet")
         if artist_image_callback and a.fetched_image:
             debug("Artist image already fetched, calling artist_image_callback directly")
-            artist_image_callback(artist_id, a.images.preferred_image())
+            artist_image_callback(artist_id, a.image)
         else:
             debug("Artist image not fetched yet")
 
@@ -581,7 +597,7 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
                 def artist_image_callback_wrapper(wiki_id_, image, artist_id__):
                     _artists[artist_id__].fetched_image = True
                     if image:
-                        _artists[artist_id__].images.set_image(artist_id__, image)
+                        _artists[artist_id__].image = image
                     artist_image_callback(artist_id_, image)
 
                 if "wikidata" in result.urls:
@@ -606,8 +622,6 @@ def fetch_release_cover(release_id: str, release_cover_callback):
             release = _releases[r_id]
             release.front_cover = image
             release.fetched_front_cover = True
-            if image:
-                release.release_group().images.set_image(r_id, image)
             release_cover_callback(r_id, image)
 
         musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
@@ -711,7 +725,7 @@ def download_youtube_track(track_id: str,
         album=rg.title,
         song=track.title,
         track_num=track.track_number,
-        image=rg.images.preferred_image(),
+        image=rg.preferred_front_cover(),
         output_directory=preferences.directory(),
         output_format=preferences.output_format(),
         queued_callback=queued_callback_wrapper,

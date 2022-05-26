@@ -69,7 +69,7 @@ class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.release_group = get_release_group(self.release_group_id)
 
         # cover
-        cover = self.release_group.images.preferred_image()
+        cover = self.release_group.preferred_front_cover()
         self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # title

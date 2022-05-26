@@ -247,7 +247,7 @@ class MainWindow(QMainWindow):
         self.ui.albumArtist.setText(release_group.artists_string())
 
         # icon
-        cover = release_group.images.preferred_image()
+        cover = release_group.preferred_front_cover()
         self.ui.albumCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
         self.set_album_cover(release_group.id)
 
@@ -320,7 +320,7 @@ class MainWindow(QMainWindow):
         self.ui.artistName.setText(artist.name)
 
         # icon
-        cover = artist.images.preferred_image()
+        cover = artist.image
         self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # albums
@@ -513,7 +513,7 @@ class MainWindow(QMainWindow):
 
         # artist page
         if self.current_artist_id == artist_id:
-            image = get_artist(artist_id).images.preferred_image()
+            image = get_artist(artist_id).image
             self.ui.artistCover.setPixmap(make_pixmap_from_data(
                 image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
             )
@@ -613,56 +613,20 @@ class MainWindow(QMainWindow):
         self.ui.albumCoverNumber.setText("")
 
         release_group = get_release_group(self.current_release_group_id)
-        releases = release_group.releases()
 
-        current_image_id = release_group.images.preferred_image_id
-        debug(f"current_image_id={current_image_id}")
+        debug(f"Preferred cover index was: {release_group.preferred_front_cover_index}")
+        release_group.move_preferred_front_cover_index(delta)
+        debug(f"Preferred cover index is: {release_group.preferred_front_cover_index}")
 
-        #      | 0 | 1 | 2 | 3 | 4 | # release index
-        # | RG | R | R | R | R | R | # images
-        # | 0  | 1 |   | 2 |   | 3 | # image index
+        self.ui.albumCoverNumber.setText(f"{release_group.preferred_front_cover_index + 1}/{release_group.front_cover_count()}")
 
-        try:
-            next_image_release_index = release_group.release_ids.index(current_image_id)
-        except:
-            next_image_release_index = None
-
-        while True:
-
-            debug(f"next_image_release_index before={next_image_release_index}")
-            if delta > 0:
-                if next_image_release_index is None: # current is release group
-                    next_image_release_index = 0 # next is first release
-                else: # current is release
-                    next_image_release_index += 1 # next is next release
-            else: # delta < 0
-                if next_image_release_index is None: # current is release group
-                    next_image_release_index = len(releases) - 1 # next is last release
-                else: # current is release
-                    next_image_release_index -= 1 # next is prev release
-            debug(f"next_image_release_index after delta={next_image_release_index}")
-
-            if next_image_release_index < 0: # below release -> release group
-                next_image_release_index = None
-
-            if next_image_release_index == len(releases): # above release -> release group
-                next_image_release_index = None
-
-            debug(f"next_image_release_index after normalization={next_image_release_index}")
-
-            if next_image_release_index is None:
-                # release group
-                if release_group.fetched_front_cover and not release_group.images.get_image(release_group.id):
-                    continue
-                repository.fetch_release_group_cover(release_group.id, self.on_change_album_cover_release_group_image_result)
-                return
-            else:
-                # release
-                release = releases[next_image_release_index]
-                if release.fetched_front_cover and not release.front_cover:
-                    continue
-                repository.fetch_release_cover(release.id, self.on_change_album_cover_release_image_result)
-                return
+        if release_group.preferred_front_cover_index == repository.RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX:
+            # release group
+            repository.fetch_release_group_cover(release_group.id, self.on_change_album_cover_release_group_image_result)
+        else:
+            # release
+            release = get_release(release_group.release_ids[release_group.preferred_front_cover_index - repository.RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX])
+            repository.fetch_release_cover(release.id, self.on_change_album_cover_release_image_result)
 
 
     def on_change_album_cover_release_group_image_result(self, release_group_id, image):
@@ -673,7 +637,7 @@ class MainWindow(QMainWindow):
             return
 
         release_group = get_release_group(release_group_id)
-        release_group.images.preferred_image_id = release_group_id
+        release_group.set_preferred_front_cover_release_group()
 
         self.handle_album_cover_update(release_group_id)
 
@@ -685,7 +649,7 @@ class MainWindow(QMainWindow):
             return
 
         release_group = get_release(release_id).release_group()
-        release_group.images.preferred_image_id = release_id
+        release_group.set_preferred_front_cover_release(release_id)
 
         self.handle_album_cover_update(release_group.id)
 
@@ -708,23 +672,14 @@ class MainWindow(QMainWindow):
 
     def set_album_cover(self, release_group_id):
         release_group = get_release_group(release_group_id)
-        debug(f"Updating album cover: there are {len(release_group.images.images)} images: {release_group.images}")
+        debug(f"Updating album cover")
 
-        cover = release_group.images.preferred_image()
+        cover = release_group.preferred_front_cover()
         self.ui.albumCover.setPixmap(make_pixmap_from_data(
             cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
         )
-        if release_group.images.count():
-            expected_image_num = 1
-            for r in release_group.releases():
-                if not r.fetched_front_cover:
-                    expected_image_num += 1
-                elif r.front_cover:
-                    expected_image_num += 1
 
-            self.ui.albumCoverNumber.setText(f"{release_group.images.preferred_image_index() + 1}/{expected_image_num}")
-        else:
-            self.ui.albumCoverNumber.setText("")
+        self.ui.albumCoverNumber.setText(f"{release_group.preferred_front_cover_index + 1}/{release_group.front_cover_count()}")
 
         not_available = True
         main = release_group.main_release()
