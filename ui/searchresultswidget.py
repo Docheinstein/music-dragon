@@ -41,7 +41,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         # cover
         self.ui.cover = QLabel()
         self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.ui.cover.setMaximumSize(QSize(80, 80))
+        self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
 
         # title

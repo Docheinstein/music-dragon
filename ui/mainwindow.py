@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 
 from PyQt5.QtCore import QTimer, QUrl
-from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices
+from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices, QPalette
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
 import preferences
@@ -22,7 +22,7 @@ from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
-from utils import make_pixmap_from_data, open_url, open_folder
+from utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode
 from ytmusic import YtTrack
 from localsongs import Mp3
 
@@ -38,6 +38,8 @@ class MainWindow(QMainWindow):
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+
+        self.dark_mode = is_dark_mode()
 
         # Pages
         self.pages_stack = []
@@ -229,7 +231,7 @@ class MainWindow(QMainWindow):
         font = btn.font()
         font.setWeight(QFont.Bold)
         btn.setFont(font)
-        btn.setStyleSheet("padding: 6px; background-color: #565757;")
+        btn.setStyleSheet(f"padding: 6px; background-color: {'#565757' if self.dark_mode else '#b8b8b8'};")
 
 
     def open_release_group(self, release_group: ReleaseGroup):
@@ -253,12 +255,18 @@ class MainWindow(QMainWindow):
 
         # download
         self.ui.albumDownloadAllButton.setEnabled(False)
-        self.ui.albumDownloadAllButton.setText(f"Download All")
+        self.ui.albumDownloadAllButton.setText(f"Download missing songs")
         self.ui.albumDownloadStatus.setText("")
 
         # tracks
         self.album_tracks_model.release_id = None
         self.ui.albumTracks.invalidate()
+
+        # year
+        self.ui.albumYear.setText("")
+
+        # song count
+        self.ui.albumSongCount.setText("")
 
         # switch page
         self.set_album_page()
@@ -288,7 +296,7 @@ class MainWindow(QMainWindow):
 
         # download
         self.ui.albumDownloadAllButton.setEnabled(False)
-        self.ui.albumDownloadAllButton.setText(f"Download All")
+        self.ui.albumDownloadAllButton.setText(f"Download missing songs")
         self.ui.albumDownloadStatus.setText("")
 
         # tracks
@@ -455,9 +463,12 @@ class MainWindow(QMainWindow):
     def on_release_group_releases_result(self, release_group_id: str, releases: List[Release]):
         debug(f"on_search_release_group_releases_result(release_group_id={release_group_id})")
 
-        main_release_id = get_release_group(release_group_id).main_release_id
+        rg = get_release_group(release_group_id)
+        main_release_id = rg.main_release_id
         self.album_tracks_model.release_id = main_release_id
         self.ui.albumTracks.invalidate()
+        self.ui.albumYear.setText(rg.year())
+        self.ui.albumSongCount.setText(f"{get_release(main_release_id).track_count()} songs")
 
         self.set_album_cover(release_group_id)
 
@@ -746,21 +757,26 @@ class MainWindow(QMainWindow):
         if self.current_release_group_id == release.release_group_id:
             self.ui.albumTracks.invalidate()
 
-            # download all button
-            self.ui.albumDownloadAllButton.setEnabled(
-                [t.fetched_youtube_track for t in release.tracks()].count(False) == 0)
+            # Download missing tracks button
+            self.ui.albumDownloadAllButton.setEnabled(False)
 
-            downloadable = 0
+            missing_downloadable = 0
             official = 0
             for track in release.tracks():
-                if track.youtube_track_id is not None:
-                    downloadable += 1
+                if track.fetched_youtube_track and track.youtube_track_id:
                     if track.youtube_track_is_official:
                         official += 1
-            self.ui.albumDownloadAllButton.setText(f"Download All ({downloadable})")
+                    if not track.is_available_locally():
+                        missing_downloadable += 1
 
-            # download all status
-            self.ui.albumDownloadStatus.setText(f"Official tracks: {official}/{downloadable}")
+            self.ui.albumDownloadAllButton.setEnabled(missing_downloadable > 0)
+            if missing_downloadable > 0:
+                self.ui.albumDownloadAllButton.setText(f"Download missing songs ({missing_downloadable})")
+            else:
+                self.ui.albumDownloadAllButton.setText(f"Download missing songs")
+
+            # Download missing tracks status
+            self.ui.albumDownloadStatus.setText(f"Verified songs: {official}/{release.track_count()}")
 
 
     def on_youtube_track_download_queued(self, track_id: str, _):
@@ -815,6 +831,7 @@ class MainWindow(QMainWindow):
 
     def on_download_all_album_tracks_clicked(self):
         debug("on_download_all_album_tracks_clicked")
+        self.ui.albumDownloadAllButton.setEnabled(False) # todo better place this in a smarter function and check some flag somewhere (e.g. if it's in download)
         rg = get_release_group(self.current_release_group_id)
         for track in rg.main_release().tracks():
             self.do_download_youtube_track(track.id)

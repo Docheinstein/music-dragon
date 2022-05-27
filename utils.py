@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Sequence, Optional, Union
 
 from PyQt5.QtCore import QUrl
-from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices
+from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette
 
 application_start_time: Optional[int] = None
 
@@ -39,6 +39,17 @@ def current_execution_seconds():
 def min_index(sequence: Sequence):
     return sequence.index(min(sequence))
 
+def max_index(sequence: Sequence):
+    return sequence.index(max(sequence))
+
+def min_indexes(sequence: Sequence):
+    m = min(sequence)
+    return [idx for idx, element in enumerate(sequence) if element == m]
+
+def max_indexes(sequence: Sequence):
+    m = max(sequence)
+    return [idx for idx, element in enumerate(sequence) if element == m]
+
 def sanitize_filename(f: str):
     return f.replace("/", "-")
 
@@ -49,6 +60,10 @@ def open_folder(directory: Union[Path, str]):
     if isinstance(directory, Path):
         directory = str(directory.absolute())
     QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
+
+
+def is_dark_mode():
+    return QPalette().color(QPalette.Window).value() < 128
 
 class Mergeable:
     def merge(self, other):

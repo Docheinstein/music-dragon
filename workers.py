@@ -88,18 +88,11 @@ class Worker(QObject):
             return f"{self.__class__.__name__} {self.worker_id} ({self.tag})"
         return f"{self.__class__.__name__} {self.worker_id}"
 
-    # Returns True if schedule this worker is better than scheduling the other worker
     def __lt__(self, other):
-        # Higher priority is better
-        if self.priority > other.priority:
-            return True
-        if self.priority < other.priority:
-            return False
-
-        # Later is better
+        # LIFO: later is better
         return self.born > other.born
 
-        # Earlier is better
+        # FIFO: earlier is better
         # return self.born < other.born
 
 
@@ -161,11 +154,15 @@ class Thread(QThread):
 
 
 class WorkerScheduler(QObject):
-    def __init__(self, max_num_threads: int):
+    POLICY_LIFO = 0
+    POLICY_FIFO = 1
+
+    def __init__(self, max_num_threads: int, scheduling_policy=POLICY_LIFO):
         super().__init__()
         self.max_num_threads = max_num_threads
         self.threads: List[Thread] = []
         self.workers = {}
+        self.scheduling_policy = scheduling_policy
 
         debug(f"Initializing WorkerScheduler with {self.max_num_threads} threads")
 
@@ -224,15 +221,58 @@ class WorkerScheduler(QObject):
         # Get the job with the highest priority
         # TODO: smarter/faster implementation: priority queue with keys
 
-        best_worker = None
+        # Schedule with the following rules:
+        # 1. If a worker has a priority higher than the others, take it
+        # 2. Otherwise, aggregate workers of the highest common priority
+        #    by class and take the best of each class using the class_scheduling_policy
+        # 3. Among the best worker of each class, take the best based on
+        #    the scheduler scheduling_policy
+
+
+        # 1. Figure out the highest priority
+        highest_priority = None
 
         for wid, worker in self.workers.items():
             if worker.status != Worker.STATUS_WAITING:
                 continue
-            if worker.can_execute() is True:
-                debug(f"- found dispatchable worker {worker} with priority {worker.priority} born on {worker.born}")
-                if best_worker is None or worker < best_worker:
-                    best_worker = worker
+
+            if not worker.can_execute():
+                continue
+
+            debug(f"- found dispatchable worker {worker} with priority {worker.priority} born on {worker.born}")
+            if highest_priority is None or worker.priority > highest_priority:
+                highest_priority = worker.priority
+
+        # 2. Figure out the best worker of each class with this common highest priority
+        best_workers_of_classes = {}
+        for wid, worker in self.workers.items():
+            if worker.status != Worker.STATUS_WAITING:
+                continue
+
+            if not worker.can_execute():
+                continue
+
+            if worker.priority != highest_priority:
+                continue
+
+            worker_class = worker.__class__.__name__
+            if worker_class not in best_workers_of_classes:
+                best_workers_of_classes[worker_class] = worker
+            else:
+                if worker < best_workers_of_classes[worker_class]:
+                    best_workers_of_classes[worker_class] = worker
+
+        # 3. Figure out the best worker using the scheduler policy
+        best_worker = None
+        for w in best_workers_of_classes.values():
+            if not best_worker:
+                best_worker = w
+                continue
+
+            if self.scheduling_policy == WorkerScheduler.POLICY_LIFO and w.born > best_worker.born:
+                best_worker = w
+            elif self.scheduling_policy == WorkerScheduler.POLICY_FIFO and w.born < best_worker.born:
+                best_worker = w
 
         if not best_worker:
             debug("No worker to dispatch")

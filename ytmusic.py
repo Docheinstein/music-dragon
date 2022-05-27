@@ -1,16 +1,14 @@
-
-# ======= FETCH YOUTUBE TRACKS RUNNABLE ===============
-# Fetch the youtube videos associated with the tracks
-# =====================================================
 from difflib import get_close_matches
-from typing import Optional
+
+import Levenshtein as levenshtein
+from typing import Optional, List
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from ytmusicapi import YTMusic
 
 import workers
 from log import debug
-from utils import j, Mergeable
+from utils import j, Mergeable, max_index, max_indexes
 from workers import Worker
 
 _yt: Optional[YTMusic] = None
@@ -75,6 +73,34 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         self.album_title = album_title
 
     def run(self) -> None:
+        def get_closest(query, elements: List[dict], field: str) -> Optional[dict]:
+            scores = [0] * len(elements)
+
+            # Figure out the best match based on
+            # 1. The query contains the target or the target contains the query
+            # 2. Edit distance
+            for i, e in enumerate(elements):
+                e_name = e[field]
+                if query == e_name:
+                    scores[i] += 2000
+                elif query in e_name or e_name in query:
+                    scores[i] += 1000
+                scores[i] -= levenshtein.distance(query, e_name)
+
+                debug(f"Query='{query}', Target='{e_name}', Score={scores[i]}")
+
+            if not scores:
+                return None
+
+            return elements[max_index(scores)]
+
+        def get_closest_artist(query, artists: List[dict]) -> Optional[dict]:
+            return get_closest(query, artists, "artist")
+
+        def get_closest_album(query, albums: List[dict]) -> Optional[dict]:
+            return get_closest(query, albums, "title")
+
+
         emission = []
 
         artist_query = self.artist_name
@@ -87,13 +113,9 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             f"{j(artists)}"
             "======================"
         )
-
-        closest_artist_names = get_close_matches(artist_query, [artist["artist"] for artist in artists])
-        debug(f"closest_artist_names={closest_artist_names}")
-        if closest_artist_names:
-            closest_artist_name = closest_artist_names[0]
-            debug(f"Closest artist found: {closest_artist_name}")
-            artist = [a for a in artists if a["artist"] == closest_artist_name][0]
+        artist = get_closest_artist(artist_query, artists)
+        if artist is not None:
+            debug(f"Closest artist found: {artist['artist']}")
 
             debug(f"YOUTUBE_MUSIC: get_artist(artist='{artist['browseId']}')")
             artist_details = _yt.get_artist(artist["browseId"])
@@ -105,26 +127,20 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             )
 
             if "albums" in artist_details:
-                if "params" in artist_details["albums"]:
-
+                if "params" in artist_details["albums"]: # must be fetched
                     debug(f"YOUTUBE_MUSIC: get_artist_albums(artist='{artist['browseId']}')")
                     artist_albums = _yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
                     debug(
-                        "=== yt_get_artist ==="
+                        "=== get_artist_albums ==="
                         f"{j(artist_albums)}"
                         "======================"
                     )
+                else: # already there
+                    artist_albums = artist_details["albums"]["results"]
+                    album = get_closest_album(album_query, artist_albums)
 
-                    debug(j(artist_albums))
-
-                    closest_album_names = get_close_matches(album_query, [album["title"] for album in artist_albums])
-                    debug(f"closest_album_names={closest_album_names}")
-
-                    if closest_album_names:
-                        closest_album_name = closest_album_names[0]
-                        debug(f"Closest album found: {closest_album_name}")
-                        album = [a for a in artist_albums if a["title"] == closest_album_name][0]
-
+                    if album:
+                        debug(f"Closest album found: {album['title']}")
 
                         debug(f"YOUTUBE_MUSIC: get_album(album='{album['browseId']}')")
                         album_details = _yt.get_album(album["browseId"])
@@ -143,8 +159,6 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                                 "name": album["title"]
                             }
                         emission = [YtTrack(yttrack) for yttrack in result]
-                else:
-                    print("WARN: no 'params' key for artist albums")
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")
         else:

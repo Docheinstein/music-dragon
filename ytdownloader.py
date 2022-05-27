@@ -255,18 +255,23 @@ class TrackDownloaderWorker(Worker):
         downloading_count = 0
         for w in workers.worker_scheduler.workers.values():
             if isinstance(w, TrackDownloaderWorker):
-                if w.status == Worker.STATUS_WAITING and (earlier_worker is None or w.born < earlier_worker.born):
-                    earlier_worker = w
+                # if w.status == Worker.STATUS_WAITING and (earlier_worker is None or w.born < earlier_worker.born):
+                #     earlier_worker = w
 
                 if w.status == Worker.STATUS_DISPATCHED or w.status == Worker.STATUS_RUNNING:
                     downloading_count += 1
 
         max_download_count = preferences.max_simultaneous_downloads()
-        can = downloading_count < max_download_count and earlier_worker.worker_id == self.worker_id
+        # can = downloading_count < max_download_count and earlier_worker.worker_id == self.worker_id
+        can = downloading_count < max_download_count
         debug(f"Checking whether can download track: "
               f"{'yes' if can else 'no'} (dispatched/running workers {downloading_count}, max is {max_download_count}, born = {self.born})")
 
         return can
+
+    def __lt__(self, other):
+        # FIFO: earlier is better
+        return self.born < other.born
 
 def enqueue_track_download(
         video_id: str,

@@ -81,7 +81,10 @@ class ListWidgetModelView(QListWidget):
         debug(f"{type(self).__name__}.update_row_at({idx})")
         item = self.item(idx)
         widget: ListWidgetModelViewItem = self.itemWidget(item)
-        widget.invalidate()
+        if widget:
+            widget.invalidate()
+        else:
+            print(f"WARN: no widget at index {idx}")
 
     def add_row(self, entry: Any):
         debug(f"{type(self).__name__}.add_row({entry})")
