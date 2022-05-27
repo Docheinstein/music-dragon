@@ -7,4 +7,5 @@
 - fetch album tracks even on artist page? for figure out availability of local songs
 - handle reload of local songs around the app
 - update download missing button on track download button press
-- custom get_close_match: levenshtein + contains boost
+- setup yt auth
+- artist image is erroneously set equal to album

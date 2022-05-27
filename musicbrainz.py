@@ -22,14 +22,14 @@ class MbTrack: # recording belonging to a release
     def __init__(self, mb_track=None, release_id=None):
         self.id = None
         self.title = None
-        self.length = None
+        self.length = 0
         self.track_number = None
         self.release_id = None
         if mb_track:
             self.id = f'{mb_track["recording"]["id"]}@{release_id}' # unique within release
             self.title = mb_track["recording"]["title"]
-            self.length = int(mb_track["recording"].get("length"))
-            self.track_number = mb_track["position"]
+            self.length = int(mb_track["recording"].get("length", 0))
+            self.track_number = int(mb_track["position"])
             self.release_id = release_id
 
 
@@ -38,7 +38,7 @@ class MbRecording: # recording (possibly belongs to multiple releases)
     def __init__(self, mb_recording=None):
         self.id = None
         self.title = None
-        self.length = None
+        self.length = 0
         self.artists = []
         self.releases = []
 
@@ -79,11 +79,13 @@ class MbRelease:
     def __init__(self, mb_release=None):
         self.id = None
         self.title = None
+        self.format = None
         self.release_group_id = None
         self.tracks = []
         if mb_release:
             self.id: str = mb_release["id"]
             self.title: str = mb_release["title"]
+            self.format = mb_release["medium-list"][0]["format"] if "format" in mb_release["medium-list"][0] else None
             self.release_group_id = mb_release["release-group"]["id"]
             self.tracks = [MbTrack(track, mb_release["id"]) for track in mb_release["medium-list"][0]["track-list"]]
 

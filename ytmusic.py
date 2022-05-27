@@ -19,7 +19,7 @@ def initialize(auth_file):
 
 
 class YtTrack(Mergeable):
-    def __init__(self, yt_track: dict):
+    def __init__(self, yt_track: dict, track_number=None):
         self.id = yt_track["videoId"]
         self.video_id = yt_track["videoId"]
         self.video_title = yt_track["title"]
@@ -31,6 +31,7 @@ class YtTrack(Mergeable):
             "id": a["id"],
             "name": a["name"]
         } for a in yt_track["artists"]]
+        self.track_number = track_number
 
 # ========== SEARCH YOUTUBE TRACK ===========
 # Search youtube track for a given query
@@ -137,28 +138,29 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                     )
                 else: # already there
                     artist_albums = artist_details["albums"]["results"]
-                    album = get_closest_album(album_query, artist_albums)
 
-                    if album:
-                        debug(f"Closest album found: {album['title']}")
+                album = get_closest_album(album_query, artist_albums)
 
-                        debug(f"YOUTUBE_MUSIC: get_album(album='{album['browseId']}')")
-                        album_details = _yt.get_album(album["browseId"])
-                        debug(
-                            "=== yt_get_album ==="
-                            f"{j(album_details)}"
-                            "======================"
-                        )
+                if album:
+                    debug(f"Closest album found: {album['title']}")
 
-                        result = album_details["tracks"]
-                        for yttrack in result:
+                    debug(f"YOUTUBE_MUSIC: get_album(album='{album['browseId']}')")
+                    album_details = _yt.get_album(album["browseId"])
+                    debug(
+                        "=== yt_get_album ==="
+                        f"{j(album_details)}"
+                        "======================"
+                    )
 
-                            # hack
-                            yttrack["album"] = {
-                                "id": album['browseId'],
-                                "name": album["title"]
-                            }
-                        emission = [YtTrack(yttrack) for yttrack in result]
+                    result = album_details["tracks"]
+                    for yttrack in result:
+
+                        # hack
+                        yttrack["album"] = {
+                            "id": album['browseId'],
+                            "name": album["title"]
+                        }
+                    emission = [YtTrack(yttrack, track_number=num + 1) for num, yttrack in enumerate(result)]
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")
         else:

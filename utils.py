@@ -36,6 +36,17 @@ def current_execution_millis():
 def current_execution_seconds():
     return current_execution_millis() / 1000
 
+def millis_to_human_string(ms, hr_fmt="hr", min_fmt="min", sec_fmt="sec"):
+    secs = int(ms / 1000)
+    h = int(secs / 3600)
+    m = int((secs % 3600) / 60)
+    s = secs % 60
+    if h:
+        return f"{h} {hr_fmt}, {m} {min_fmt}, {s} {sec_fmt}"
+    if m:
+        return f"{m} {min_fmt}, {s} {sec_fmt}"
+    return f"{s} {sec_fmt}"
+
 def min_index(sequence: Sequence):
     return sequence.index(min(sequence))
 

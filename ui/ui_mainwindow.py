@@ -355,7 +355,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuEdit.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.pages.setCurrentIndex(1)
+        self.pages.setCurrentIndex(3)
         self.downloadsTabs.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -375,7 +375,7 @@ class Ui_MainWindow(object):
         self.albumTitle.setText(_translate("MainWindow", "Fear of the Dark"))
         self.albumArtist.setText(_translate("MainWindow", "Iron Maiden"))
         self.albumYear.setText(_translate("MainWindow", "1992"))
-        self.albumSongCount.setText(_translate("MainWindow", "8 songs"))
+        self.albumSongCount.setText(_translate("MainWindow", "8 songs - 58 min 37 sec"))
         self.albumDownloadAllButton.setText(_translate("MainWindow", "Download missing songs"))
         self.artistName.setText(_translate("MainWindow", "Iron Maiden"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))

@@ -22,7 +22,7 @@ from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
-from utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode
+from utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_human_string
 from ytmusic import YtTrack
 from localsongs import Mp3
 
@@ -95,7 +95,7 @@ class MainWindow(QMainWindow):
 
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
-        self.ui.albumDownloadAllButton.clicked.connect(self.on_download_all_album_tracks_clicked)
+        self.ui.albumDownloadAllButton.clicked.connect(self.on_download_missing_album_tracks_clicked)
 
         # Artist
         self.current_artist_id = None
@@ -272,7 +272,7 @@ class MainWindow(QMainWindow):
         self.set_album_page()
 
         # fetch the main release and its tracks
-        repository.fetch_release_group_releases(release_group.id, self.on_release_group_releases_result)
+        repository.fetch_release_group_releases(release_group.id, self.on_release_group_releases_result, self.on_release_group_youtube_tracks_result)
 
 
     def open_mp3_release_group(self, mp3: Mp3):
@@ -329,7 +329,7 @@ class MainWindow(QMainWindow):
 
         # icon
         cover = artist.image
-        self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.PERSON_PLACEHOLDER_PIXMAP))
 
         # albums
         self.artist_albums_model.artist_id = artist.id
@@ -354,7 +354,8 @@ class MainWindow(QMainWindow):
         self.ui.artistName.setText(mp3.artist)
 
         # icon
-        self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        # self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.artistCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
 
         # albums
         self.artist_albums_model.artist_id = None
@@ -465,14 +466,15 @@ class MainWindow(QMainWindow):
 
         rg = get_release_group(release_group_id)
         main_release_id = rg.main_release_id
+        main_release = get_release(main_release_id)
         self.album_tracks_model.release_id = main_release_id
         self.ui.albumTracks.invalidate()
         self.ui.albumYear.setText(rg.year())
-        self.ui.albumSongCount.setText(f"{get_release(main_release_id).track_count()} songs")
+        self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_human_string(main_release.length())}")
 
         self.set_album_cover(release_group_id)
 
-        repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
+        # repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
 
 
     def on_search_tracks_result(self, query, tracks: List[Track]):
@@ -526,7 +528,7 @@ class MainWindow(QMainWindow):
         if self.current_artist_id == artist_id:
             image = get_artist(artist_id).image
             self.ui.artistCover.setPixmap(make_pixmap_from_data(
-                image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP)
+                image, default=ui.resources.PERSON_PLACEHOLDER_PIXMAP)
             )
 
     def on_search_result_clicked(self, row: int):
@@ -692,6 +694,11 @@ class MainWindow(QMainWindow):
 
         self.ui.albumCoverNumber.setText(f"{release_group.preferred_front_cover_index + 1}/{release_group.front_cover_count()}")
 
+        self.update_album_cover_state()
+
+    def update_album_cover_state(self):
+        release_group = get_release_group(self.current_release_group_id)
+
         not_available = True
         main = release_group.main_release()
         if main:
@@ -713,11 +720,11 @@ class MainWindow(QMainWindow):
         image_preview_window.set_image(self.ui.albumCover.pixmap())
         image_preview_window.exec()
 
-    def on_release_youtube_tracks_result(self, release_id: str, yttracks: List[YtTrack]):
-        debug("on_release_youtube_tracks_result")
+    def on_release_group_youtube_tracks_result(self, release_group_id: str, yttracks: List[YtTrack]):
+        debug("release_group_id")
 
         # fetch missing ones
-        release = get_release(release_id)
+        release = get_release_group(release_group_id).main_release()
 
         missing = 0
         for t in release.tracks():
@@ -729,7 +736,7 @@ class MainWindow(QMainWindow):
             debug(f"After release tracks fetching there was still {missing} "
                   f"missing tracks missing youtube video, searching now")
 
-        self.handle_youtube_tracks_update(release_id)
+        self.handle_youtube_tracks_update(release.id)
 
 
     def on_track_youtube_track_result(self, track_id: str, yttrack: YtTrack):
@@ -749,7 +756,7 @@ class MainWindow(QMainWindow):
         track = get_track(track_id)
         yttrack = get_youtube_track(track.youtube_track_id)
 
-        open_url(ytcommons.youtube_video_id_to_youtube_url(yttrack.video_id))
+        open_url(ytcommons.youtube_video_id_to_youtube_music_url(yttrack.video_id))
 
     def handle_youtube_tracks_update(self, release_id):
         release = get_release(release_id)
@@ -757,26 +764,30 @@ class MainWindow(QMainWindow):
         if self.current_release_group_id == release.release_group_id:
             self.ui.albumTracks.invalidate()
 
-            # Download missing tracks button
-            self.ui.albumDownloadAllButton.setEnabled(False)
+            self.update_album_download_widgets()
 
-            missing_downloadable = 0
-            official = 0
-            for track in release.tracks():
-                if track.fetched_youtube_track and track.youtube_track_id:
-                    if track.youtube_track_is_official:
-                        official += 1
-                    if not track.is_available_locally():
-                        missing_downloadable += 1
+    def update_album_download_widgets(self):
+        release = get_release_group(self.current_release_group_id).main_release()
+        tracks = release.tracks()
+        # Download missing tracks button
+        missing_downloadable = 0
+        verified = 0
+        for track in tracks:
+            if track.fetched_youtube_track and track.youtube_track_id:
+                if track.youtube_track_is_official:
+                    verified += 1
+                if not track.is_available_locally() and not track.downloading:
+                    missing_downloadable += 1
 
-            self.ui.albumDownloadAllButton.setEnabled(missing_downloadable > 0)
-            if missing_downloadable > 0:
-                self.ui.albumDownloadAllButton.setText(f"Download missing songs ({missing_downloadable})")
-            else:
-                self.ui.albumDownloadAllButton.setText(f"Download missing songs")
+        self.ui.albumDownloadAllButton.setEnabled(missing_downloadable > 0)
+        if missing_downloadable > 0:
+            self.ui.albumDownloadAllButton.setText(f"Download missing songs ({missing_downloadable})")
+        else:
+            self.ui.albumDownloadAllButton.setText(f"Download missing songs")
 
-            # Download missing tracks status
-            self.ui.albumDownloadStatus.setText(f"Verified songs: {official}/{release.track_count()}")
+        # Download missing tracks status
+        self.ui.albumDownloadStatus.setText(f"Verified songs: {verified}/{release.track_count()}")
+        self.ui.albumDownloadStatus.setToolTip("\n".join([f'{t.title} [{"verified" if t.youtube_track_is_official else "not verified"}]' for t in tracks]))
 
 
     def on_youtube_track_download_queued(self, track_id: str, _):
@@ -790,6 +801,7 @@ class MainWindow(QMainWindow):
         self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
+        self.update_album_download_widgets()
 
     def on_youtube_track_download_progress(self, track_id: str, progress: float, _):
         debug(f"on_youtube_track_download_progress(track_id={track_id}, progress={progress})")
@@ -802,6 +814,8 @@ class MainWindow(QMainWindow):
         self.ui.finishedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
+        self.update_album_download_widgets()
+        self.update_album_cover_state()
 
         debug("Reloading mp3s model")
         self.update_local_song_count()
@@ -814,6 +828,7 @@ class MainWindow(QMainWindow):
         self.ui.queuedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
+        self.update_album_download_widgets()
 
     def on_youtube_track_download_error(self, track_id: str, error_msg: str, _):
         debug(f"on_youtube_track_download_error(track_id={track_id}): {error_msg}")
@@ -821,6 +836,7 @@ class MainWindow(QMainWindow):
         self.ui.finishedDownloads.invalidate()
         self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
+        self.update_album_download_widgets()
 
     def update_downloads_count(self):
         queued_count = ytdownloader.download_count()
@@ -829,12 +845,12 @@ class MainWindow(QMainWindow):
         self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_QUEUED_INDEX, f"Queue ({queued_count})" if queued_count else "Queue")
         self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_COMPLETED_INDEX, f"Completed ({finished_count})" if finished_count else "Completed")
 
-    def on_download_all_album_tracks_clicked(self):
+    def on_download_missing_album_tracks_clicked(self):
         debug("on_download_all_album_tracks_clicked")
-        self.ui.albumDownloadAllButton.setEnabled(False) # todo better place this in a smarter function and check some flag somewhere (e.g. if it's in download)
         rg = get_release_group(self.current_release_group_id)
         for track in rg.main_release().tracks():
-            self.do_download_youtube_track(track.id)
+            if not track.is_available_locally() and not track.downloading:
+                self.do_download_youtube_track(track.id)
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,

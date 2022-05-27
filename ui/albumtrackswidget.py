@@ -56,7 +56,11 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.download_button.setFlat(True)
         self.ui.download_button.setCursor(Qt.PointingHandCursor)
         self.ui.download_button.setIconSize(QSize(24, 24))
+        self.ui.download_button.setToolTip(f"Download")
         self.ui.download_button.clicked.connect(self._on_download_button_clicked)
+        szp = self.ui.download_button.sizePolicy()
+        szp.setRetainSizeWhenHidden(True)
+        self.ui.download_button.setSizePolicy(szp)
 
         # open video
         self.ui.open_video_button = QPushButton()
@@ -65,6 +69,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.open_video_button.setFlat(True)
         self.ui.open_video_button.setCursor(Qt.PointingHandCursor)
         self.ui.open_video_button.setIconSize(QSize(24, 24))
+        self.ui.open_video_button.setToolTip(f"Open")
         self.ui.open_video_button.clicked.connect(self._on_open_video_button_clicked)
 
         # download progress
@@ -119,25 +124,26 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
 
 
         if youtube_track:
+            self.ui.open_video_button.setVisible(True)
+
             if download:
                 self.ui.download_progress.setVisible(download["status"] == "downloading")
                 self.ui.download_progress.setValue(round(download["progress"]))
 
                 self.ui.download_button.setVisible(False)
-                self.ui.open_video_button.setVisible(False)
+                # self.ui.open_video_button.setVisible(False)
 
             else:
                 self.ui.download_progress.setVisible(False)
 
                 if locally_available:
                     self.ui.download_button.setVisible(False)
-                    self.ui.open_video_button.setVisible(False)
+                    # self.ui.open_video_button.setVisible(False)
                 else:
                     self.ui.download_button.setVisible(True)
-                    self.ui.download_button.setToolTip(f"Download")
 
-                    self.ui.open_video_button.setVisible(True)
-                    self.ui.open_video_button.setToolTip(f"Open")
+                    # self.ui.open_video_button.setVisible(True)
+                    # self.ui.open_video_button.setToolTip(f"Open")
         else:
             self.ui.download_progress.setVisible(False)
             self.ui.download_button.setVisible(False)
