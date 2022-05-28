@@ -1,16 +1,17 @@
 from pathlib import Path
 from typing import List
 
-from PyQt5.QtCore import QTimer, QUrl
-from PyQt5.QtGui import QFont, QMouseEvent, QDesktopServices, QPalette
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QFont, QMouseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
+import localsongs
 import preferences
 import repository
-import localsongs
 import ui.resources
 import ytcommons
 import ytdownloader
+from localsongs import Mp3
 from log import debug
 from repository import Artist, ReleaseGroup, Release, Track, get_artist, \
     get_release_group, get_entity, get_track, get_release, get_youtube_track
@@ -22,10 +23,8 @@ from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
-from ui.ytmusicsetupwindow import YtMusicSetupWindow
 from utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_human_string
 from ytmusic import YtTrack
-from localsongs import Mp3
 
 SEARCH_DEBOUNCE_MS = 800
 
@@ -84,6 +83,7 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.set_model(self.album_tracks_model)
         self.ui.albumTracks.row_clicked.connect(self.on_album_track_clicked)
 
+        self.ui.artistCover.double_clicked.connect(self.on_artist_image_double_clicked)
         self.ui.albumArtist.set_underline_on_hover(True)
         self.ui.albumArtist.clicked.connect(self.on_album_artist_clicked)
 
@@ -407,15 +407,15 @@ class MainWindow(QMainWindow):
         query = self.ui.searchBar.text()
         debug(f"on_search_debounce_time_elapsed(query={query})")
 
-        repository.search_release_groups(
-            query,
-            release_groups_callback=self.on_search_release_groups_result,
-            release_group_image_callback=self.on_release_group_image_result,
-        )
         repository.search_artists(
             query,
             artists_callback=self.on_search_artists_result,
             artist_image_callback=self.on_artist_image_result,
+        )
+        repository.search_release_groups(
+            query,
+            release_groups_callback=self.on_search_release_groups_result,
+            release_group_image_callback=self.on_release_group_image_result,
         )
         repository.search_tracks(
             query,
@@ -474,6 +474,7 @@ class MainWindow(QMainWindow):
         self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_human_string(main_release.length())}")
 
         self.set_album_cover(release_group_id)
+        self.update_album_download_widgets()
 
         # repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
 
@@ -719,6 +720,12 @@ class MainWindow(QMainWindow):
         debug("on_album_cover_double_clicked")
         image_preview_window = ImagePreviewWindow()
         image_preview_window.set_image(self.ui.albumCover.pixmap())
+        image_preview_window.exec()
+
+    def on_artist_image_double_clicked(self, ev: QMouseEvent):
+        debug("on_artist_image_double_clicked")
+        image_preview_window = ImagePreviewWindow()
+        image_preview_window.set_image(self.ui.artistCover.pixmap())
         image_preview_window.exec()
 
     def on_release_group_youtube_tracks_result(self, release_group_id: str, yttracks: List[YtTrack]):

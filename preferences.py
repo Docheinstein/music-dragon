@@ -12,6 +12,10 @@ def initialize():
     debug(f"Preferences file path: {_preferences.fileName()}")
 
 
+# TODO: when the hierarchy of the preferences UI is well defined,
+#  set the hierarchy here to so that the INI file respect the UI
+# e.g. general/directory
+
 # Directory
 
 def directory() -> str:

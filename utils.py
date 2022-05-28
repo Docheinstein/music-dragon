@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import time
@@ -91,6 +92,12 @@ def get_folder_size(directory: Union[Path, str]) -> int: #KB
             if not os.path.islink(fp):
                 total_size += os.path.getsize(fp)
     return total_size
+
+def stable_hash(s: str):
+    m = hashlib.md5()
+    m.update(s.encode())
+    return m.hexdigest()
+
 
 class Mergeable:
     def merge(self, other):

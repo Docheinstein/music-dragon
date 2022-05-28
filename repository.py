@@ -14,7 +14,7 @@ import ytdownloader
 import ytmusic
 from localsongs import Mp3
 from log import debug
-from utils import Mergeable, min_index
+from utils import Mergeable, min_index, stable_hash
 from ytmusic import YtTrack
 
 _artists: Dict[str, 'Artist'] = {}
@@ -381,8 +381,16 @@ def get_entity(entity_id):
     return None
 
 def search_artists(query, artists_callback, artist_image_callback=None, limit=3):
+    query = query.lower()
     debug(f"search_artists(query={query})")
+
+    request_name = f"mb-search-artists-{stable_hash(query)}"
+    cache_hit = False
+
     def artists_callback_wrapper(query_, result: List[dict]):
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
         artists = [Artist(a) for a in result]
         for a in artists:
             _add_artist(a)
@@ -396,12 +404,26 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
             for a in artists:
                 fetch_artist(a.id, artist_callback, artist_image_callback)
 
-    musicbrainz.search_artists(query, artists_callback_wrapper, limit)
+    req = cache.get_request(request_name)
+    if req:
+        # storage cached
+        cache_hit = True
+        artists_callback_wrapper(query, req)
+    else:
+        # actually fetch
+        musicbrainz.search_artists(query, artists_callback_wrapper, limit)
 
 def search_release_groups(query, release_groups_callback, release_group_image_callback=None, limit=3):
+    query = query.lower()
     debug(f"search_release_groups(query={query})")
 
+    request_name = f"mb-search-release-groups-{stable_hash(query)}"
+    cache_hit = False
+
     def release_groups_callback_wrapper(query_, result: List[dict]):
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
         release_groups = [ReleaseGroup(rg) for rg in result]
         for rg in release_groups:
             _add_release_group(rg)
@@ -412,32 +434,34 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
             for rg in release_groups:
                 fetch_release_group_cover(rg.id, release_group_image_callback)
 
-    musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
+    req = cache.get_request(request_name)
+    if req:
+        # storage cached
+        cache_hit = True
+        release_groups_callback_wrapper(query, req)
+    else:
+        # actually fetch
+        musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
 
 def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
+    query = query.lower()
     debug(f"search_tracks(query={query})")
+
+    request_name = f"mb-search-tracks-{stable_hash(query)}"
+    cache_hit = False
 
     def recordings_callback_wrapper(query_, result: List[dict]):
         # add a track for each release the recoding belongs to
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
         tracks = []
         for rec in result:
             for release in rec["release-list"]:
-                release["release-group"]["artist-credit"] = rec["artist-credit"]
+                release["release-group"]["artist-credit"] = rec["artist-credit"] # hack
                 rg = ReleaseGroup(release["release-group"])
 
-                # mb_release_group = MbReleaseGroup()
-                # mb_release_group.id = release["release-group"]["id"]
-                # mb_release_group.title = release["release-group"]["title"]
-                # mb_release_group.artists = [{
-                #     "id": a["id"],
-                #     "name": a["name"],
-                #     "aliases": [alias["alias"] for alias in a["aliases"]]
-                # } for a in rec.artists]
-
                 r = Release(release)
-                # mb_release.id = release["id"]
-                # mb_release.title = release["title"]
-                # mb_release.release_group_id = mb_release_group.id
 
                 t = Track()
                 t.id = f'{rec["id"]}@{release["id"]}'
@@ -460,7 +484,14 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
                     track_image_callback(t.id, img)
                 fetch_release_group_cover(t.release().release_group_id, tracks_image_callback_wrapper)
 
-    musicbrainz.search_recordings(query, recordings_callback_wrapper, limit)
+    req = cache.get_request(request_name)
+    if req:
+        # storage cached
+        cache_hit = True
+        recordings_callback_wrapper(query, req)
+    else:
+        # actually fetch
+        musicbrainz.search_recordings(query, recordings_callback_wrapper, limit)
 
 
 def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):
@@ -509,7 +540,7 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
                     fetch_release_group_cover(best_release_group.id, mp3_release_group_image_callback)
 
 
-        musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=10)
+        musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=3)
 
 
 def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
@@ -555,7 +586,7 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
 
                     fetch_artist(best_artist.id, artist_callback, mp3_artist_image_callback)
 
-        musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=10)
+        musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=3)
 
 
 def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
@@ -838,7 +869,7 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
                     if "url-relation-list" in result:
                         for url in result["url-relation-list"]:
                             if url["type"] == "wikidata":
-                                wiki_id = url["type"].split("/")[-1]
+                                wiki_id = url["target"].split("/")[-1]
                                 wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
                                 break
 

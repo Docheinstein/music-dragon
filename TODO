@@ -1,5 +1,4 @@
 - Manual YT download: fetch musicbrainz track from metadata? or handle non-official/non-musicbrainz around the application?
-- caching of requests/covers
 - download all button -> download missing?
 - do checks on mainwindow before invalidate stuff (current release group id/current artist id)
 - bug: empty rows at the beginning and at the end
@@ -9,3 +8,4 @@
 - update download missing button on track download button press
 - setup yt auth
 - artist image is erroneously set equal to album
+- cache of other requests...

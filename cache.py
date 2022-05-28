@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import json
 import utils
@@ -61,8 +61,7 @@ def put_image(file: str, data: bytes) -> Optional[bytes]:
 
 # Request
 
-
-def get_request(file: str) -> Optional[bytes]:
+def get_request(file: str) -> Optional[Union[list, dict]]:
     global _cache_path, _requests_caching
     if not _requests_caching:
         return None
@@ -74,11 +73,11 @@ def get_request(file: str) -> Optional[bytes]:
     return None
 
 
-def put_request(file: str, data: dict) -> Optional[bytes]:
-    global _cache_path, _images_caching
-    if not _images_caching:
+def put_request(file: str, data: Union[list, dict]):
+    global _cache_path, _requests_caching
+    if not _requests_caching:
         return None
     p = Path(_cache_path, file)
-    debug(f"CACHE: writing image to {file}")
+    debug(f"CACHE: writing request to {file}")
     with p.open("w") as f:
         json.dump(data, f)
