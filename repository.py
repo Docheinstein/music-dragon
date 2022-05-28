@@ -1,9 +1,10 @@
 from difflib import get_close_matches
-from statistics import mean, mode, multimode
+from statistics import mean, multimode
 from typing import List, Dict, Optional
 
 import Levenshtein as levenshtein
 
+import cache
 import localsongs
 import musicbrainz
 import preferences
@@ -12,10 +13,9 @@ import workers
 import ytdownloader
 import ytmusic
 from localsongs import Mp3
-from ytmusic import YtTrack
 from log import debug
-from musicbrainz import MbArtist, MbReleaseGroup, MbRelease, MbTrack, MbRecording
-from utils import j, Mergeable, min_index
+from utils import Mergeable, min_index
+from ytmusic import YtTrack
 
 _artists: Dict[str, 'Artist'] = {}
 _release_groups: Dict[str, 'ReleaseGroup'] = {}
@@ -60,19 +60,33 @@ RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX = 1
     #     return ", ".join([f'(idx={idx}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_index == idx})' for idx, img in enumerate(self.images)])
 
 class Artist(Mergeable):
-    def __init__(self, mb_artist: MbArtist):
-        self.id = mb_artist.id
-        self.name = mb_artist.name
-        self.aliases = mb_artist.aliases
-        # self.images = Images()
+    def __init__(self, mb_artist: dict=None):
+
+        self.id = None
+        self.name = None
+        self.aliases = []
         self.image = None
-        self.release_group_ids = [rg.id for rg in mb_artist.release_groups]
-
-        for release_group in mb_artist.release_groups:
-            _add_release_group(ReleaseGroup(release_group))
-
+        self.release_group_ids = []
         self.fetched = False
         self.fetched_image = False
+
+        if mb_artist:
+            self.id = mb_artist["id"]
+            self.name = mb_artist["name"]
+            if "aliases-list" in mb_artist:
+                self.aliases = [alias["alias"] for alias in mb_artist["aliases-list"]]
+
+            if "release-group-list" in mb_artist:
+                for mb_rg in mb_artist["release-group-list"]:
+                    if not musicbrainz.release_group_is_official_album(mb_rg):
+                        debug(f"Skipping release group: {mb_rg['title']}")
+                        continue
+
+                    release_group = ReleaseGroup(mb_rg)
+                    # TODO: what if there is more than an artist?
+                    release_group.artist_ids.append(self.id)
+                    _add_release_group(release_group)
+                    self.release_group_ids.append(release_group.id)
 
     def merge(self, other):
         # handle flags apart
@@ -89,25 +103,41 @@ class Artist(Mergeable):
         return len(self.release_group_ids)
 
 class ReleaseGroup(Mergeable):
-    def __init__(self, mb_release_group: MbReleaseGroup):
-        self.id = mb_release_group.id
-        self.title = mb_release_group.title
-        self.date = mb_release_group.date
-        # self.images = Images()
+    def __init__(self, mb_release_group: dict=None):
+        self.id = None
+        self.title = None
+        self.date = None
         self.front_cover = None
         self.preferred_front_cover_index = 0
-        self.artist_ids = [a["id"] for a in mb_release_group.artists]
+        self.artist_ids = []
         self.release_ids = []
         self.main_release_id = None
-
-        for artist in mb_release_group.artists:
-            _add_artist(Artist(MbArtist(artist)))
 
         self.fetched_releases = False
         self.fetched_front_cover = False
 
         self.fetched_youtube_video_ids = False
         self.youtube_video_ids = []
+
+        if mb_release_group:
+            self.id = mb_release_group["id"]
+            self.title = mb_release_group["title"]
+            self.date = mb_release_group.get("first-release-data", "")
+            if "artist-credit" in mb_release_group:
+                for artist_credit in mb_release_group["artist-credit"]:
+                    if not isinstance(artist_credit, dict):
+                        continue
+
+                    artist = Artist(artist_credit["artist"])
+                    _add_artist(artist)
+                    self.artist_ids.append(artist.id)
+
+            if "release-list" in mb_release_group:
+                self.release_ids = [{
+                    "id": release["id"],
+                    "title": release["title"],
+                } for release in mb_release_group["release-list"]]
+
 
     def merge(self, other):
         # handle flags apart
@@ -146,7 +176,6 @@ class ReleaseGroup(Mergeable):
     def set_preferred_front_cover_release_group(self):
         self.preferred_front_cover_index = RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX
 
-
     def set_preferred_front_cover_release(self, release_id):
         try:
             idx = self.release_ids.index(release_id)
@@ -168,29 +197,37 @@ class ReleaseGroup(Mergeable):
         return len(self.release_ids) + 1
 
 class Release(Mergeable):
-    def __init__(self, mb_release: MbRelease):
-        self.id = mb_release.id
-        self.title = mb_release.title
-        self.format = mb_release.format
-        self.release_group_id = mb_release.release_group_id
-        self.track_ids = [t.id for t in mb_release.tracks]
-
-
-        # sanitize: avoid same title for tracks of the same album
-        track_names = {}
-        for mb_track in mb_release.tracks:
-            t = Track(mb_track)
-            if t.title not in track_names:
-                track_names[t.title] = 1
-            else:
-                track_names[t.title] += 1
-                print(f"WARN: found duplicate track title: '{t.title}', renaming it to '{t.title} ({track_names[t.title]})'")
-                t.title = f"{t.title} ({track_names[t.title]})"
-            _add_track(t)
-
-
+    def __init__(self, mb_release: dict=None):
+        self.id = None
+        self.title = None
+        self.format = None
+        self.release_group_id = None
+        self.track_ids = []
         self.front_cover = None
         self.fetched_front_cover = False
+
+        if mb_release:
+            self.id = mb_release["id"]
+            self.title = mb_release["title"] # should match the release group title
+            if "format" in mb_release["medium-list"][0]:
+                self.format = mb_release["medium-list"][0]["format"]
+            self.release_group_id = mb_release["release-group"]["id"]
+
+            track_names = {}
+
+            if len(mb_release["medium-list"][0]["track-list"]) == mb_release["medium-list"][0]["track-count"]:
+                for mb_track in mb_release["medium-list"][0]["track-list"]:
+                    t = Track(mb_track, self.id)
+                    if t.title not in track_names:
+                        track_names[t.title] = 1
+                    else:
+                        track_names[t.title] += 1
+                        print(f"WARN: found duplicate track title: '{t.title}', renaming it to '{t.title} ({track_names[t.title]})'")
+                        t.title = f"{t.title} ({track_names[t.title]})"
+
+                    _add_track(t)
+                    self.track_ids.append(t.id)
+            # else: skip non-complete track list
 
     def merge(self, other):
         # handle flags apart
@@ -211,16 +248,23 @@ class Release(Mergeable):
         return sum([t.length for t in self.tracks()])
 
 class Track(Mergeable):
-    def __init__(self, mb_track: MbTrack):
-        self.id = mb_track.id
-        self.title = mb_track.title
-        self.length = mb_track.length
-        self.track_number = mb_track.track_number
-        self.release_id = mb_track.release_id
+    def __init__(self, mb_track: dict=None, release_id=None):
+        self.id = None
+        self.title = None
+        self.length = 0
+        self.track_number = None
+        self.release_id = None
         self.youtube_track_id = None
         self.fetched_youtube_track = False
         self.youtube_track_is_official = False
         self.downloading = False
+
+        if mb_track:
+            self.id = f'{mb_track["recording"]["id"]}@{release_id}'
+            self.title = mb_track["recording"]["title"]
+            self.length = int(mb_track["recording"].get("length", 0))
+            self.track_number = int(mb_track["position"])
+            self.release_id = release_id
 
     def merge(self, other):
         # TODO: youtube_track_is_official is not handled well probably
@@ -338,7 +382,7 @@ def get_entity(entity_id):
 
 def search_artists(query, artists_callback, artist_image_callback=None, limit=3):
     debug(f"search_artists(query={query})")
-    def artists_callback_wrapper(query_, result: List[MbArtist]):
+    def artists_callback_wrapper(query_, result: List[dict]):
         artists = [Artist(a) for a in result]
         for a in artists:
             _add_artist(a)
@@ -349,7 +393,7 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
             def artist_callback(_1, _2):
                 pass
 
-            for a in result:
+            for a in artists:
                 fetch_artist(a.id, artist_callback, artist_image_callback)
 
     musicbrainz.search_artists(query, artists_callback_wrapper, limit)
@@ -357,7 +401,7 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
 def search_release_groups(query, release_groups_callback, release_group_image_callback=None, limit=3):
     debug(f"search_release_groups(query={query})")
 
-    def release_groups_callback_wrapper(query_, result: List[MbReleaseGroup]):
+    def release_groups_callback_wrapper(query_, result: List[dict]):
         release_groups = [ReleaseGroup(rg) for rg in result]
         for rg in release_groups:
             _add_release_group(rg)
@@ -365,7 +409,7 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
 
         # (eventually) image
         if release_group_image_callback:
-            for rg in result:
+            for rg in release_groups:
                 fetch_release_group_cover(rg.id, release_group_image_callback)
 
     musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
@@ -373,33 +417,32 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
 def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
     debug(f"search_tracks(query={query})")
 
-    def recordings_callback_wrapper(query_, result: List[MbRecording]):
+    def recordings_callback_wrapper(query_, result: List[dict]):
         # add a track for each release the recoding belongs to
         tracks = []
         for rec in result:
-            for release in rec.releases:
-                mb_release_group = MbReleaseGroup()
-                mb_release_group.id = release["release-group"]["id"]
-                mb_release_group.title = release["release-group"]["title"]
-                mb_release_group.artists = [{
-                    "id": a["id"],
-                    "name": a["name"],
-                    "aliases": [alias["alias"] for alias in a["aliases"]]
-                } for a in rec.artists]
+            for release in rec["release-list"]:
+                release["release-group"]["artist-credit"] = rec["artist-credit"]
+                rg = ReleaseGroup(release["release-group"])
 
-                mb_release = MbRelease()
-                mb_release.id = release["id"]
-                mb_release.title = release["title"]
-                mb_release.release_group_id = mb_release_group.id
+                # mb_release_group = MbReleaseGroup()
+                # mb_release_group.id = release["release-group"]["id"]
+                # mb_release_group.title = release["release-group"]["title"]
+                # mb_release_group.artists = [{
+                #     "id": a["id"],
+                #     "name": a["name"],
+                #     "aliases": [alias["alias"] for alias in a["aliases"]]
+                # } for a in rec.artists]
 
-                mb_track = MbTrack()
-                mb_track.id = f'{rec.id}@{mb_release.id}'
-                mb_track.title = rec.title
-                mb_track.release_id = mb_release.id
+                r = Release(release)
+                # mb_release.id = release["id"]
+                # mb_release.title = release["title"]
+                # mb_release.release_group_id = mb_release_group.id
 
-                rg = ReleaseGroup(mb_release_group)
-                r = Release(mb_release)
-                t = Track(mb_track)
+                t = Track()
+                t.id = f'{rec["id"]}@{release["id"]}'
+                t.title = rec["title"]
+                t.release_id = r.id
 
                 _add_release_group(rg)
                 _add_release(r)
@@ -433,7 +476,7 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
             return
 
 
-        def release_groups_callback_wrapper(query_, result: List[MbReleaseGroup]):
+        def release_groups_callback_wrapper(query_, result: List[dict]):
             release_groups = [ReleaseGroup(rg) for rg in result]
             for rg in release_groups:
                 _add_release_group(rg)
@@ -482,7 +525,7 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
             return
 
 
-        def artists_callback_wrapper(query_, result: List[MbReleaseGroup]):
+        def artists_callback_wrapper(query_, result: List[dict]):
             artists = [Artist(a) for a in result]
             for a in artists:
                 _add_artist(a)
@@ -519,21 +562,29 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
     debug(f"fetch_release_group_cover(release_group_id={release_group_id})")
 
     rg = get_release_group(release_group_id)
-    if rg and rg.fetched_front_cover:
-        # cached
+    if rg.fetched_front_cover:
+        # (in memory) cached
         debug(f"Release group ({release_group_id}) cover already fetched, calling release_group_cover_callback directly")
         release_group_cover_callback(release_group_id, rg.front_cover)
     else:
-        # actually fetch
-        debug(f"Release group ({release_group_id}) cover not fetched yet")
-        def release_group_cover_callback_wrapper(rg_id, image):
-            _release_groups[rg_id].fetched_front_cover = True
-            if image:
-                _release_groups[rg_id].front_cover = image
-            release_group_cover_callback(rg_id, image)
+        img = cache.get_image(f"{rg.id}")
+        if img:
+            # storage cached
+            rg.fetched_front_cover = True
+            rg.front_cover = img
+            release_group_cover_callback(release_group_id, rg.front_cover)
+        else:
+            # actually fetch
+            debug(f"Release group ({release_group_id}) cover not fetched yet")
+            def release_group_cover_callback_wrapper(rg_id, image):
+                _release_groups[rg_id].fetched_front_cover = True
+                if image:
+                    _release_groups[rg_id].front_cover = image
+                    cache.put_image(f"{rg.id}", image)
+                release_group_cover_callback(rg_id, image)
 
-        musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
-                                              priority=workers.Worker.PRIORITY_LOW)
+            musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
+                                                  priority=workers.Worker.PRIORITY_LOW)
 
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback, release_group_youtube_tracks_callback):
     debug(f"fetch_release_group_releases(release_group_id={release_group_id})")
@@ -546,7 +597,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
     else:
         # actually fetch
         debug(f"Release group ({release_group_id}) releases not fetched yet")
-        def release_group_releases_callback_wrapper(release_group_id_, result: List[MbRelease]):
+        def release_group_releases_callback_wrapper(release_group_id_, result: List[dict]):
             releases = [Release(r) for r in result]
             for r in releases:
                 _add_release(r)
@@ -608,14 +659,13 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     t_title = t_title.replace("_", " ")
                     yt_title = yt_title.replace("_", " ")
 
-                    edit_distance_component = 0
-                    track_position_component = 0
 
                     if t_title in yt_.video_title or yt_title in t_title:
                         edit_distance_component = 0
                     else:
                         edit_distance_component = levenshtein.distance(t_title, yt_title)
 
+                    track_position_component = 0
                     if t_.track_number is not None and yt_.track_number is not None:
                         track_position_component += abs(t_.track_number - yt_.track_number)
 
@@ -628,7 +678,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
 
                 if yt_track_count:
                     debug(f"Taking main release with tracks more similar to youtube one = {yt_track_count}")
-                    def compute_release_score(r):
+                    def compute_release_score(r: Release):
                         debug(f"Computing release score of {r.title} ({r.id}): {r.track_count()} tracks)")
 
                         # 1. Same number of track is better
@@ -760,24 +810,37 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
 
     # actually fetch
     if not a or (not a.fetched) or (not a.fetched_image):
-        def artist_callback_wrapper(artist_id_, result: MbArtist):
+        def artist_callback_wrapper(artist_id_, result: dict):
             artist = Artist(result)
             artist.fetched = True
-            _add_artist(artist)
+            artist = _add_artist(artist)
             artist_callback(artist_id_, artist)
 
             if artist_image_callback:
-                debug("Retrieving image too")
 
-                def artist_image_callback_wrapper(wiki_id_, image, artist_id__):
-                    _artists[artist_id__].fetched_image = True
-                    if image:
-                        _artists[artist_id__].image = image
-                    artist_image_callback(artist_id_, image)
+                img = cache.get_image(f"{artist.id}")
+                if img:
+                    # storage cached
+                    artist.fetched_image = True
+                    artist.image = img
+                    artist_image_callback(artist_id, img)
+                else:
+                    # actually fetch
+                    debug("Retrieving artist image too")
 
-                if "wikidata" in result.urls:
-                    wiki_id = result.urls["wikidata"].split("/")[-1]
-                    wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
+                    def artist_image_callback_wrapper(wiki_id_, image, artist_id__):
+                        _artists[artist_id__].fetched_image = True
+                        if image:
+                            _artists[artist_id__].image = image
+                            cache.put_image(f"{artist.id}", image)
+                        artist_image_callback(artist_id_, image)
+
+                    if "url-relation-list" in result:
+                        for url in result["url-relation-list"]:
+                            if url["type"] == "wikidata":
+                                wiki_id = url["type"].split("/")[-1]
+                                wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
+                                break
 
         musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
 
@@ -786,21 +849,30 @@ def fetch_release_cover(release_id: str, release_cover_callback):
     debug(f"fetch_release_cover(release_id={release_id})")
 
     r = get_release(release_id)
-    if r and r.fetched_front_cover:
+    if r.fetched_front_cover:
         # cached
         debug(f"Release ({release_id}) cover already fetched, calling release_cover_callback directly")
         release_cover_callback(release_id, r.front_cover)
     else:
-        # actually fetch
-        debug(f"Release ({release_id}) cover not fetched yet")
-        def release_cover_callback_wrapper(r_id, image):
-            release = _releases[r_id]
-            release.front_cover = image
-            release.fetched_front_cover = True
-            release_cover_callback(r_id, image)
+        img = cache.get_image(f"{r.id}")
+        if img:
+            # storage cached
+            r.fetched_front_cover = True
+            r.front_cover = img
+            release_cover_callback(release_id, r.front_cover)
+        else:
+            # actually fetch
+            debug(f"Release ({release_id}) cover not fetched yet")
+            def release_cover_callback_wrapper(r_id, image):
+                release = _releases[r_id]
+                release.fetched_front_cover = True
+                release.front_cover = image
+                if image:
+                    cache.put_image(f"{r_id}", image)
+                release_cover_callback(r_id, image)
 
-        musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
-                                        priority=workers.Worker.PRIORITY_LOW)
+            musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
+                                            priority=workers.Worker.PRIORITY_LOW)
 
 #
 # def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callback):

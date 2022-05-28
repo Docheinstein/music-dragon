@@ -10,151 +10,152 @@ from workers import Worker
 def initialize():
     mb.set_useragent("MusicDragon", "0.1")
 
-def _release_belongs_to_official_album(mb_release: dict):
+def release_belongs_to_official_album(mb_release: dict):
     return mb_release.get("status") == "Official" and \
-           "release-group" in mb_release and _release_group_is_official_album(mb_release["release-group"])
+           "release-group" in mb_release and release_group_is_official_album(mb_release["release-group"])
 
-def _release_group_is_official_album(mb_release_group: dict):
+def release_group_is_official_album(mb_release_group: dict):
     return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] and \
            ("secondary-type-list" not in mb_release_group or not mb_release_group.get("secondary-type-list"))
 
-class MbTrack: # recording belonging to a release
-    def __init__(self, mb_track=None, release_id=None):
-        self.id = None
-        self.title = None
-        self.length = 0
-        self.track_number = None
-        self.release_id = None
-        if mb_track:
-            self.id = f'{mb_track["recording"]["id"]}@{release_id}' # unique within release
-            self.title = mb_track["recording"]["title"]
-            self.length = int(mb_track["recording"].get("length", 0))
-            self.track_number = int(mb_track["position"])
-            self.release_id = release_id
-
-
-
-class MbRecording: # recording (possibly belongs to multiple releases)
-    def __init__(self, mb_recording=None):
-        self.id = None
-        self.title = None
-        self.length = 0
-        self.artists = []
-        self.releases = []
-
-        if mb_recording:
-            self.id = mb_recording["id"]
-            self.title = mb_recording["title"]
-            self.length = int(mb_recording.get("length", 0))
-
-
-            if "artist-credit" in mb_recording:
-                self.artists = [{
-                    "id": artist_credit["artist"]["id"],
-                    "name": artist_credit["artist"]["name"],
-                    "aliases": [alias["alias"] for alias in artist_credit["artist"].get("aliases-list", [])]
-                }  for artist_credit in mb_recording["artist-credit"] if isinstance(artist_credit, dict)]
-
-            if "release-list" in mb_recording:
-                rg_ids = set()
-                for r in mb_recording["release-list"]:
-                    if _release_belongs_to_official_album(r):
-                        rg_id = r["release-group"]["id"]
-                        if rg_id not in rg_ids:
-                            # take only release belonging to a release group not added yet
-                            rg_ids.add(rg_id)
-                            self.releases.append(
-                                {
-                                    "id": r["id"],
-                                    "title": r["title"],
-                                    "release-group": {
-                                        "id": r["release-group"]["id"],
-                                        "title": r["release-group"]["title"]
-                                    }
-                                }
-                            )
-
-
-class MbRelease:
-    def __init__(self, mb_release=None):
-        self.id = None
-        self.title = None
-        self.format = None
-        self.release_group_id = None
-        self.tracks = []
-        if mb_release:
-            self.id: str = mb_release["id"]
-            self.title: str = mb_release["title"]
-            self.format = mb_release["medium-list"][0]["format"] if "format" in mb_release["medium-list"][0] else None
-            self.release_group_id = mb_release["release-group"]["id"]
-            self.tracks = [MbTrack(track, mb_release["id"]) for track in mb_release["medium-list"][0]["track-list"]]
-
-class MbReleaseGroup:
-    def __init__(self, mb_release_group=None):
-        self.id = None
-        self.title = None
-        self.date = None
-        self.score = None
-
-        self.artists = []
-        self.releases = []
-
-        if mb_release_group:
-            self.id: str = mb_release_group["id"]
-            self.title: str = mb_release_group["title"]
-            self.date = mb_release_group.get("first-release-date", "")
-            self.score: int = int(mb_release_group.get("ext-score", 0))
-
-
-            if "artist-credit" in mb_release_group:
-                self.artists = [{
-                    "id": artist_credit["artist"]["id"],
-                    "name": artist_credit["artist"]["name"],
-                    "aliases": [alias["alias"] for alias in artist_credit["artist"].get("aliases-list", [])]
-                }  for artist_credit in mb_release_group["artist-credit"] if isinstance(artist_credit, dict)]
-            if "release-list" in mb_release_group:
-                self.releases = [{
-                    "id": release["id"],
-                    "title": release["title"],
-                }  for release in mb_release_group["release-list"]]
-
-class MbArtist:
-    def __init__(self, mb_artist=None):
-        self.id = None
-        self.name = None
-        self.aliases = []
-        self.release_groups = []
-        self.urls = {}
-
-        if mb_artist:
-            self.id = mb_artist["id"]
-            self.name = mb_artist["name"]
-
-            if "aliases-list" in mb_artist:
-                self.aliases = [alias["alias"] for alias in mb_artist["aliases-list"]]
-
-            if "release-group-list" in mb_artist:
-                for release_group in mb_artist["release-group-list"]:
-                    if not _release_group_is_official_album(release_group):
-                        debug(f"Skipping release group: {release_group['title']}")
-                        continue
-
-                    mb_release_group = MbReleaseGroup(release_group)
-
-                    # TODO: what if there is more than an artist?
-                    mb_release_group.artists.append({
-                        "id": self.id,
-                        "name": self.name,
-                        "aliases": self.aliases
-                    })
-                    self.release_groups.append(mb_release_group)
-                # sort release groups by date
-                self.release_groups.sort(key=lambda mbrg: mbrg.date)
-
-            if "url-relation-list" in mb_artist:
-                for url in mb_artist["url-relation-list"]:
-                    self.urls[url["type"]] = url["target"]
-
+#
+# class MbTrack: # recording belonging to a release
+#     def __init__(self, mb_track=None, release_id=None):
+#         self.id = None
+#         self.title = None
+#         self.length = 0
+#         self.track_number = None
+#         self.release_id = None
+#         if mb_track:
+#             self.id = f'{mb_track["recording"]["id"]}@{release_id}' # unique within release
+#             self.title = mb_track["recording"]["title"]
+#             self.length = int(mb_track["recording"].get("length", 0))
+#             self.track_number = int(mb_track["position"])
+#             self.release_id = release_id
+#
+#
+#
+# class MbRecording: # recording (possibly belongs to multiple releases)
+#     def __init__(self, mb_recording=None):
+#         self.id = None
+#         self.title = None
+#         self.length = 0
+#         self.artists = []
+#         self.releases = []
+#
+#         if mb_recording:
+#             self.id = mb_recording["id"]
+#             self.title = mb_recording["title"]
+#             self.length = int(mb_recording.get("length", 0))
+#
+#
+#             if "artist-credit" in mb_recording:
+#                 self.artists = [{
+#                     "id": artist_credit["artist"]["id"],
+#                     "name": artist_credit["artist"]["name"],
+#                     "aliases": [alias["alias"] for alias in artist_credit["artist"].get("aliases-list", [])]
+#                 }  for artist_credit in mb_recording["artist-credit"] if isinstance(artist_credit, dict)]
+#
+#             if "release-list" in mb_recording:
+#                 rg_ids = set()
+#                 for r in mb_recording["release-list"]:
+#                     if _release_belongs_to_official_album(r):
+#                         rg_id = r["release-group"]["id"]
+#                         if rg_id not in rg_ids:
+#                             # take only release belonging to a release group not added yet
+#                             rg_ids.add(rg_id)
+#                             self.releases.append(
+#                                 {
+#                                     "id": r["id"],
+#                                     "title": r["title"],
+#                                     "release-group": {
+#                                         "id": r["release-group"]["id"],
+#                                         "title": r["release-group"]["title"]
+#                                     }
+#                                 }
+#                             )
+#
+#
+# class MbRelease:
+#     def __init__(self, mb_release=None):
+#         self.id = None
+#         self.title = None
+#         self.format = None
+#         self.release_group_id = None
+#         self.tracks = []
+#         if mb_release:
+#             self.id: str = mb_release["id"]
+#             self.title: str = mb_release["title"]
+#             self.format = mb_release["medium-list"][0]["format"] if "format" in mb_release["medium-list"][0] else None
+#             self.release_group_id = mb_release["release-group"]["id"]
+#             self.tracks = [MbTrack(track, mb_release["id"]) for track in mb_release["medium-list"][0]["track-list"]]
+#
+# class MbReleaseGroup:
+#     def __init__(self, mb_release_group=None):
+#         self.id = None
+#         self.title = None
+#         self.date = None
+#         self.score = None
+#
+#         self.artists = []
+#         self.releases = []
+#
+#         if mb_release_group:
+#             self.id: str = mb_release_group["id"]
+#             self.title: str = mb_release_group["title"]
+#             self.date = mb_release_group.get("first-release-date", "")
+#             self.score: int = int(mb_release_group.get("ext-score", 0))
+#
+#
+#             if "artist-credit" in mb_release_group:
+#                 self.artists = [{
+#                     "id": artist_credit["artist"]["id"],
+#                     "name": artist_credit["artist"]["name"],
+#                     "aliases": [alias["alias"] for alias in artist_credit["artist"].get("aliases-list", [])]
+#                 }  for artist_credit in mb_release_group["artist-credit"] if isinstance(artist_credit, dict)]
+#             if "release-list" in mb_release_group:
+#                 self.releases = [{
+#                     "id": release["id"],
+#                     "title": release["title"],
+#                 }  for release in mb_release_group["release-list"]]
+#
+# class MbArtist:
+#     def __init__(self, mb_artist=None):
+#         self.id = None
+#         self.name = None
+#         self.aliases = []
+#         self.release_groups = []
+#         self.urls = {}
+#
+#         if mb_artist:
+#             self.id = mb_artist["id"]
+#             self.name = mb_artist["name"]
+#
+#             if "aliases-list" in mb_artist:
+#                 self.aliases = [alias["alias"] for alias in mb_artist["aliases-list"]]
+#
+#             if "release-group-list" in mb_artist:
+#                 for release_group in mb_artist["release-group-list"]:
+#                     if not _release_group_is_official_album(release_group):
+#                         debug(f"Skipping release group: {release_group['title']}")
+#                         continue
+#
+#                     mb_release_group = MbReleaseGroup(release_group)
+#
+#                     # TODO: what if there is more than an artist?
+#                     mb_release_group.artists.append({
+#                         "id": self.id,
+#                         "name": self.name,
+#                         "aliases": self.aliases
+#                     })
+#                     self.release_groups.append(mb_release_group)
+#                 # sort release groups by date
+#                 self.release_groups.sort(key=lambda mbrg: mbrg.date)
+#
+#             if "url-relation-list" in mb_artist:
+#                 for url in mb_artist["url-relation-list"]:
+#                     self.urls[url["type"]] = url["target"]
+#
 
 
 # ============= SEARCH ARTISTS ============
@@ -182,9 +183,9 @@ class SearchArtistsWorker(Worker):
             "======================"
         )
 
-        artists = [MbArtist(a) for a in result]
+        # artists = [MbArtist(a) for a in result]
 
-        self.result.emit(self.query, artists)
+        self.result.emit(self.query, result)
 
 def search_artists(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchArtistsWorker(query, limit)
@@ -217,9 +218,10 @@ class SearchReleaseGroupsWorker(Worker):
             f"{j(result)}"
             "======================"
         )
-        release_groups = [MbReleaseGroup(release_group) for release_group in result
-                          if _release_group_is_official_album(release_group)]
-
+        # release_groups = [MbReleaseGroup(release_group) for release_group in result
+        #                   if _release_group_is_official_album(release_group)]
+        release_groups = [release_group for release_group in result
+                          if release_group_is_official_album(release_group)]
         self.result.emit(self.query, release_groups)
 
 def search_release_groups(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
@@ -253,9 +255,9 @@ class SearchRecordingsWorker(Worker):
             f"{j(result)}"
             "======================"
         )
-        tracks = [MbRecording(rec) for rec in result]
+        # tracks = [MbRecording(rec) for rec in result]
 
-        self.result.emit(self.query, tracks)
+        self.result.emit(self.query, result)
 
 def search_recordings(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
     worker = SearchRecordingsWorker(query, limit)
@@ -320,9 +322,9 @@ class FetchReleaseGroupReleasesWorker(Worker):
             "======================"
         )
 
-        releases = [MbRelease(release) for release in result]
+        # releases = [MbRelease(release) for release in result]
 
-        self.result.emit(self.release_group_id, releases)
+        self.result.emit(self.release_group_id, result)
 
 
 def fetch_release_group_releases(release_group_id, callback, priority=workers.Worker.PRIORITY_NORMAL):
@@ -337,7 +339,7 @@ def fetch_release_group_releases(release_group_id, callback, priority=workers.Wo
 # =======================================
 
 class FetchArtistWorker(Worker):
-    result = pyqtSignal(str, MbArtist)
+    result = pyqtSignal(str, dict)
 
     def __init__(self, artist_id: str):
         super().__init__()
@@ -359,7 +361,8 @@ class FetchArtistWorker(Worker):
             "======================"
         )
 
-        self.result.emit(self.artist_id, MbArtist(result))
+        # self.result.emit(self.artist_id, MbArtist(result))
+        self.result.emit(self.artist_id, result)
 
 def fetch_artist(artist_id, callback, priority=workers.Worker.PRIORITY_NORMAL):
     worker = FetchArtistWorker(artist_id)

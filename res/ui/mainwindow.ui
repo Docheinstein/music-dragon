@@ -675,7 +675,6 @@
     <property name="title">
      <string>Tools</string>
     </property>
-    <addaction name="actionYtMusicSetup"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>

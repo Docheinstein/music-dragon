@@ -355,7 +355,6 @@ class Ui_MainWindow(object):
         self.actionYtMusicSetup.setObjectName("actionYtMusicSetup")
         self.menuFile.addAction(self.actionReload)
         self.menuEdit.addAction(self.actionPreferences)
-        self.menuTools.addAction(self.actionYtMusicSetup)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuEdit.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())

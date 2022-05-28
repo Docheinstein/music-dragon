@@ -58,3 +58,23 @@ def max_simultaneous_downloads() -> int:
 
 def set_max_simultaneous_downloads(value: int):
     _preferences.setValue("max_simultaneous_downloads", value)
+
+# Cache
+
+def is_images_cache_enabled() -> bool:
+    x = _preferences.value("cache_images", "1")
+    return x == "1"
+
+
+def set_images_cache_enabled(enabled: bool):
+    _preferences.setValue("cache_images", "1" if enabled else "0")
+
+
+def is_requests_cache_enabled() -> bool:
+    x = _preferences.value("cache_requests", "1")
+    return x == "1"
+
+
+def set_requests_cache_enabled(enabled: bool):
+    _preferences.setValue("cache_requests", "1" if enabled else "0")
+

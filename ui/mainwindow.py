@@ -107,7 +107,6 @@ class MainWindow(QMainWindow):
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
-        self.ui.actionYtMusicSetup.triggered.connect(self.on_action_ytmusic_setup)
 
         # Queued ownloads
         self.downloads_model = DownloadsModel()
@@ -933,10 +932,6 @@ class MainWindow(QMainWindow):
                                         mp3_loaded_callback=self.on_mp3_loaded,
                                         finished_callback=self.on_mp3s_loaded,
                                         load_images=False)
-
-    def on_action_ytmusic_setup(self):
-        ytmusicsetup = YtMusicSetupWindow()
-        ytmusicsetup.show()
 
     def update_local_song_count(self):
         self.ui.localSongCount.setText(f"{len(localsongs.mp3s)} songs")

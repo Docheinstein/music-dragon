@@ -14,19 +14,8 @@ from workers import Worker
 
 _yt: Optional[YTMusic] = None
 
-def auth_file() -> Path:
-    auth_file_path = Path(app_config_path(), "ytmusicapi_auth.json")
-    debug(f"YtMusic Auth path: {auth_file_path}")
-    return auth_file_path
-
-def create_auth_file(headers):
-    debug(f"Creating ytmusic api auth file at {auth_file()}...")
-    YTMusic.setup(filepath=str(auth_file().absolute()), headers_raw=headers)
-    debug(f"Created ytmusic api auth file at: {auth_file()}")
-
 def initialize():
     global _yt
-    # _yt = YTMusic(str(auth_file().absolute()))
     _yt = YTMusic()
 
 

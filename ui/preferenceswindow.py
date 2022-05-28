@@ -4,6 +4,7 @@ from PyQt5.QtCore import QUrl
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtWidgets import QDialog, QFileDialog
 
+import cache
 from log import debug
 import preferences
 from ui.ui_preferenceswindow import Ui_PreferencesWindow
@@ -34,6 +35,10 @@ class PreferencesWindow(QDialog):
         self.ui.directoryWidget.clicked.connect(self.on_download_directory_clicked)
         self.ui.openDirectoryButton.clicked.connect(self.on_open_directory_button_clicked)
 
+        # Cache
+        self.ui.cacheClearButton.clicked.connect(self.on_clear_cache_button_clicked)
+        self.update_cache_size()
+
         # OK / CANCEL
         self.accepted.connect(self.on_accepted)
         self.rejected.connect(self.on_rejected)
@@ -54,6 +59,8 @@ class PreferencesWindow(QDialog):
         self.ui.outputFormat.setText(preferences.output_format())
         self.ui.threadNumber.setValue(preferences.thread_number())
         self.ui.maxSimultaneousDownloads.setValue(preferences.max_simultaneous_downloads())
+        self.ui.cacheImagesCheck.setChecked(preferences.is_images_cache_enabled())
+        self.ui.cacheRequestsBox.setChecked(preferences.is_requests_cache_enabled())
 
     def save_settings(self):
         preferences.set_directory(self.ui.directory.text())
@@ -61,7 +68,11 @@ class PreferencesWindow(QDialog):
         preferences.set_output_format(self.ui.outputFormat.text())
         preferences.set_thread_number(self.ui.threadNumber.value())
         preferences.set_max_simultaneous_downloads(self.ui.maxSimultaneousDownloads.value())
+        preferences.set_images_cache_enabled(self.ui.cacheImagesCheck.isChecked())
+        preferences.set_requests_cache_enabled(self.ui.cacheRequestsBox.isChecked())
 
+        cache.enable_images_cache(preferences.is_images_cache_enabled())
+        cache.enable_requests_cache(preferences.is_requests_cache_enabled())
 
     def on_download_directory_clicked(self):
         debug("Opening download directory picker")
@@ -85,3 +96,10 @@ class PreferencesWindow(QDialog):
             print(f"WARN: cannot open directory: '{directory_str}' does not exist")
             return
         open_folder(directory)
+
+    def on_clear_cache_button_clicked(self):
+        cache.clear()
+        self.update_cache_size()
+
+    def update_cache_size(self):
+        self.ui.cacheSize.setText(f"Cache size: {int(cache.cache_size() / 2**20)}MB")
