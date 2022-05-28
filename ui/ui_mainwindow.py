@@ -341,6 +341,8 @@ class Ui_MainWindow(object):
         self.menuFile.setObjectName("menuFile")
         self.menuEdit = QtWidgets.QMenu(self.menubar)
         self.menuEdit.setObjectName("menuEdit")
+        self.menuTools = QtWidgets.QMenu(self.menubar)
+        self.menuTools.setObjectName("menuTools")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -349,10 +351,14 @@ class Ui_MainWindow(object):
         self.actionPreferences.setObjectName("actionPreferences")
         self.actionReload = QtWidgets.QAction(MainWindow)
         self.actionReload.setObjectName("actionReload")
+        self.actionYtMusicSetup = QtWidgets.QAction(MainWindow)
+        self.actionYtMusicSetup.setObjectName("actionYtMusicSetup")
         self.menuFile.addAction(self.actionReload)
         self.menuEdit.addAction(self.actionPreferences)
+        self.menuTools.addAction(self.actionYtMusicSetup)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuEdit.menuAction())
+        self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
         self.pages.setCurrentIndex(3)
@@ -380,9 +386,11 @@ class Ui_MainWindow(object):
         self.artistName.setText(_translate("MainWindow", "Iron Maiden"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.menuEdit.setTitle(_translate("MainWindow", "Edit"))
+        self.menuTools.setTitle(_translate("MainWindow", "Tools"))
         self.actionPreferences.setText(_translate("MainWindow", "Preferences"))
         self.actionReload.setText(_translate("MainWindow", "Reload"))
         self.actionReload.setShortcut(_translate("MainWindow", "F5"))
+        self.actionYtMusicSetup.setText(_translate("MainWindow", "YtMusic Setup"))
 from ui.albumtrackswidget import AlbumTracksWidget
 from ui.artistalbumswidget import ArtistAlbumsWidget
 from ui.clickablelabel import ClickableLabel

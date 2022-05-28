@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from typing import Sequence, Optional, Union
 
-from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import QUrl, QStandardPaths
 from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette
 
 application_start_time: Optional[int] = None
@@ -72,6 +72,11 @@ def open_folder(directory: Union[Path, str]):
         directory = str(directory.absolute())
     QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
+def app_config_path():
+    return Path(QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation))
+
+def app_cache_path():
+    return Path(QStandardPaths.writableLocation(QStandardPaths.CacheLocation))
 
 def is_dark_mode():
     return QPalette().color(QPalette.Window).value() < 128

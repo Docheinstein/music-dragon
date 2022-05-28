@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>YtMusicSetupWindow</class>
+ <widget class="QDialog" name="YtMusicSetupWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>603</width>
+    <height>383</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>YTMusic Setup</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;YouTube Music requires authenticated requests: follow the instructions at &lt;a href=&quot;https://ytmusicapi.readthedocs.io/en/latest/setup.html&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#4285f4;&quot;&gt;ytmusicapi.&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Go to &lt;a href=&quot;https://music.youtube.com&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#4285f4;&quot;&gt;https://music.youtube.com&lt;/span&gt;&lt;/a&gt; (ensure you are logged in).&lt;/p&gt;&lt;p&gt;Find an authenticated POST request (filter by &lt;span style=&quot; font-family:'Monospace';&quot;&gt;/browse&lt;/span&gt; using the search bar of the developer tools).&lt;/p&gt;&lt;p&gt;Copy the request headers and paste here below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPlainTextEdit" name="pasteArea"/>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttons">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttons</sender>
+   <signal>accepted()</signal>
+   <receiver>YtMusicSetupWindow</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttons</sender>
+   <signal>rejected()</signal>
+   <receiver>YtMusicSetupWindow</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

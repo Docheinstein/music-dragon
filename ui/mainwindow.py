@@ -22,6 +22,7 @@ from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
 from ui.ui_mainwindow import Ui_MainWindow
+from ui.ytmusicsetupwindow import YtMusicSetupWindow
 from utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_human_string
 from ytmusic import YtTrack
 from localsongs import Mp3
@@ -106,6 +107,7 @@ class MainWindow(QMainWindow):
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
+        self.ui.actionYtMusicSetup.triggered.connect(self.on_action_ytmusic_setup)
 
         # Queued ownloads
         self.downloads_model = DownloadsModel()
@@ -931,6 +933,10 @@ class MainWindow(QMainWindow):
                                         mp3_loaded_callback=self.on_mp3_loaded,
                                         finished_callback=self.on_mp3s_loaded,
                                         load_images=False)
+
+    def on_action_ytmusic_setup(self):
+        ytmusicsetup = YtMusicSetupWindow()
+        ytmusicsetup.show()
 
     def update_local_song_count(self):
         self.ui.localSongCount.setText(f"{len(localsongs.mp3s)} songs")

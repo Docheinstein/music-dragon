@@ -1,21 +1,33 @@
 from difflib import get_close_matches
+from pathlib import Path
 
 import Levenshtein as levenshtein
 from typing import Optional, List
 
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QStandardPaths
 from ytmusicapi import YTMusic
 
 import workers
 from log import debug
-from utils import j, Mergeable, max_index, max_indexes
+from utils import j, Mergeable, max_index, max_indexes, app_config_path
 from workers import Worker
 
 _yt: Optional[YTMusic] = None
 
-def initialize(auth_file):
+def auth_file() -> Path:
+    auth_file_path = Path(app_config_path(), "ytmusicapi_auth.json")
+    debug(f"YtMusic Auth path: {auth_file_path}")
+    return auth_file_path
+
+def create_auth_file(headers):
+    debug(f"Creating ytmusic api auth file at {auth_file()}...")
+    YTMusic.setup(filepath=str(auth_file().absolute()), headers_raw=headers)
+    debug(f"Created ytmusic api auth file at: {auth_file()}")
+
+def initialize():
     global _yt
-    _yt = YTMusic(auth_file)
+    # _yt = YTMusic(str(auth_file().absolute()))
+    _yt = YTMusic()
 
 
 class YtTrack(Mergeable):
@@ -56,10 +68,11 @@ class SearchYoutubeTrackWorker(Worker):
             self.result.emit(self.query, YtTrack(result[0]))
 
 def search_youtube_track(query: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
-    worker = SearchYoutubeTrackWorker(query)
-    worker.priority = priority
-    worker.result.connect(callback)
-    workers.schedule(worker)
+    if _yt:
+        worker = SearchYoutubeTrackWorker(query)
+        worker.priority = priority
+        worker.result.connect(callback)
+        workers.schedule(worker)
 
 # =============== SEARCH YOUTUBE ALBUM TRACKS  =================
 # Search youtube tracks for a given (Artist Name, Album Title)
@@ -170,7 +183,8 @@ class SearchYoutubeAlbumTracksWorker(Worker):
 
 
 def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
-    worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
-    worker.priority = priority
-    worker.result.connect(callback)
-    workers.schedule(worker)
+    if _yt:
+        worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
+        worker.priority = priority
+        worker.result.connect(callback)
+        workers.schedule(worker)
