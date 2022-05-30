@@ -9,6 +9,7 @@ import localsongs
 import preferences
 import repository
 import ui.resources
+import workers
 import ytcommons
 import ytdownloader
 from localsongs import Mp3
@@ -466,15 +467,19 @@ class MainWindow(QMainWindow):
         debug(f"on_search_release_group_releases_result(release_group_id={release_group_id})")
 
         rg = get_release_group(release_group_id)
-        main_release_id = rg.main_release_id
-        main_release = get_release(main_release_id)
-        self.album_tracks_model.release_id = main_release_id
-        self.ui.albumTracks.invalidate()
-        self.ui.albumYear.setText(rg.year())
-        self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_human_string(main_release.length())}")
+        if rg:
+            main_release_id = rg.main_release_id
+            main_release = get_release(main_release_id)
+            if main_release:
+                self.album_tracks_model.release_id = main_release_id
+                self.ui.albumTracks.invalidate()
+                self.ui.albumYear.setText(rg.year())
+                self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_human_string(main_release.length())}")
 
-        self.set_album_cover(release_group_id)
-        self.update_album_download_widgets()
+                self.set_album_cover(release_group_id)
+                self.update_album_download_widgets()
+
+        self.ui.artistAlbums.update_row(release_group_id)
 
         # repository.search_release_youtube_tracks(main_release_id, self.on_release_youtube_tracks_result)
 
@@ -518,6 +523,10 @@ class MainWindow(QMainWindow):
             self.ui.artistAlbums.invalidate()
 
         for rg_id in artist.release_group_ids:
+            repository.fetch_release_group_releases(rg_id,
+                                                    self.on_release_group_releases_result,
+                                                    self.on_release_group_youtube_tracks_result,
+                                                    priority=workers.Worker.PRIORITY_IDLE)
             repository.fetch_release_group_cover(rg_id, self.on_release_group_image_result)
 
     def on_artist_image_result(self, artist_id, image):
@@ -700,21 +709,15 @@ class MainWindow(QMainWindow):
 
     def update_album_cover_state(self):
         release_group = get_release_group(self.current_release_group_id)
-
-        not_available = True
-        main = release_group.main_release()
-        if main:
-            tracks = main.tracks()
-            if tracks:
-                available_count = [t.is_available_locally() for t in tracks].count(True)
-                debug(f"available_count={available_count}")
-                not_available = available_count == 0
-                if available_count == len(tracks):
-                    self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)
-                elif available_count > 0:
-                    self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET)
-        if not_available:
-            self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_UNAVAILABLE_STYLESHEET)
+        if release_group:
+            main = release_group.main_release()
+            locally_available_track_count = main.locally_available_track_count() if main else 0
+            if locally_available_track_count == 0:
+                self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_UNAVAILABLE_STYLESHEET)
+            elif locally_available_track_count == main.track_count():
+                self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)
+            else:
+                self.ui.albumCover.setStyleSheet(ui.resources.LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET)
 
     def on_album_cover_double_clicked(self, ev: QMouseEvent):
         debug("on_album_cover_double_clicked")
@@ -775,7 +778,16 @@ class MainWindow(QMainWindow):
             self.update_album_download_widgets()
 
     def update_album_download_widgets(self):
+        rg = get_release_group(self.current_release_group_id)
+        if not rg:
+            debug("update_album_download_widgets: no release group")
+            return
+
         release = get_release_group(self.current_release_group_id).main_release()
+        if not release:
+            debug("update_album_download_widgets: no main release for release group")
+            return
+
         tracks = release.tracks()
         # Download missing tracks button
         missing_downloadable = 0
@@ -784,7 +796,7 @@ class MainWindow(QMainWindow):
             if track.fetched_youtube_track and track.youtube_track_id:
                 if track.youtube_track_is_official:
                     verified += 1
-                if not track.is_available_locally() and not track.downloading:
+                if not track.is_locally_available() and not track.downloading:
                     missing_downloadable += 1
 
         self.ui.albumDownloadAllButton.setEnabled(missing_downloadable > 0)
@@ -830,6 +842,11 @@ class MainWindow(QMainWindow):
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
 
+        t = get_track(track_id)
+        if t:
+            self.ui.artistAlbums.update_row(t.release().release_group_id) # album state in artist page
+
+
 
     def on_youtube_track_download_canceled(self, track_id: str, _):
         debug(f"on_youtube_track_download_canceled(track_id={track_id})")
@@ -857,7 +874,7 @@ class MainWindow(QMainWindow):
         debug("on_download_all_album_tracks_clicked")
         rg = get_release_group(self.current_release_group_id)
         for track in rg.main_release().tracks():
-            if not track.is_available_locally() and not track.downloading:
+            if not track.is_locally_available() and not track.downloading:
                 self.do_download_youtube_track(track.id)
 
     def do_download_youtube_track(self, track_id):

@@ -102,10 +102,11 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
     def invalidate(self):
         if self.track_id is None:
             return
-        locally_available = self.track.is_available_locally()
 
         self.track = get_track(self.track_id)
         release_group = self.track.release().release_group()
+
+        locally_available = self.track.is_locally_available()
 
         # cover
         cover = release_group.preferred_front_cover()

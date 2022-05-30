@@ -129,7 +129,7 @@ class LocalSongsItemWidget(QWidget):
 
     def sizeHint(self) -> QSize:
         sz = super().sizeHint()
-        return QSize(sz.width(), 64)
+        return QSize(sz.width(), 48)
 
 
 class LocalSongsItemDelegate(QStyledItemDelegate):
@@ -154,7 +154,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
 
         # # Icon
         icon = make_icon_from_data(image, default=ui.resources.COVER_PLACEHOLDER_ICON)
-        icon_size = QSize(64, 64)
+        icon_size = QSize(48, 48)
         icon_rect = QRect(x, y, icon_size.width(), icon_size.height())
         icon.paint(painter, icon_rect)
         # debug(f"Drawing icon of size {icon_size}")
@@ -193,7 +193,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option: 'QStyleOptionViewItem', index: QModelIndex) -> QSize:
         sz = super(LocalSongsItemDelegate, self).sizeHint(option, index)
-        return QSize(sz.width(), 64)
+        return QSize(sz.width(), 48)
 
     def createEditor(self, parent: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> QWidget:
         song: str = index.data(LocalSongsItemRole.SONG)
@@ -212,7 +212,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
     def updateEditorGeometry(self, editor: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
         # debug("updateEditorGeometry")
         rect = option.rect
-        rect.setX(rect.x() + 64)
+        rect.setX(rect.x() + 48)
         rect.setY(rect.y())
         editor.setGeometry(rect)
 

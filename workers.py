@@ -30,11 +30,13 @@ class Worker(QObject):
     STATUS_FINISHED = "finished"
 
     # Priority
+    PRIORITY_IDLE = 5
     PRIORITY_LOW = 10
     PRIORITY_BELOW_NORMAL = 20
     PRIORITY_NORMAL = 30
     PRIORITY_ABOVE_NORMAL = 40
     PRIORITY_HIGH = 50
+    PRIORITY_REALTIME = 60
 
     # Signals
     started = pyqtSignal() # emitted when started

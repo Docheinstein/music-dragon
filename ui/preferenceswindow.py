@@ -32,8 +32,8 @@ class PreferencesWindow(QDialog):
         self.ui.setupUi(self)
 
         # Directory
-        self.ui.directoryWidget.clicked.connect(self.on_download_directory_clicked)
-        self.ui.openDirectoryButton.clicked.connect(self.on_open_directory_button_clicked)
+        self.ui.directory.clicked.connect(self.on_directory_clicked)
+        self.ui.browseDirectoryButton.clicked.connect(self.on_browse_directory_button_clicked)
 
         # Cache
         self.ui.cache.clicked.connect(self.on_cache_clicked)
@@ -76,7 +76,16 @@ class PreferencesWindow(QDialog):
         cache.enable_images_cache(preferences.is_images_cache_enabled())
         cache.enable_requests_cache(preferences.is_requests_cache_enabled())
 
-    def on_download_directory_clicked(self):
+    def on_directory_clicked(self):
+        directory_str = self.ui.directory.text()
+        debug(f"Opening directory: {directory_str}")
+        directory = Path(directory_str)
+        if not directory.exists():
+            print(f"WARN: cannot open directory: '{directory_str}' does not exist")
+            return
+        open_folder(directory)
+
+    def on_browse_directory_button_clicked(self):
         debug("Opening download directory picker")
         directory_picker = QFileDialog()
         directory_picker.setFileMode(QFileDialog.Directory)
@@ -90,14 +99,6 @@ class PreferencesWindow(QDialog):
             debug(f"Selected directory: {result}")
             self.ui.directory.setText(result)
 
-    def on_open_directory_button_clicked(self):
-        directory_str = self.ui.directory.text()
-        debug(f"Opening directory: {directory_str}")
-        directory = Path(directory_str)
-        if not directory.exists():
-            print(f"WARN: cannot open directory: '{directory_str}' does not exist")
-            return
-        open_folder(directory)
 
     def on_cache_clicked(self):
         open_folder(app_cache_path())

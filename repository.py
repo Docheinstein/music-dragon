@@ -89,7 +89,7 @@ class ReleaseGroup(Mergeable):
         if mb_release_group:
             self.id = mb_release_group["id"]
             self.title = mb_release_group["title"]
-            self.date = mb_release_group.get("first-release-data", "")
+            self.date = mb_release_group.get("first-release-date", "")
             if "artist-credit" in mb_release_group:
                 for artist_credit in mb_release_group["artist-credit"]:
                     if not isinstance(artist_credit, dict):
@@ -205,7 +205,7 @@ class Release(Mergeable):
     def release_group(self):
         return get_release_group(self.release_group_id)
 
-    def tracks(self):
+    def tracks(self) -> List['Track']:
         return [get_track(t) for t in self.track_ids]
 
     def track_count(self):
@@ -213,6 +213,9 @@ class Release(Mergeable):
 
     def length(self):
         return sum([t.length for t in self.tracks()])
+
+    def locally_available_track_count(self):
+        return [t.is_locally_available() for t in self.tracks()].count(True)
 
 class Track(Mergeable):
     def __init__(self, mb_track: dict=None, release_id=None):
@@ -246,7 +249,7 @@ class Track(Mergeable):
     def youtube_track(self):
         return get_youtube_track(self.youtube_track_id)
 
-    def is_available_locally(self):
+    def is_locally_available(self):
         rg = self.release().release_group()
         return True if localsongs.get_by_metadata(rg.artists_string(), rg.title, self.title) else None
 
@@ -535,7 +538,7 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
     debug(f"fetch_mp3_artist({mp3})")
     limit=10
 
-    request_name = f"mb-search-artists-{stable_hash(mp3.album)}-{limit}"
+    request_name = f"mb-search-artists-{stable_hash(mp3.artist)}-{limit}"
     cache_hit = False
 
     if mp3.fetched_artist:
@@ -619,7 +622,7 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
             musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
                                                   priority=workers.Worker.PRIORITY_LOW)
 
-def fetch_release_group_releases(release_group_id: str, release_group_releases_callback, release_group_youtube_tracks_callback):
+def fetch_release_group_releases(release_group_id: str, release_group_releases_callback, release_group_youtube_tracks_callback, priority=workers.Worker.PRIORITY_NORMAL):
     debug(f"fetch_release_group_releases(release_group_id={release_group_id})")
 
     request_name = f"mb-fetch-release-group-releases-{release_group_id}"
@@ -850,7 +853,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 else:
                     # actually fetch
                     debug("Fetching now video ids")
-                    ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, search_youtube_album_tracks_callback)
+                    ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, search_youtube_album_tracks_callback, priority=priority)
 
         req = cache.get_request(request_name)
         if req:
@@ -860,7 +863,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
         else:
             # actually fetch
             debug(f"Release group ({release_group_id}) releases not fetched yet")
-            musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
+            musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper, priority=priority)
 
 def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
     debug(f"fetch_artist(artist_id={artist_id})")

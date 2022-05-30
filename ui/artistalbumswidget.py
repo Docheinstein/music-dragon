@@ -68,6 +68,15 @@ class ArtistAlbumsItemWidget(ListWidgetModelViewItem):
 
         self.release_group = get_release_group(self.release_group_id)
 
+        main = self.release_group.main_release()
+        locally_available_track_count = main.locally_available_track_count() if main else 0
+        if locally_available_track_count == 0:
+            self.ui.cover.setStyleSheet(ui.resources.LOCALLY_UNAVAILABLE_STYLESHEET)
+        elif locally_available_track_count == main.track_count():
+            self.ui.cover.setStyleSheet(ui.resources.LOCALLY_AVAILABLE_STYLESHEET)
+        else:
+            self.ui.cover.setStyleSheet(ui.resources.LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET)
+
         # cover
         cover = self.release_group.preferred_front_cover()
         self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
