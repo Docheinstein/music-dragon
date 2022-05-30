@@ -20,7 +20,7 @@ def initialize():
 
 
 class YtTrack(Mergeable):
-    def __init__(self, yt_track: dict, track_number=None):
+    def __init__(self, yt_track: dict):
         self.id = yt_track["videoId"]
         self.video_id = yt_track["videoId"]
         self.video_title = yt_track["title"]
@@ -32,14 +32,14 @@ class YtTrack(Mergeable):
             "id": a["id"],
             "name": a["name"]
         } for a in yt_track["artists"]]
-        self.track_number = track_number
+        self.track_number = yt_track.get("track_number")
 
 # ========== SEARCH YOUTUBE TRACK ===========
 # Search youtube track for a given query
 # ===========================================
 
 class SearchYoutubeTrackWorker(Worker):
-    result = pyqtSignal(str, YtTrack)
+    result = pyqtSignal(str, dict)
 
     def __init__(self, query: str):
         super().__init__()
@@ -54,7 +54,7 @@ class SearchYoutubeTrackWorker(Worker):
             "======================"
         )
         if result:
-            self.result.emit(self.query, YtTrack(result[0]))
+            self.result.emit(self.query, result[0])
 
 def search_youtube_track(query: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
     if _yt:
@@ -104,7 +104,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             return get_closest(query, albums, "title")
 
 
-        emission = []
+        result = []
 
         artist_query = self.artist_name
         album_query = self.album_title
@@ -155,20 +155,22 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                     )
 
                     result = album_details["tracks"]
-                    for yttrack in result:
+                    for idx, yttrack in enumerate(result):
 
                         # hack
+                        yttrack["track_number"] = idx + 1
+
                         yttrack["album"] = {
                             "id": album['browseId'],
                             "name": album["title"]
                         }
-                    emission = [YtTrack(yttrack, track_number=num + 1) for num, yttrack in enumerate(result)]
+
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")
         else:
             print(f"WARN: no artist close to '{artist_query}'")
 
-        self.result.emit(self.artist_name, self.album_title, emission)
+        self.result.emit(self.artist_name, self.album_title, result)
 
 
 def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):

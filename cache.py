@@ -61,12 +61,14 @@ def get_image(file: str) -> Optional[bytes]:
     p = Path(_cache_path, file)
     path = str(p.absolute())
     if path not in _available_cache_files:
+        debug(f"CACHE: miss image: {file}")
         return None # for sure is not on the disk
     # check whether the cache file is actually there
     if p.exists():
-        debug(f"CACHE: loading image from {file}")
+        debug(f"CACHE: hit image: {file}")
         with p.open("rb") as f:
             return f.read()
+    debug(f"CACHE: miss image: {file}")
     return None
 
 def put_image(file: str, data: bytes) -> Optional[bytes]:
@@ -75,10 +77,13 @@ def put_image(file: str, data: bytes) -> Optional[bytes]:
         return None
     p = Path(_cache_path, file)
     path = str(p.absolute())
-    debug(f"CACHE: writing image to {file}")
+    debug(f"CACHE: put image: {file}")
     # write to disk
-    with p.open("wb") as f:
-        f.write(data)
+    if data:
+        with p.open("wb") as f:
+            f.write(data)
+    else:
+        p.touch() # null image
     # write to memory
     _available_cache_files.add(path)
 
@@ -93,12 +98,17 @@ def get_request(file: str) -> Optional[Union[list, dict]]:
     p = Path(_cache_path, file)
     path = str(p.absolute())
     if path not in _available_cache_files:
+        debug(f"CACHE: miss request: {file}")
         return None # for sure is not on the disk
     # check whether the cache file is actually there
     if p.exists():
-        debug(f"CACHE: loading request from {file}")
+        debug(f"CACHE: hit request: {file}")
         with p.open("r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return None # null image
+    debug(f"CACHE: miss request: {file}")
     return None
 
 
@@ -108,7 +118,7 @@ def put_request(file: str, data: Union[list, dict]):
         return None
     p = Path(_cache_path, file)
     path = str(p.absolute())
-    debug(f"CACHE: writing request to {file}")
+    debug(f"CACHE: put request: {file}")
     # write to disk
     with p.open("w") as f:
         json.dump(data, f)

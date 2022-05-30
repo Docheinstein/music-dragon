@@ -1,6 +1,6 @@
 from difflib import get_close_matches
 from statistics import mean, multimode
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 import Levenshtein as levenshtein
 
@@ -25,39 +25,6 @@ _youtube_tracks: Dict[str, 'YtTrack'] = {}
 
 RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX = 0
 RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX = 1
-#
-# class Images:
-#     def __init__(self):
-#         self.images = []
-#         self.preferred_image_index = None
-
-    # def set_image(self, image_id, image, preferred=None):
-    #     self.images[image_id] = image
-    #     if preferred is True:
-    #         # True: always override
-    #         self.preferred_image_id = image_id
-    #     elif preferred is None and self.preferred_image_id is None:
-    #         # None: override only if there is no preferred image yet
-    #         self.preferred_image_id = image_id
-    #     else:
-    #         # False: don't override
-    #         pass
-    #     debug(f"set_image: images now are {self}")
-
-    # def get_image(self, image_id):
-    #     return self.images.get(image_id)
-    #
-    # def preferred_image(self):
-    #     return self.images[self.preferred_image_index]
-    #
-    # def count(self):
-    #     return len(self.images)
-    #
-    # def better(self, other: 'Images'):
-    #     return len(self.images) > len(other.images)
-    #
-    # def __str__(self):
-    #     return ", ".join([f'(idx={idx}, size={int(len(img) / 1024)}KB, preferred={self.preferred_image_index == idx})' for idx, img in enumerate(self.images)])
 
 class Artist(Mergeable):
     def __init__(self, mb_artist: dict=None):
@@ -384,7 +351,7 @@ def search_artists(query, artists_callback, artist_image_callback=None, limit=3)
     query = query.lower()
     debug(f"search_artists(query={query})")
 
-    request_name = f"mb-search-artists-{stable_hash(query)}"
+    request_name = f"mb-search-artists-{stable_hash(query)}-{limit}"
     cache_hit = False
 
     def artists_callback_wrapper(query_, result: List[dict]):
@@ -417,7 +384,7 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
     query = query.lower()
     debug(f"search_release_groups(query={query})")
 
-    request_name = f"mb-search-release-groups-{stable_hash(query)}"
+    request_name = f"mb-search-release-groups-{stable_hash(query)}-{limit}"
     cache_hit = False
 
     def release_groups_callback_wrapper(query_, result: List[dict]):
@@ -447,7 +414,7 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
     query = query.lower()
     debug(f"search_tracks(query={query})")
 
-    request_name = f"mb-search-tracks-{stable_hash(query)}"
+    request_name = f"mb-search-tracks-{stable_hash(query)}-{limit}"
     cache_hit = False
 
     def recordings_callback_wrapper(query_, result: List[dict]):
@@ -502,8 +469,13 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
 
 def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):
     debug(f"fetch_mp3_release_group({mp3})")
+    limit = 10
+
+    request_name = f"mb-search-release-groups-{stable_hash(mp3.album)}-{limit}"
+    cache_hit = False
 
     if mp3.fetched_release_group:
+        # memory cache
         mp3_release_group_callback(mp3, get_release_group(mp3.release_group_id))
     else:
         if not mp3.album:
@@ -512,8 +484,10 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
             # TODO: ... callback?
             return
 
-
         def release_groups_callback_wrapper(query_, result: List[dict]):
+            if not cache_hit:
+                cache.put_request(request_name, result)
+
             release_groups = [ReleaseGroup(rg) for rg in result]
             for rg in release_groups:
                 _add_release_group(rg)
@@ -523,7 +497,8 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
                 album_title_distances = [levenshtein.distance(rg.title, mp3.album) for rg in release_groups]
                 artist_distances = [levenshtein.distance(rg.artists_string(), mp3.artist) for rg in release_groups]
 
-                weighted_distance = [2 * album_title_distances[i] + artist_distances[i] for i in range(len(release_groups))]
+                weighted_distance = [2 * album_title_distances[i] + artist_distances[i] for i in
+                                     range(len(release_groups))]
 
                 debug("Computed edit distances for best candidates")
                 for idx, rg in enumerate(release_groups):
@@ -546,13 +521,25 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
                     fetch_release_group_cover(best_release_group.id, mp3_release_group_image_callback)
 
 
-        musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=3)
+        req = cache.get_request(request_name)
+        if req:
+            # storage cached
+            cache_hit = True
+            release_groups_callback_wrapper(mp3.album, req)
+        else:
+            # actually fetch
+            musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=limit)
 
 
 def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
     debug(f"fetch_mp3_artist({mp3})")
+    limit=10
+
+    request_name = f"mb-search-artists-{stable_hash(mp3.album)}-{limit}"
+    cache_hit = False
 
     if mp3.fetched_artist:
+        # memory cache
         mp3_artist_callback(mp3, get_artist(mp3.artist_id))
     else:
         if not mp3.artist:
@@ -561,8 +548,10 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
             # TODO: ... callback?
             return
 
-
         def artists_callback_wrapper(query_, result: List[dict]):
+            if not cache_hit:
+                cache.put_request(request_name, result)
+
             artists = [Artist(a) for a in result]
             for a in artists:
                 _add_artist(a)
@@ -592,7 +581,15 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
 
                     fetch_artist(best_artist.id, artist_callback, mp3_artist_image_callback)
 
-        musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=3)
+
+        req = cache.get_request(request_name)
+        if req:
+            # storage cached
+            cache_hit = True
+            artists_callback_wrapper(mp3.artist, req)
+        else:
+            # actually fetch
+            musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=limit)
 
 
 def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
@@ -600,13 +597,13 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
 
     rg = get_release_group(release_group_id)
     if rg.fetched_front_cover:
-        # (in memory) cached
+        # memory cached
         debug(f"Release group ({release_group_id}) cover already fetched, calling release_group_cover_callback directly")
         release_group_cover_callback(release_group_id, rg.front_cover)
     else:
         img = cache.get_image(f"{rg.id}")
         if img:
-            # storage cached
+            # storage cached, not in memory cache yet
             rg.fetched_front_cover = True
             rg.front_cover = img
             release_group_cover_callback(release_group_id, rg.front_cover)
@@ -615,9 +612,8 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
             debug(f"Release group ({release_group_id}) cover not fetched yet")
             def release_group_cover_callback_wrapper(rg_id, image):
                 _release_groups[rg_id].fetched_front_cover = True
-                if image:
-                    _release_groups[rg_id].front_cover = image
-                    cache.put_image(f"{rg.id}", image)
+                _release_groups[rg_id].front_cover = image
+                cache.put_image(f"{rg.id}", image)
                 release_group_cover_callback(rg_id, image)
 
             musicbrainz.fetch_release_group_cover(release_group_id, preferences.cover_size(), release_group_cover_callback_wrapper,
@@ -626,15 +622,19 @@ def fetch_release_group_cover(release_group_id: str, release_group_cover_callbac
 def fetch_release_group_releases(release_group_id: str, release_group_releases_callback, release_group_youtube_tracks_callback):
     debug(f"fetch_release_group_releases(release_group_id={release_group_id})")
 
+    request_name = f"mb-fetch-release-group-releases-{release_group_id}"
+    cache_hit = False
+
     rg = get_release_group(release_group_id)
     if rg and rg.fetched_releases:
-        # cached
+        # memory cached
         debug(f"Release group ({release_group_id}) releases already fetched, calling release_group_releases_callback directly")
         release_group_releases_callback(release_group_id, rg.releases())
     else:
-        # actually fetch
-        debug(f"Release group ({release_group_id}) releases not fetched yet")
         def release_group_releases_callback_wrapper(release_group_id_, result: List[dict]):
+            if not cache_hit:
+                cache.put_request(request_name, result)
+
             releases = [Release(r) for r in result]
             for r in releases:
                 _add_release(r)
@@ -656,7 +656,19 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
             # 2. Take the release with the number of track nearest to the mean
             # 3. Take the release with the number of track nearest to the mode
 
-            def search_youtube_album_tracks_callback(_1, _2, yttracks: List[YtTrack]):
+            request_name2 = f"ytmusic-search-youtube-album-tracks-{stable_hash(rg.artists_string())}-{stable_hash(rg.title)}"
+            cache_hit2 = False
+
+            def search_youtube_album_tracks_callback(_1, _2, yttracks: List[Union[dict, YtTrack]]):
+                if len(yttracks) == 0:
+                    return
+
+                if isinstance(yttracks[0], dict):
+                    if not cache_hit2:
+                        cache.put_request(request_name2, yttracks)
+                    yttracks = [YtTrack(yttrack) for yttrack in yttracks]
+                # else: yttrack
+
                 rg.fetched_youtube_video_ids = True
                 rg.youtube_video_ids = [yt.id for yt in yttracks]
 
@@ -696,7 +708,6 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     t_title = t_title.replace("_", " ")
                     yt_title = yt_title.replace("_", " ")
 
-
                     if t_title in yt_.video_title or yt_title in t_title:
                         edit_distance_component = 0
                     else:
@@ -710,18 +721,19 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     track_position_component *= TRACK_POSITION_DISTANCE_FACTOR
 
                     scr = edit_distance_component + track_position_component
-                    debug(f"-> {scr} (edit_distance={edit_distance_component} + track_pos={track_position_component}){' *************' if scr == 0 else ''}")
+                    debug(
+                        f"-> {scr} (edit_distance={edit_distance_component} + track_pos={track_position_component}){' *************' if scr == 0 else ''}")
                     return scr
 
                 if yt_track_count:
                     debug(f"Taking main release with tracks more similar to youtube one = {yt_track_count}")
+
                     def compute_release_score(r: Release):
                         debug(f"Computing release score of {r.title} ({r.id}): {r.track_count()} tracks)")
 
                         # 1. Same number of track is better
                         # 2. Consider edit distance between the tracks
                         # 3. Consider the difference between the position of the tracks
-
 
                         debug("")
                         release_score = abs(r.track_count() - len(yttracks)) * TRACK_NUMBER_FACTOR
@@ -741,12 +753,14 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
 
                     for i, sc in enumerate(scores):
                         rc = release_candidates[i]
-                        debug(f"Release candidate {rc.title} ({rc.id}) with {release_candidates[i].track_count()} tracks has score = {sc}")
+                        debug(
+                            f"Release candidate {rc.title} ({rc.id}) with {release_candidates[i].track_count()} tracks has score = {sc}")
 
                     best_release_candidate = release_candidates[min_index(scores)]
 
                     if min(scores) > 0:
-                        print(f"WARN: youtube release does not match perfectly musicbrainz release (off by {min(scores)} points)")
+                        print(
+                            f"WARN: youtube release does not match perfectly musicbrainz release (off by {min(scores)} points)")
                     else:
                         debug(f"Youtube release does match perfectly musicbrainz release")
                 else:
@@ -760,7 +774,8 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     if has_cds:
                         for r in releases:
                             candidate = r.format == "CD"
-                            debug(f"Release: {r.title}, format={r.format}, track_count={r.track_count()}: candidate {candidate}")
+                            debug(
+                                f"Release: {r.title}, format={r.format}, track_count={r.track_count()}: candidate {candidate}")
 
                             if candidate:
                                 release_candidates.append(r)
@@ -782,7 +797,8 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                         best_release_candidate = release_candidates[min_index(mean_deltas)]
 
                 if best_release_candidate:
-                    debug(f"Best release candidate: {best_release_candidate.title} ({best_release_candidate.id}) with {best_release_candidate.track_count()} tracks")
+                    debug(
+                        f"Best release candidate: {best_release_candidate.title} ({best_release_candidate.id}) with {best_release_candidate.track_count()} tracks")
                     release_group.main_release_id = best_release_candidate.id
 
                 # Tag track with yttrack ids
@@ -810,7 +826,8 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                         closest_track.fetched_youtube_track = True
                         closest_track.youtube_track_is_official = True
                         closest_track.youtube_track_id = yttrack.id
-                        debug(f"'{yttrack.video_title} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
+                        debug(
+                            f"'{yttrack.video_title} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
                     else:
                         print(f"WARN: no close track found for youtube track with title {yttrack.video_title}")
 
@@ -820,13 +837,30 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     release_group_youtube_tracks_callback(release_group_id_, yttracks)
 
             if rg.fetched_youtube_video_ids:
+                # memory cached
                 debug("Video ids already fetched")
-                search_youtube_album_tracks_callback(None, None, [get_youtube_track(video_id) for video_id in rg.youtube_video_ids])
+                search_youtube_album_tracks_callback(None, None,
+                                                     [get_youtube_track(video_id) for video_id in rg.youtube_video_ids])
             else:
-                debug("Fetching now video ids")
-                ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, search_youtube_album_tracks_callback)
+                req2 = cache.get_request(request_name2)
+                if req2:
+                    # storage cached
+                    cache_hit2 = True
+                    search_youtube_album_tracks_callback(rg.artists_string(), rg.title, req2)
+                else:
+                    # actually fetch
+                    debug("Fetching now video ids")
+                    ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, search_youtube_album_tracks_callback)
 
-        musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
+        req = cache.get_request(request_name)
+        if req:
+            # storage cached
+            cache_hit = True
+            release_group_releases_callback_wrapper(release_group_id, req)
+        else:
+            # actually fetch
+            debug(f"Release group ({release_group_id}) releases not fetched yet")
+            musicbrainz.fetch_release_group_releases(release_group_id, release_group_releases_callback_wrapper)
 
 def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
     debug(f"fetch_artist(artist_id={artist_id})")
@@ -847,7 +881,14 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
 
     # actually fetch
     if not a or (not a.fetched) or (not a.fetched_image):
+
+        request_name = f"fetch-artist-{artist_id}"
+        cache_hit = False
+
         def artist_callback_wrapper(artist_id_, result: dict):
+            if not cache_hit:
+                cache.put_request(request_name, result)
+
             artist = Artist(result)
             artist.fetched = True
             artist = _add_artist(artist)
@@ -857,7 +898,7 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
 
                 img = cache.get_image(f"{artist.id}")
                 if img:
-                    # storage cached
+                    # storage cached, not in memory cache yet
                     artist.fetched_image = True
                     artist.image = img
                     artist_image_callback(artist_id, img)
@@ -867,19 +908,26 @@ def fetch_artist(artist_id, artist_callback, artist_image_callback=None):
 
                     def artist_image_callback_wrapper(wiki_id_, image, artist_id__):
                         _artists[artist_id__].fetched_image = True
-                        if image:
-                            _artists[artist_id__].image = image
-                            cache.put_image(f"{artist.id}", image)
+                        _artists[artist_id__].image = image
+                        cache.put_image(f"{artist.id}", image) # write also null images
                         artist_image_callback(artist_id_, image)
 
                     if "url-relation-list" in result:
                         for url in result["url-relation-list"]:
                             if url["type"] == "wikidata":
                                 wiki_id = url["target"].split("/")[-1]
+                                # does not make sense to cache this requests since we will cache the image
                                 wiki.fetch_wikidata_image(wiki_id, artist_image_callback_wrapper, user_data=artist_id)
                                 break
 
-        musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
+        req = cache.get_request(request_name)
+        if req:
+            # storage cached
+            cache_hit = True
+            artist_callback_wrapper(artist_id, req)
+        else:
+            # actually fetch
+            musicbrainz.fetch_artist(artist_id, artist_callback_wrapper)
 
 
 def fetch_release_cover(release_id: str, release_cover_callback):
@@ -887,13 +935,13 @@ def fetch_release_cover(release_id: str, release_cover_callback):
 
     r = get_release(release_id)
     if r.fetched_front_cover:
-        # cached
+        # memory cached
         debug(f"Release ({release_id}) cover already fetched, calling release_cover_callback directly")
         release_cover_callback(release_id, r.front_cover)
     else:
         img = cache.get_image(f"{r.id}")
         if img:
-            # storage cached
+            # storage cached, not in memory cache yet
             r.fetched_front_cover = True
             r.front_cover = img
             release_cover_callback(release_id, r.front_cover)
@@ -904,64 +952,29 @@ def fetch_release_cover(release_id: str, release_cover_callback):
                 release = _releases[r_id]
                 release.fetched_front_cover = True
                 release.front_cover = image
-                if image:
-                    cache.put_image(f"{r_id}", image)
+                cache.put_image(f"{r_id}", image)
                 release_cover_callback(r_id, image)
 
             musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
                                             priority=workers.Worker.PRIORITY_LOW)
 
-#
-# def search_release_youtube_tracks(release_id: str, release_youtube_tracks_callback):
-#     debug(f"search_release_youtube_tracks(release_id={release_id})")
-#
-#     r = get_release(release_id)
-#     rg = r.release_group()
-#     if r and r.fetched_youtube_video_ids:
-#         # cached
-#         debug(f"Release ({release_id}) youtube tracks already fetched, calling release_youtube_tracks_callback directly")
-#         release_youtube_tracks_callback(release_id, [t.youtube_track() for t in r.tracks()])
-#     else:
-#         # actually fetch
-#         debug(f"Release ({release_id}) youtube tracks not fetched yet")
-#         def release_youtube_tracks_callback_wrapper(artist_name, album_title, yttracks: List[YtTrack]):
-#             release = _releases[release_id]
-#             tracks = release.tracks()
-#             track_names = [t.title for t in tracks]
-#             release.fetched_youtube_video_ids = True
-#
-#             for yttrack_ in yttracks:
-#                 yttrack = _add_youtube_track(yttrack_)
-#
-#                 debug(f"Handling yttrack: {yttrack.video_title}")
-#
-#                 closest_track_names = get_close_matches(yttrack.video_title, track_names)
-#                 debug(f"closest_track_names={closest_track_names}")
-#                 if closest_track_names:
-#                     closest_track_name = closest_track_names[0]
-#                     debug(f"Closest track found: {closest_track_name}")
-#                     closest_track_index = track_names.index(closest_track_name)
-#                     closest_track = tracks[closest_track_index]
-#                     closest_track.fetched_youtube_track = True
-#                     closest_track.youtube_track_is_official = True
-#                     closest_track.youtube_track_id = yttrack.id
-#                 else:
-#                     print(f"WARN: no close track found for youtube track with title {yttrack.video_title}")
-#
-#             release_youtube_tracks_callback(release_id, yttracks)
-#
-#         ytmusic.search_youtube_album_tracks(rg.artists_string(), rg.title, release_youtube_tracks_callback_wrapper)
-
 def search_track_youtube_track(track_id: str, track_youtube_track_callback):
     debug(f"search_track_youtube_track(track_id={track_id})")
 
     t = get_track(track_id)
-    if t and t.fetched_youtube_track:
-        # cached
+    if t.fetched_youtube_track:
+        # memory cached
         track_youtube_track_callback(track_id, t.youtube_track())
     else:
-        # actually fetch
-        def track_youtube_track_callback_wrapper(query, yttrack: YtTrack):
+        query = t.release().release_group().artists_string() + " " + t.title
+        request_name = f"ytmusic-search-youtube-track-{stable_hash(query)}"
+        cache_hit = False
+
+        def track_youtube_track_callback_wrapper(query_, yttrack: dict):
+            if not cache_hit:
+                cache.put_request(request_name, yttrack)
+
+            yttrack = YtTrack(yttrack)
             _add_youtube_track(yttrack)
 
             track_ = _tracks[track_id]
@@ -969,8 +982,14 @@ def search_track_youtube_track(track_id: str, track_youtube_track_callback):
             track_.youtube_track_id = yttrack.id
             track_youtube_track_callback(track_id, yttrack)
 
-        query = t.release().release_group().artists_string() + " " + t.title
-        ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
+        req = cache.get_request(request_name)
+        if req:
+            # storage cached
+            cache_hit = True
+            track_youtube_track_callback_wrapper(query, req)
+        else:
+            # actually fetch
+            ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
 
 
 def download_youtube_track(track_id: str,

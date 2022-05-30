@@ -729,7 +729,7 @@ class MainWindow(QMainWindow):
         image_preview_window.exec()
 
     def on_release_group_youtube_tracks_result(self, release_group_id: str, yttracks: List[YtTrack]):
-        debug("release_group_id")
+        debug("on_release_group_youtube_tracks_result")
 
         # fetch missing ones
         release = get_release_group(release_group_id).main_release()

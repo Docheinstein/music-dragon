@@ -67,11 +67,13 @@ def sanitize_filename(f: str):
     return f.replace("/", "-")
 
 def open_url(url: str):
+    print(f"INFO: opening {url}")
     QDesktopServices.openUrl(QUrl(url))
 
 def open_folder(directory: Union[Path, str]):
     if isinstance(directory, Path):
         directory = str(directory.absolute())
+    print(f"INFO: opening {directory}")
     QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
 def app_config_path():

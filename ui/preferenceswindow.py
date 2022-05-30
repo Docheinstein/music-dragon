@@ -8,7 +8,7 @@ import cache
 from log import debug
 import preferences
 from ui.ui_preferenceswindow import Ui_PreferencesWindow
-from utils import open_folder
+from utils import open_folder, app_cache_path
 
 
 class PreferencesWindow(QDialog):
@@ -36,6 +36,7 @@ class PreferencesWindow(QDialog):
         self.ui.openDirectoryButton.clicked.connect(self.on_open_directory_button_clicked)
 
         # Cache
+        self.ui.cache.clicked.connect(self.on_cache_clicked)
         self.ui.cacheClearButton.clicked.connect(self.on_clear_cache_button_clicked)
         self.update_cache_size()
 
@@ -61,6 +62,7 @@ class PreferencesWindow(QDialog):
         self.ui.maxSimultaneousDownloads.setValue(preferences.max_simultaneous_downloads())
         self.ui.cacheImagesCheck.setChecked(preferences.is_images_cache_enabled())
         self.ui.cacheRequestsBox.setChecked(preferences.is_requests_cache_enabled())
+        self.ui.cache.setText(str(app_cache_path().absolute()))
 
     def save_settings(self):
         preferences.set_directory(self.ui.directory.text())
@@ -97,9 +99,12 @@ class PreferencesWindow(QDialog):
             return
         open_folder(directory)
 
+    def on_cache_clicked(self):
+        open_folder(app_cache_path())
+
     def on_clear_cache_button_clicked(self):
         cache.clear()
         self.update_cache_size()
 
     def update_cache_size(self):
-        self.ui.cacheSize.setText(f"Cache size: {int(cache.cache_size() / 2**20)}MB")
+        self.ui.cacheSize.setText(f"Size: {int(cache.cache_size() / 2**20)}MB")
