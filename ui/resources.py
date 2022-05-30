@@ -6,6 +6,10 @@ LOCALLY_AVAILABLE_STYLESHEET = "border: 3px solid #32CD32;"
 LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET = "border: 3px solid orange;"
 LOCALLY_UNAVAILABLE_STYLESHEET = "border: 3px solid gray;"
 
+PILL_HIGHLIGHTED_STYLESHEET = "QLabel {background-color: #1E90FF; border: 1px solid black;border-radius: 5px; }"
+PILL_UNHIGHLIGHTED_STYLESHEET = "QLabel {background-color: gray; border: 1px solid black;border-radius: 5px; }"
+
+
 IMAGES_PATH = "res/images/"
 
 COVER_PLACEHOLDER_PATH = f"{IMAGES_PATH}/questionmark.png"

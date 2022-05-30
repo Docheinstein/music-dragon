@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>4</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="searchPage">
          <layout class="QVBoxLayout" name="verticalLayout">
@@ -194,22 +194,148 @@
         <widget class="QWidget" name="localPage">
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
-           <widget class="LocalSongsView" name="localSongs">
-            <property name="mouseTracking">
-             <bool>true</bool>
-            </property>
-            <property name="iconSize">
+           <widget class="QWidget" name="widget_2" native="true">
+            <property name="minimumSize">
              <size>
-              <width>64</width>
-              <height>64</height>
+              <width>0</width>
+              <height>60</height>
              </size>
             </property>
-            <property name="spacing">
-             <number>6</number>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>60</height>
+             </size>
             </property>
-            <property name="uniformItemSizes">
-             <bool>true</bool>
+            <layout class="QHBoxLayout" name="horizontalLayout_8">
+             <item>
+              <widget class="ClickableLabel" name="localSongsButton">
+               <property name="styleSheet">
+                <string notr="true">QLabel {
+background-color: #1E90FF; 
+border: 1px solid black;
+border-radius: 5px; 
+}</string>
+               </property>
+               <property name="text">
+                <string>Songs</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="ClickableLabel" name="localArtistsButton">
+               <property name="styleSheet">
+                <string notr="true">QLabel {
+background-color: gray; 
+border: 1px solid black;
+border-radius: 5px; 
+}</string>
+               </property>
+               <property name="text">
+                <string>Artists</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="ClickableLabel" name="localAlbumsButton">
+               <property name="styleSheet">
+                <string notr="true">QLabel {
+background-color: gray; 
+border: 1px solid black;
+border-radius: 5px; 
+}</string>
+               </property>
+               <property name="text">
+                <string>Albums</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QStackedWidget" name="localPages">
+            <property name="currentIndex">
+             <number>0</number>
             </property>
+            <widget class="QWidget" name="localSongsPage">
+             <layout class="QVBoxLayout" name="verticalLayout_13">
+              <item>
+               <widget class="LocalSongsView" name="localSongs">
+                <property name="mouseTracking">
+                 <bool>true</bool>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>64</width>
+                  <height>64</height>
+                 </size>
+                </property>
+                <property name="spacing">
+                 <number>6</number>
+                </property>
+                <property name="uniformItemSizes">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="localArtistsPage">
+             <layout class="QVBoxLayout" name="verticalLayout_14">
+              <item>
+               <widget class="LocalArtistsView" name="localArtists">
+                <property name="mouseTracking">
+                 <bool>true</bool>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>64</width>
+                  <height>64</height>
+                 </size>
+                </property>
+                <property name="spacing">
+                 <number>6</number>
+                </property>
+                <property name="uniformItemSizes">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="localAlbumsPage">
+             <layout class="QVBoxLayout" name="verticalLayout_15">
+              <item>
+               <widget class="LocalAlbumsView" name="localAlbums">
+                <property name="mouseTracking">
+                 <bool>true</bool>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>64</width>
+                  <height>64</height>
+                 </size>
+                </property>
+                <property name="spacing">
+                 <number>6</number>
+                </property>
+                <property name="uniformItemSizes">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
            </widget>
           </item>
           <item>
@@ -730,6 +856,16 @@
    <class>LocalSongsView</class>
    <extends>QListView</extends>
    <header>ui/localsongsview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>LocalArtistsView</class>
+   <extends>QListView</extends>
+   <header>ui/localartistsview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>LocalAlbumsView</class>
+   <extends>QListView</extends>
+   <header>ui/localalbumsview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

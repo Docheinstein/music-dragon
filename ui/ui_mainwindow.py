@@ -100,12 +100,76 @@ class Ui_MainWindow(object):
         self.localPage.setObjectName("localPage")
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.localPage)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
-        self.localSongs = LocalSongsView(self.localPage)
+        self.widget_2 = QtWidgets.QWidget(self.localPage)
+        self.widget_2.setMinimumSize(QtCore.QSize(0, 60))
+        self.widget_2.setMaximumSize(QtCore.QSize(16777215, 60))
+        self.widget_2.setObjectName("widget_2")
+        self.horizontalLayout_8 = QtWidgets.QHBoxLayout(self.widget_2)
+        self.horizontalLayout_8.setObjectName("horizontalLayout_8")
+        self.localSongsButton = ClickableLabel(self.widget_2)
+        self.localSongsButton.setStyleSheet("QLabel {\n"
+"background-color: #1E90FF; \n"
+"border: 1px solid black;\n"
+"border-radius: 5px; \n"
+"}")
+        self.localSongsButton.setAlignment(QtCore.Qt.AlignCenter)
+        self.localSongsButton.setObjectName("localSongsButton")
+        self.horizontalLayout_8.addWidget(self.localSongsButton)
+        self.localArtistsButton = ClickableLabel(self.widget_2)
+        self.localArtistsButton.setStyleSheet("QLabel {\n"
+"background-color: gray; \n"
+"border: 1px solid black;\n"
+"border-radius: 5px; \n"
+"}")
+        self.localArtistsButton.setAlignment(QtCore.Qt.AlignCenter)
+        self.localArtistsButton.setObjectName("localArtistsButton")
+        self.horizontalLayout_8.addWidget(self.localArtistsButton)
+        self.localAlbumsButton = ClickableLabel(self.widget_2)
+        self.localAlbumsButton.setStyleSheet("QLabel {\n"
+"background-color: gray; \n"
+"border: 1px solid black;\n"
+"border-radius: 5px; \n"
+"}")
+        self.localAlbumsButton.setAlignment(QtCore.Qt.AlignCenter)
+        self.localAlbumsButton.setObjectName("localAlbumsButton")
+        self.horizontalLayout_8.addWidget(self.localAlbumsButton)
+        self.verticalLayout_4.addWidget(self.widget_2)
+        self.localPages = QtWidgets.QStackedWidget(self.localPage)
+        self.localPages.setObjectName("localPages")
+        self.localSongsPage = QtWidgets.QWidget()
+        self.localSongsPage.setObjectName("localSongsPage")
+        self.verticalLayout_13 = QtWidgets.QVBoxLayout(self.localSongsPage)
+        self.verticalLayout_13.setObjectName("verticalLayout_13")
+        self.localSongs = LocalSongsView(self.localSongsPage)
         self.localSongs.setMouseTracking(True)
         self.localSongs.setIconSize(QtCore.QSize(64, 64))
         self.localSongs.setUniformItemSizes(True)
         self.localSongs.setObjectName("localSongs")
-        self.verticalLayout_4.addWidget(self.localSongs)
+        self.verticalLayout_13.addWidget(self.localSongs)
+        self.localPages.addWidget(self.localSongsPage)
+        self.localArtistsPage = QtWidgets.QWidget()
+        self.localArtistsPage.setObjectName("localArtistsPage")
+        self.verticalLayout_14 = QtWidgets.QVBoxLayout(self.localArtistsPage)
+        self.verticalLayout_14.setObjectName("verticalLayout_14")
+        self.localArtists = LocalArtistsView(self.localArtistsPage)
+        self.localArtists.setMouseTracking(True)
+        self.localArtists.setIconSize(QtCore.QSize(64, 64))
+        self.localArtists.setUniformItemSizes(True)
+        self.localArtists.setObjectName("localArtists")
+        self.verticalLayout_14.addWidget(self.localArtists)
+        self.localPages.addWidget(self.localArtistsPage)
+        self.localAlbumsPage = QtWidgets.QWidget()
+        self.localAlbumsPage.setObjectName("localAlbumsPage")
+        self.verticalLayout_15 = QtWidgets.QVBoxLayout(self.localAlbumsPage)
+        self.verticalLayout_15.setObjectName("verticalLayout_15")
+        self.localAlbums = LocalAlbumsView(self.localAlbumsPage)
+        self.localAlbums.setMouseTracking(True)
+        self.localAlbums.setIconSize(QtCore.QSize(64, 64))
+        self.localAlbums.setUniformItemSizes(True)
+        self.localAlbums.setObjectName("localAlbums")
+        self.verticalLayout_15.addWidget(self.localAlbums)
+        self.localPages.addWidget(self.localAlbumsPage)
+        self.verticalLayout_4.addWidget(self.localPages)
         self.localSongCount = QtWidgets.QLabel(self.localPage)
         font = QtGui.QFont()
         font.setPointSize(10)
@@ -360,7 +424,8 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.pages.setCurrentIndex(4)
+        self.pages.setCurrentIndex(1)
+        self.localPages.setCurrentIndex(0)
         self.downloadsTabs.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -371,6 +436,9 @@ class Ui_MainWindow(object):
         self.localPageButton.setText(_translate("MainWindow", "Local"))
         self.downloadsPageButton.setText(_translate("MainWindow", "Downloads"))
         self.searchBar.setPlaceholderText(_translate("MainWindow", "Search for artists, album, songs..."))
+        self.localSongsButton.setText(_translate("MainWindow", "Songs"))
+        self.localArtistsButton.setText(_translate("MainWindow", "Artists"))
+        self.localAlbumsButton.setText(_translate("MainWindow", "Albums"))
         self.localSongCount.setText(_translate("MainWindow", "0 Songs"))
         self.manualDownloadURL.setPlaceholderText(_translate("MainWindow", "YouTube URL..."))
         self.manualDownloadButton.setText(_translate("MainWindow", "Download"))
@@ -394,5 +462,7 @@ from ui.albumtrackswidget import AlbumTracksWidget
 from ui.artistalbumswidget import ArtistAlbumsWidget
 from ui.clickablelabel import ClickableLabel
 from ui.downloadswidget import DownloadsWidget
+from ui.localalbumsview import LocalAlbumsView
+from ui.localartistsview import LocalArtistsView
 from ui.localsongsview import LocalSongsView
 from ui.searchresultswidget import SearchResultsWidget

@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QModelIndex
 from PyQt5.QtGui import QFont, QMouseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
@@ -20,6 +20,8 @@ from ui.albumtrackswidget import AlbumTracksModel
 from ui.artistalbumswidget import ArtistAlbumsModel
 from ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
 from ui.imagepreviewwindow import ImagePreviewWindow
+from ui.localalbumsview import LocalAlbumsModel, LocalAlbumsItemDelegate
+from ui.localartistsview import LocalArtistsModel, LocalArtistsItemDelegate
 from ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from ui.preferenceswindow import PreferencesWindow
 from ui.searchresultswidget import SearchResultsModel
@@ -137,11 +139,30 @@ class MainWindow(QMainWindow):
         self.local_songs_delegate.album_clicked.connect(self.on_local_song_album_clicked)
         self.ui.localSongs.row_clicked.connect(self.on_local_song_clicked)
         self.ui.localSongs.row_double_clicked.connect(self.on_local_song_double_clicked)
-
         self.ui.localSongs.setSpacing(6)
         self.ui.localSongs.setModel(self.local_songs_model)
         self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
 
+        self.local_artists_model = LocalArtistsModel()
+        self.local_artists_delegate = LocalArtistsItemDelegate()
+        self.ui.localArtists.row_clicked.connect(self.on_local_artist_clicked)
+        self.ui.localArtists.setSpacing(6)
+        self.ui.localArtists.setModel(self.local_artists_model)
+        self.ui.localArtists.setItemDelegate(self.local_artists_delegate)
+
+        self.local_albums_model = LocalAlbumsModel()
+        self.local_albums_delegate = LocalAlbumsItemDelegate()
+        self.local_albums_delegate.artist_clicked.connect(self.on_local_album_artist_clicked)
+        # self.local_albums_delegate.album_clicked.connect(self.on_local_album_clicked)
+        self.ui.localAlbums.row_clicked.connect(self.on_local_album_clicked)
+        # self.ui.localAlbums.row_double_clicked.connect(self.on_local_song_double_clicked)
+        self.ui.localAlbums.setSpacing(6)
+        self.ui.localAlbums.setModel(self.local_albums_model)
+        self.ui.localAlbums.setItemDelegate(self.local_albums_delegate)
+
+        self.ui.localSongsButton.clicked.connect(self.on_local_songs_button_clicked)
+        self.ui.localArtistsButton.clicked.connect(self.on_local_artists_button_clicked)
+        self.ui.localAlbumsButton.clicked.connect(self.on_local_albums_button_clicked)
 
         # Load local songs
         # TODO: preferences flag?
@@ -925,9 +946,7 @@ class MainWindow(QMainWindow):
     def on_mp3s_loaded(self, with_images):
         # self.ui.localSongs.invalidate()
         debug("Reloading mp3s model")
-        self.local_songs_model.beginResetModel()
-        self.local_songs_model.endResetModel()
-
+        self.reload_local_songs_artists_albums()
         if not with_images:
             debug("Loading images now")
             localsongs.load_mp3s_images_background(
@@ -941,21 +960,31 @@ class MainWindow(QMainWindow):
     def on_mp3s_images_loaded(self):
         debug("Reloading mp3s model")
         # self.ui.localSongs.invalidate()
-        self.local_songs_model.beginResetModel()
-        self.local_songs_model.endResetModel()
+        self.reload_local_songs_artists_albums()
 
     def on_action_reload(self):
         # Reload mp3s
         localsongs.clear_mp3s()
 
-        self.local_songs_model.beginResetModel()
-        self.local_songs_model.endResetModel()
+        self.reload_local_songs_artists_albums()
 
         self.update_local_song_count()
         localsongs.load_mp3s_background(preferences.directory(),
                                         mp3_loaded_callback=self.on_mp3_loaded,
                                         finished_callback=self.on_mp3s_loaded,
                                         load_images=False)
+
+    def reload_local_songs_artists_albums(self):
+        self.local_songs_model.beginResetModel()
+        self.local_songs_model.endResetModel()
+
+        self.local_artists_model.beginResetModel()
+        self.local_artists_model.reload()
+        self.local_artists_model.endResetModel()
+
+        self.local_albums_model.beginResetModel()
+        self.local_albums_model.reload()
+        self.local_albums_model.endResetModel()
 
     def update_local_song_count(self):
         self.ui.localSongCount.setText(f"{len(localsongs.mp3s)} songs")
@@ -1033,3 +1062,41 @@ class MainWindow(QMainWindow):
             if folder:
                 debug(f"Opening folder of {folder}")
                 open_folder(Path(folder).parent)
+
+    def on_local_songs_button_clicked(self):
+        debug("on_local_songs_button_clicked")
+        self.ui.localPages.setCurrentWidget(self.ui.localSongsPage)
+        self.ui.localSongsButton.setStyleSheet(ui.resources.PILL_HIGHLIGHTED_STYLESHEET)
+        self.ui.localArtistsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+        self.ui.localAlbumsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+
+    def on_local_artists_button_clicked(self):
+        debug("on_local_artists_button_clicked")
+        self.ui.localPages.setCurrentWidget(self.ui.localArtistsPage)
+        self.ui.localSongsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+        self.ui.localArtistsButton.setStyleSheet(ui.resources.PILL_HIGHLIGHTED_STYLESHEET)
+        self.ui.localAlbumsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+
+    def on_local_albums_button_clicked(self):
+        debug("on_local_albums_button_clicked")
+        self.ui.localPages.setCurrentWidget(self.ui.localAlbumsPage)
+        self.ui.localSongsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+        self.ui.localArtistsButton.setStyleSheet(ui.resources.PILL_UNHIGHLIGHTED_STYLESHEET)
+        self.ui.localAlbumsButton.setStyleSheet(ui.resources.PILL_HIGHLIGHTED_STYLESHEET)
+
+    def on_local_artist_clicked(self, row: int):
+        debug("on_local_artist_clicked")
+        mp3_group_leader = self.local_artists_model.entry(row)
+        self.open_mp3_artist(mp3_group_leader)
+
+        # self.on_local_artist_clicked()
+
+    def on_local_album_clicked(self, row: int):
+        debug("on_local_album_clicked")
+        mp3_group_leader = self.local_albums_model.entry(row)
+        self.open_mp3_release_group(mp3_group_leader)
+
+    def on_local_album_artist_clicked(self, row: int):
+        debug("on_local_album_artist_clicked")
+        mp3_group_leader = self.local_albums_model.entry(row)
+        self.open_mp3_artist(mp3_group_leader)

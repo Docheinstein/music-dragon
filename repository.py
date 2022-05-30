@@ -472,7 +472,7 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
 
 def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):
     debug(f"fetch_mp3_release_group({mp3})")
-    limit = 10
+    limit = 15
 
     request_name = f"mb-search-release-groups-{stable_hash(mp3.album)}-{limit}"
     cache_hit = False
