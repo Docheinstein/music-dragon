@@ -11,7 +11,7 @@ def initialize():
     mb.set_useragent("MusicDragon", "0.1")
 
 def release_belongs_to_official_album(mb_release: dict):
-    return mb_release.get("status") == "Official" and \
+    return mb_release.get("status").lower() == "official" and \
            "release-group" in mb_release and release_group_is_official_album(mb_release["release-group"])
 
 def release_group_is_official_album(mb_release_group: dict):
@@ -248,7 +248,7 @@ class SearchRecordingsWorker(Worker):
             return
         debug(f"MUSICBRAINZ: search_recordings: '{self.query}'")
         result = mb.search_recordings (
-            self.query, limit=self.limit
+            self.query, primarytype="Album", status="Official", limit=self.limit
         )["recording-list"]
         debug(
             "=== search_recordings ==="
@@ -256,6 +256,10 @@ class SearchRecordingsWorker(Worker):
             "======================"
         )
         # tracks = [MbRecording(rec) for rec in result]
+
+        # strip out non-official releases
+        for t in result:
+            t["release-list"] = [rel for rel in t["release-list"] if release_belongs_to_official_album(rel)]
 
         self.result.emit(self.query, result)
 

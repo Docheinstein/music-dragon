@@ -455,7 +455,7 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
         if not cache_hit:
             cache.put_request(request_name, result)
 
-        tracks = []
+        track_by_release_group = {}
         for rec in result:
             for release in rec["release-list"]:
                 release["release-group"]["artist-credit"] = rec["artist-credit"] # hack
@@ -471,8 +471,14 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
                 _add_release_group(rg)
                 _add_release(r)
                 _add_track(t)
+                track_by_release_group[rg.id] = t
 
-                tracks.append(t)
+        # do not dispatch all the tracks, but only one per release group
+        tracks = list(track_by_release_group.values())
+        debug("Tracks by release group:")
+        for rgid, t in track_by_release_group.items():
+            debug(f"RG={get_release_group(rgid).title} ({rgid})- TRACK={t.title}")
+
         tracks_callback(query_, tracks)
 
         # (eventually) image

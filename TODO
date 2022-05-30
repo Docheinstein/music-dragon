@@ -9,3 +9,5 @@
 - setup yt auth
 - artist image is erroneously set equal to album
 - cache of other requests...
+- setuptools and PyPi
+- mp3 tagger
