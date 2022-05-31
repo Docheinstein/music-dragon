@@ -1139,24 +1139,39 @@ class MainWindow(QMainWindow):
         debug("on_manual_download_button_clicked")
         url = self.ui.manualDownloadURL.text()
         self.ui.manualDownloadURL.setText("")
-        if not ytcommons.is_youtube_url(url):
+
+        video_id = ytcommons.youtube_url_to_video_id(url)
+        playlist_id = ytcommons.youtube_url_to_playlist_id(url)
+
+        if not (video_id or playlist_id):
             print("WARN: invalid youtube url")
             QMessageBox.warning(self, "Invalid URL",
                                 "Invalid YouTube URL",
                                 QMessageBox.Ok)
             return
 
-        video_id = ytcommons.youtube_url_to_video_id(url)
-
-        repository.download_youtube_track_manual(
-            video_id=video_id,
-            queued_callback=self.on_youtube_track_download_queued,
-            started_callback=self.on_youtube_track_download_started,
-            progress_callback=self.on_youtube_track_download_progress,
-            finished_callback=self.on_youtube_track_download_finished,
-            canceled_callback=self.on_youtube_track_download_canceled,
-            error_callback=self.on_youtube_track_download_error,
-        )
+        if video_id:
+            debug(f"Detected youtube video: {video_id}")
+            repository.download_youtube_track_manual(
+                video_id=video_id,
+                queued_callback=self.on_youtube_track_download_queued,
+                started_callback=self.on_youtube_track_download_started,
+                progress_callback=self.on_youtube_track_download_progress,
+                finished_callback=self.on_youtube_track_download_finished,
+                canceled_callback=self.on_youtube_track_download_canceled,
+                error_callback=self.on_youtube_track_download_error,
+            )
+        elif playlist_id:
+            debug(f"Detected youtube playlist: {playlist_id}")
+            repository.download_youtube_playlist_manual(
+                playlist_id=playlist_id,
+                queued_callback=self.on_youtube_track_download_queued,
+                started_callback=self.on_youtube_track_download_started,
+                progress_callback=self.on_youtube_track_download_progress,
+                finished_callback=self.on_youtube_track_download_finished,
+                canceled_callback=self.on_youtube_track_download_canceled,
+                error_callback=self.on_youtube_track_download_error,
+            )
 
 
     def on_local_song_artist_clicked(self, row: int):

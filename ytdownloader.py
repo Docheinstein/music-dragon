@@ -20,6 +20,15 @@ from workers import Worker
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 10
 
+YDL_DEFAULT_OPTS = {
+    'format': 'bestaudio/best',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '320',
+    }],
+    'verbose': True,
+}
 
 downloads = {}
 finished_downloads = {}
@@ -162,7 +171,6 @@ class TrackDownloaderWorker(Worker):
             'outtmpl': outtmpl,
             'cachedir': False,
             'verbose': True,
-            # 'writeinfojson': self.metadata == "auto"
         }
 
         # TODO: download speed up?
@@ -404,28 +412,18 @@ class TrackInfoFetcherWorker(Worker):
 
     @pyqtSlot()
     def run(self) -> None:
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '320',
-            }],
-            'verbose': True,
-        }
-
         # TODO: download speed up?
 
         last_error = None
         for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
             debug(f"Retrieval attempt n. {attempt} for {self.video_id}")
             try:
-                with YoutubeDL(ydl_opts) as ydl:
+                with YoutubeDL(YDL_DEFAULT_OPTS) as ydl:
                     yt_url = ytcommons.youtube_video_id_to_youtube_url(self.video_id)
                     debug(f"YOUTUBE_DL: extract_info: '{self.video_id}'")
                     info = ydl.extract_info(yt_url, download=False)
                     debug(
-                        "=== extract_info ==="
+                        "=== extract_info (video) ==="
                         f"{j(info)}"
                         "======================"
                     )
@@ -444,8 +442,59 @@ class TrackInfoFetcherWorker(Worker):
               f"failed for video {self.video_id}: {last_error}", file=sys.stderr)
         # self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
 
-def fetch_track_info(video_id: str, callback, user_data=None):
+def fetch_track_info(video_id: str, callback, user_data=None, priority=Worker.PRIORITY_NORMAL):
     worker = TrackInfoFetcherWorker(video_id, user_data)
-    worker.priority = Worker.PRIORITY_BELOW_NORMAL
+    worker.priority = priority
+    worker.result.connect(callback)
+    workers.schedule(worker)
+
+
+# ============= TRACK INFO FETCHER ============
+# Fetch track info
+# =========================================
+
+class PlaylistInfoFetcherWorker(Worker):
+    result = pyqtSignal(str, dict, dict)
+
+    def __init__(self, playlist_id: str, user_data: dict=None):
+        super().__init__()
+        self.playlist_id = playlist_id
+        self.user_data = user_data
+
+    @pyqtSlot()
+    def run(self) -> None:
+
+        # TODO: download speed up?
+        last_error = None
+        for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
+            debug(f"Retrieval attempt n. {attempt} for playlist {self.playlist_id}")
+            try:
+                with YoutubeDL(YDL_DEFAULT_OPTS) as ydl:
+                    yt_url = ytcommons.youtube_playlist_id_to_youtube_url(self.playlist_id)
+                    debug(f"YOUTUBE_DL: extract_info: '{self.playlist_id}'")
+                    info = ydl.extract_info(yt_url, download=False)
+                    debug(
+                        "=== extract_info (playlist) ==="
+                        f"{j(info)}"
+                        "======================"
+                    )
+
+                    self.result.emit(self.playlist_id, info, self.user_data)
+                    return  # done
+            except CancelException as ce:
+                print(f"WARN: cancel request received during retrieval n. {attempt} for playlist {self.playlist_id}")
+                return
+
+            except Exception as e:
+                print(f"WARN: retrieval attempt n. {attempt} failed for playlist {self.playlist_id}: {e}")
+                last_error = e
+
+        print(f"ERROR: all retrieval attempts ({YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS} "
+              f"failed for playlist {self.playlist_id}: {last_error}", file=sys.stderr)
+        # self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
+
+def fetch_playlist_info(playlist_id: str, callback, user_data=None, priority=Worker.PRIORITY_NORMAL):
+    worker = PlaylistInfoFetcherWorker(playlist_id, user_data)
+    worker.priority = priority
     worker.result.connect(callback)
     workers.schedule(worker)

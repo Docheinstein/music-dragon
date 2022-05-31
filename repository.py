@@ -1152,7 +1152,7 @@ def download_youtube_track_manual(video_id: str,
             image = requests.get(best_thumb["url"], headers={
                 "User-Agent": "MusicDragonBot/1.0 (docheinstein@gmail.com) MusicDragon/1.0",
             }).content
-            debug(f"Retrieved image data size: {len(result)}")
+            debug(f"Retrieved image data size: {len(image)}")
 
         yttrack = YtTrack(result)
         _add_youtube_track(yttrack)
@@ -1173,14 +1173,93 @@ def download_youtube_track_manual(video_id: str,
             canceled_callback=canceled_callback_wrapper,
             error_callback=error_callback_wrapper,
             metadata=True,
-            user_data=user_data
-        )
-
-    ytdownloader.fetch_track_info(video_id, track_info_result,
-                                  user_data={
+            user_data={
             "type": "manual",
             "id": video_id
         })
+
+    ytdownloader.fetch_track_info(video_id, track_info_result, user_data={})
+
+
+def download_youtube_playlist_manual(playlist_id: str,
+                           queued_callback, started_callback, progress_callback,
+                           finished_callback, canceled_callback, error_callback):
+    # no cache needed here, since should be one shot
+
+    def queued_callback_wrapper(down: dict):
+        queued_callback(down)
+
+    def started_callback_wrapper(down: dict):
+        started_callback(down)
+
+    def progress_callback_wrapper(down: dict, progress: float):
+        progress_callback(down, progress)
+
+    def finished_callback_wrapper(down: dict, output_file: str):
+        # track.downloading = False
+
+        def finished_and_loaded_callback(mp3: Mp3):
+            finished_callback(down)
+
+        localsongs.load_mp3_background(output_file, finished_and_loaded_callback, load_image=True)
+
+    def canceled_callback_wrapper(down: dict):
+        # track.downloading = False
+        canceled_callback(down)
+
+    def error_callback_wrapper(down: dict, error_msg: str):
+        # track.downloading = False
+        error_callback(down, error_msg)
+
+    # track.downloading = True
+    def playlist_info_result(playlist_id_, result, user_data):
+        debug(f"playlist_info_result")
+
+        for entry in result["entries"]:
+            video_id = entry["id"]
+
+            # fetch image, eventually
+            image = None
+            if entry.get("thumbnails"):
+                preferred_area = preferences.cover_size() ** 2
+                areas = [thumb["width"] * thumb["height"] for thumb in entry["thumbnails"]]
+                deltas = [abs(preferred_area - a) for a in areas]
+                thumb_idx = min_index(deltas)
+                best_thumb = entry["thumbnails"][thumb_idx]
+
+                debug(f"Image will be retrieved from {best_thumb['url']}")
+                image = requests.get(best_thumb["url"], headers={
+                    "User-Agent": "MusicDragonBot/1.0 (docheinstein@gmail.com) MusicDragon/1.0",
+                }).content
+                debug(f"Retrieved image data size: {len(image)}")
+
+            yttrack = YtTrack(entry)
+            _add_youtube_track(yttrack)
+
+            ytdownloader.enqueue_track_download(
+                video_id=video_id,
+                artist=yttrack.artists[0],
+                album=yttrack.album,
+                song=yttrack.song,
+                track_num=yttrack.track_number,
+                image=image,
+                output_directory=preferences.directory(),
+                output_format=preferences.output_format(),
+                queued_callback=queued_callback_wrapper,
+                started_callback=started_callback_wrapper,
+                progress_callback=progress_callback_wrapper,
+                finished_callback=finished_callback_wrapper,
+                canceled_callback=canceled_callback_wrapper,
+                error_callback=error_callback_wrapper,
+                metadata=True,
+                user_data={
+                "type": "manual",
+                "id": video_id
+            })
+
+    ytdownloader.fetch_playlist_info(
+        playlist_id, playlist_info_result, user_data={}
+    )
 
 
 
