@@ -1,10 +1,8 @@
 - Manual YT download: fetch musicbrainz track from metadata? or handle non-official/non-musicbrainz around the application?
-- download all button -> download missing?
 - do checks on mainwindow before invalidate stuff (current release group id/current artist id)
 - bug: empty rows at the beginning and at the end
-- implement custom check of workers directly on WorkerScheduler but customizable by worker (among the same worker.__class__)
-- fetch album tracks even on artist page? for figure out availability of local songs
-- handle reload of local songs around the app
-- update download missing button on track download button press
+- handle reload of local songs around the app - DONE?
 - setuptools and PyPi
 - mp3 tagger
+- click on queued or downloaded artist/album
+- pro: replace strange - with common -, everywhere when fetching from musicbrainz

@@ -64,7 +64,9 @@ def max_indexes(sequence: Sequence):
     return [idx for idx, element in enumerate(sequence) if element == m]
 
 def sanitize_filename(f: str):
-    return f.replace("/", "-")
+    if f:
+        return f.replace("/", "-")
+    return f
 
 def open_url(url: str):
     print(f"INFO: opening {url}")

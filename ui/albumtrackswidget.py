@@ -123,11 +123,10 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         youtube_track = get_youtube_track(self.track.youtube_track_id)
         download = ytdownloader.get_download(youtube_track.video_id) if youtube_track else None
 
-
         if youtube_track:
             self.ui.open_video_button.setVisible(True)
 
-            if download:
+            if download and download["user_data"]["type"] == "official":
                 self.ui.download_progress.setVisible(download["status"] == "downloading")
                 self.ui.download_progress.setValue(round(download["progress"]))
 

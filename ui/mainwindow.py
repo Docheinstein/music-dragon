@@ -163,6 +163,7 @@ class MainWindow(QMainWindow):
         self.ui.localSongsButton.clicked.connect(self.on_local_songs_button_clicked)
         self.ui.localArtistsButton.clicked.connect(self.on_local_artists_button_clicked)
         self.ui.localAlbumsButton.clicked.connect(self.on_local_albums_button_clicked)
+        self.on_local_songs_button_clicked()
 
         # Load local songs
         # TODO: preferences flag?
@@ -339,6 +340,43 @@ class MainWindow(QMainWindow):
 
         repository.fetch_mp3_release_group(mp3, mp3_release_group_callback, mp3_release_group_image_callback)
 
+    def open_release_group_by_name(self, release_group_name: str, artist_name_hint: str=None):
+        # fetch it by name
+        self.current_release_group_id = None
+
+        # title
+        self.ui.albumTitle.setText(release_group_name)
+
+        # artist
+        self.ui.albumArtist.setText(artist_name_hint or "")
+
+        # icon
+        self.ui.albumCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
+        self.ui.albumCoverNumber.setText("")
+
+        # download
+        self.ui.albumDownloadAllButton.setEnabled(False)
+        self.ui.albumDownloadAllButton.setText(f"Download missing songs")
+        self.ui.albumDownloadStatus.setText("")
+
+        # tracks
+        self.album_tracks_model.release_id = None
+        self.ui.albumTracks.invalidate()
+
+        # switch page
+        self.set_album_page()
+
+        # TODO: handle image blink
+
+        def release_group_callback(release_group_name_, release_group):
+            self.open_release_group(release_group)
+
+        def release_group_image_callback(release_group_id, img):
+            self.handle_album_cover_update(release_group_id)
+
+        repository.fetch_release_group_by_name(release_group_name, artist_name_hint, release_group_callback, release_group_image_callback)
+
+
 
     def open_artist(self, artist: Artist):
         if not isinstance(artist, Artist):
@@ -394,6 +432,34 @@ class MainWindow(QMainWindow):
             self.on_artist_image_result(artist_id, img)
 
         repository.fetch_mp3_artist(mp3, mp3_artist_callback, mp3_artist_image_callback)
+
+
+    def open_artist_by_name(self, artist_name: str):
+        # already fetched: open directly
+
+        self.current_artist_id = None
+
+        # title
+        self.ui.artistName.setText(artist_name)
+
+        # icon
+        # self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.artistCover.setPixmap(ui.resources.COVER_PLACEHOLDER_PIXMAP)
+
+        # albums
+        self.artist_albums_model.artist_id = None
+        self.ui.artistAlbums.invalidate()
+
+        # switch page
+        self.set_artist_page()
+
+        def artist_callback(artist_name_, artist):
+            self.open_artist(artist)
+
+        def artist_image_callback(artist_id, img):
+            self.on_artist_image_result(artist_id, img)
+
+        repository.fetch_artist_by_name(artist_name, artist_callback, artist_image_callback)
 
 
     def on_action_preferences(self):
@@ -831,29 +897,38 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadStatus.setToolTip("\n".join([f'{t.title} [{"verified" if t.youtube_track_is_official else "not verified"}]' for t in tracks]))
 
 
-    def on_youtube_track_download_queued(self, track_id: str, _):
-        debug(f"on_youtube_track_download_queued(track_id={track_id})")
+    def on_youtube_track_download_queued(self, down: dict):
+        debug(f"on_youtube_track_download_queued(video_id={down['video_id']})")
         self.ui.queuedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
 
-    def on_youtube_track_download_started(self, track_id: str, _):
-        debug(f"on_youtube_track_download_started(track_id={track_id})")
+        self.update_album_download_widgets()
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
+
+    def on_youtube_track_download_started(self, down: dict):
+        debug(f"on_youtube_track_download_started(video_id={down['video_id']})")
         self.ui.queuedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
         self.update_album_download_widgets()
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
 
-    def on_youtube_track_download_progress(self, track_id: str, progress: float, _):
-        debug(f"on_youtube_track_download_progress(track_id={track_id}, progress={progress})")
-        self.ui.queuedDownloads.update_row(track_id)
-        self.ui.albumTracks.update_row(track_id)
+    def on_youtube_track_download_progress(self, down: dict, progress: float):
+        debug(f"on_youtube_track_download_progress(video_id={down['video_id']}, progress={progress})")
+        video_id = down["video_id"]
+        self.ui.queuedDownloads.update_row(video_id)
 
-    def on_youtube_track_download_finished(self, track_id: str, _):
-        debug(f"on_youtube_track_download_finished(track_id={track_id})")
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
+
+    def on_youtube_track_download_finished(self, down: dict):
+        debug(f"on_youtube_track_download_finished(video_id={down['video_id']})")
         self.ui.queuedDownloads.invalidate()
         self.ui.finishedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
         self.update_album_download_widgets()
         self.update_album_cover_state()
@@ -863,26 +938,75 @@ class MainWindow(QMainWindow):
         self.local_songs_model.beginResetModel()
         self.local_songs_model.endResetModel()
 
-        t = get_track(track_id)
-        if t:
-            self.ui.artistAlbums.update_row(t.release().release_group_id) # album state in artist page
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
+
+            t = get_track(track_id)
+            if t:
+                self.ui.artistAlbums.update_row(t.release().release_group_id)  # album state in artist page
 
 
-
-    def on_youtube_track_download_canceled(self, track_id: str, _):
-        debug(f"on_youtube_track_download_canceled(track_id={track_id})")
+    def on_youtube_track_download_canceled(self, down: dict):
+        debug(f"on_youtube_track_download_canceled(video_id={down['video_id']})")
         self.ui.queuedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
         self.update_album_download_widgets()
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
 
-    def on_youtube_track_download_error(self, track_id: str, error_msg: str, _):
-        debug(f"on_youtube_track_download_error(track_id={track_id}): {error_msg}")
+    def on_youtube_track_download_error(self, down: dict, error_msg: str):
+        debug(f"on_youtube_track_download_error(video_id={down['video_id']}): {error_msg}")
         self.ui.queuedDownloads.invalidate()
         self.ui.finishedDownloads.invalidate()
-        self.ui.albumTracks.update_row(track_id)
         self.update_downloads_count()
         self.update_album_download_widgets()
+        if down["user_data"]["type"] == "official":
+            track_id = down["user_data"]["id"]
+            self.ui.albumTracks.update_row(track_id)
+
+    # def on_youtube_track_download_manual_queued(self, video_id: str):
+    #     debug(f"on_youtube_track_download_manual_queued(video_id={video_id})")
+    #     self.ui.queuedDownloads.invalidate()
+    #     self.update_downloads_count()
+    #     self.update_album_download_widgets()
+    #
+    # def on_youtube_track_download_manual_started(self, video_id: str):
+    #     debug(f"on_youtube_track_download_manual_started(video_id={video_id})")
+    #     self.ui.queuedDownloads.invalidate()
+    #     self.update_downloads_count()
+    #     self.update_album_download_widgets()
+    #
+    # def on_youtube_track_download_manual_progress(self, video_id: str, progress: float):
+    #     debug(f"on_youtube_track_download_manual_progress(video_id={video_id}, progress={progress})")
+    #     self.ui.queuedDownloads.update_row(video_id)
+    #
+    # def on_youtube_track_download_manual_finished(self, video_id: str):
+    #     debug(f"on_youtube_track_download_manual_finished(video_id={video_id})")
+    #     self.ui.queuedDownloads.invalidate()
+    #     self.ui.finishedDownloads.invalidate()
+    #     self.update_downloads_count()
+    #     self.update_album_download_widgets()
+    #     self.update_album_cover_state()
+    #
+    #     debug("Reloading mp3s model")
+    #     self.update_local_song_count()
+    #     self.local_songs_model.beginResetModel()
+    #     self.local_songs_model.endResetModel()
+    #
+    # def on_youtube_track_download_manual_canceled(self, video_id: str):
+    #     debug(f"on_youtube_track_download_manual_canceled(track_id={video_id})")
+    #     self.ui.queuedDownloads.invalidate()
+    #     self.update_downloads_count()
+    #     self.update_album_download_widgets()
+    #
+    # def on_youtube_track_download_manual_error(self, video_id: str, error_msg: str):
+    #     debug(f"on_youtube_track_download_manual_error(track_id={video_id}): {error_msg}")
+    #     self.ui.queuedDownloads.invalidate()
+    #     self.ui.finishedDownloads.invalidate()
+    #     self.update_downloads_count()
+    #     self.update_album_download_widgets()
 
     def update_downloads_count(self):
         queued_count = ytdownloader.download_count()
@@ -909,35 +1033,54 @@ class MainWindow(QMainWindow):
 
     def on_download_cancel_button_clicked(self, row: int):
         debug("on_download_cancel_button_clicked")
-        track_id = self.downloads_model.entry(row)
-        repository.cancel_youtube_track_download(track_id)
+        down = self.downloads_model.entry(row)
+        repository.cancel_youtube_track_download(down["video_id"])
 
     def on_download_artist_clicked(self, row: int):
         debug("on_download_artist_clicked")
-        track_id = self.downloads_model.entry(row)
-        # TODO: more than an artist
-        artist = get_track(track_id).release().release_group().artists()[0]
-        self.open_artist(artist)
+        down = self.downloads_model.entry(row)
+        if down["user_data"]["type"] == "official":
+            track = get_track(down["user_data"]["id"])
+            if track:
+                # TODO: more than an artist
+                artist = track.release().release_group().artists()[0]
+                self.open_artist(artist)
+        elif down["user_data"]["type"] == "manual":
+            self.open_artist_by_name(artist_name=down["artist"])
 
     def on_download_album_clicked(self, row: int):
         debug("on_download_album_clicked")
-        track_id = self.downloads_model.entry(row)
-        rg = get_track(track_id).release().release_group()
-        self.open_release_group(rg)
-
+        down = self.downloads_model.entry(row)
+        if down["user_data"]["type"] == "official":
+            track = get_track(down["user_data"]["id"])
+            if track:
+                rg = track.release().release_group()
+                self.open_release_group(rg)
+        elif down["user_data"]["type"] == "manual":
+            self.open_release_group_by_name(release_group_name=down["album"], artist_name_hint=down["artist"])
 
     def on_finished_download_artist_clicked(self, row: int):
         debug("on_download_artist_clicked")
-        track_id = self.finished_downloads_model.entry(row)
-        # TODO: more than an artist
-        artist = get_track(track_id).release().release_group().artists()[0]
-        self.open_artist(artist)
+        down = self.finished_downloads_model.entry(row)
+        if down["user_data"]["type"] == "official":
+            track = get_track(down["user_data"]["id"])
+            # TODO: more than an artist
+            artist = track.release().release_group().artists()[0]
+            self.open_artist(artist)
+        elif down["user_data"]["type"] == "manual":
+            self.open_artist_by_name(artist_name=down["artist"])
+
 
     def on_finished_download_album_clicked(self, row: int):
         debug("on_download_album_clicked")
-        track_id = self.finished_downloads_model.entry(row)
-        rg = get_track(track_id).release().release_group()
-        self.open_release_group(rg)
+        down = self.finished_downloads_model.entry(row)
+        if down["user_data"]["type"] == "official":
+            track = get_track(down["user_data"]["id"])
+            if track:
+                rg = track.release().release_group()
+                self.open_release_group(rg)
+        elif down["user_data"]["type"] == "manual":
+            self.open_release_group_by_name(release_group_name=down["album"], artist_name_hint=down["artist"])
 
 
     def on_mp3_loaded(self, mp3: Mp3):
@@ -1005,30 +1148,15 @@ class MainWindow(QMainWindow):
 
         video_id = ytcommons.youtube_url_to_video_id(url)
 
-        def track_info_result(video_id_, result, user_data):
-            debug("track_info_result")
-            # TODO: fetch mb track?
-            #
-            # ytdownloader.enqueue_track_download(
-            #     video_id=video_id,
-            #     artist=result.get("artist"),
-            #     album=result.get("album"),
-            #     song=result.get("track") or result.get("title"),
-            #     track_num=None,
-            #     image=None,
-            #     output_directory=preferences.directory(),
-            #     output_format=preferences.output_format(),
-            #     queued_callback=self.on_youtube_track_download_queued,
-            #     started_callback=self.on_youtube_track_download_started,
-            #     progress_callback=self.on_youtube_track_download_progress,
-            #     finished_callback=self.on_youtube_track_download_finished,
-            #     canceled_callback=self.on_youtube_track_download_canceled,
-            #     error_callback=self.on_youtube_track_download_error,
-            #     metadata=True,
-            #     user_data=None
-            # )
-
-        ytdownloader.fetch_track_info(video_id, track_info_result)
+        repository.download_youtube_track_manual(
+            video_id=video_id,
+            queued_callback=self.on_youtube_track_download_queued,
+            started_callback=self.on_youtube_track_download_started,
+            progress_callback=self.on_youtube_track_download_progress,
+            finished_callback=self.on_youtube_track_download_finished,
+            canceled_callback=self.on_youtube_track_download_canceled,
+            error_callback=self.on_youtube_track_download_error,
+        )
 
 
     def on_local_song_artist_clicked(self, row: int):
@@ -1054,8 +1182,7 @@ class MainWindow(QMainWindow):
 
     def on_finished_download_double_clicked(self, row: int):
         debug("on_finished_download_double_clicked")
-        track_id = self.finished_downloads_model.entry(row)
-        down = ytdownloader.finished_downloads.get(get_track(track_id).youtube_track_id)
+        down = self.finished_downloads_model.entry(row)
         if down:
             debug(f"Associated download: {down}")
             folder = down.get("file")

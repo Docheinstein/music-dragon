@@ -14,9 +14,9 @@ from utils import make_pixmap_from_data
 
 
 class DownloadsItemWidget(ListWidgetModelViewItem):
-    artist_clicked = pyqtSignal(str)
-    album_clicked = pyqtSignal(str)
-    cancel_button_clicked = pyqtSignal(str)
+    artist_clicked = pyqtSignal(dict)
+    album_clicked = pyqtSignal(dict)
+    cancel_button_clicked = pyqtSignal(dict)
 
     class Ui:
         def __init__(self):
@@ -28,15 +28,10 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
             self.download_error: Optional[QLabel] = None
             self.cancel_button: Optional[QPushButton] = None
 
-    def __init__(self, track_id: str):
-        super().__init__(entry=track_id)
+    def __init__(self, download: dict):
+        super().__init__(entry=download)
 
-        self.track_id = track_id
-        self.track: Track = get_track(self.track_id)
-        if not self.track:
-            print(f"WARN: no track for id '{self.track_id}'")
-            return
-
+        self.download = download
         self.ui = DownloadsItemWidget.Ui()
         self.setup()
         self.invalidate()
@@ -135,53 +130,67 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.setLayout(outer_layout)
 
     def invalidate(self):
-        if self.track_id is None:
+        if self.download["user_data"]["type"] == "official":
+            track = get_track(self.download["user_data"]["id"])
+            youtube_track = get_youtube_track(track.youtube_track_id)
+            release_group = track.release().release_group()
+            title = track.title
+            artist = release_group.artists_string()
+            album = release_group.title
+            cover = release_group.preferred_front_cover()
+        elif self.download["user_data"]["type"] == "manual":
+            youtube_track = get_youtube_track(self.download["user_data"]["id"])
+            title = self.download["song"]
+            artist = self.download["artist"]
+            album = self.download["album"]
+            cover = self.download["image"]
+        else:
+            print("WARN: neither track_id nor video_id is valid")
             return
 
-        self.track = get_track(self.track_id)
-        release_group = self.track.release().release_group()
-
         # cover
-        cover = release_group.preferred_front_cover()
         self.ui.cover.setPixmap(make_pixmap_from_data(cover, default=ui.resources.COVER_PLACEHOLDER_PIXMAP))
 
         # title
-        self.ui.title.setText(self.track.title)
+        self.ui.artist.setVisible(True)
+        self.ui.title.setText(title)
 
         # artist
-        self.ui.artist.setText(self.track.release().release_group().artists_string())
+        if artist:
+            self.ui.artist.setVisible(True)
+            self.ui.artist.setText(artist)
+        else:
+            self.ui.artist.setVisible(False)
 
         # album
-        self.ui.album.setText(self.track.release().release_group().title)
-
-        # progress
-        youtube_track = get_youtube_track(self.track.youtube_track_id)
-        download = ytdownloader.get_download(youtube_track.video_id)
-        if not download:
-            download = ytdownloader.get_finished_download(youtube_track.video_id)
+        if artist:
+            self.ui.album.setVisible(True)
+            self.ui.album.setText(album)
+        else:
+            self.ui.album.setVisible(False)
 
         # error
-        if download:
-            if download["status"] == "queued":
+        if self.download:
+            if self.download["status"] == "queued":
                 self.ui.download_progress.setVisible(False)
                 self.ui.download_error.setVisible(False)
                 self.ui.cancel_button.setVisible(True)
-            elif download["status"] == "downloading":
+            elif self.download["status"] == "downloading":
                 self.ui.download_progress.setVisible(True)
-                self.ui.download_progress.setValue(round(download["progress"]))
+                self.ui.download_progress.setValue(round(self.download["progress"]))
                 self.ui.download_error.setVisible(False)
                 self.ui.cancel_button.setVisible(True) # TODO: handle this
-            elif download["status"] == "finished":
+            elif self.download["status"] == "finished":
                 self.ui.download_progress.setVisible(False)
                 self.ui.cancel_button.setVisible(False)
 
-                if "error" in download:
+                if "error" in self.download:
                     self.ui.download_error.setVisible(True)
-                    self.ui.download_error.setText(download["error"])
+                    self.ui.download_error.setText(self.download["error"])
                 else:
                     self.ui.download_error.setVisible(False)
             else:
-                print(f"WARN: unknown status: {download['status']}")
+                print(f"WARN: unknown status: {self.download['status']}")
         else:
             print(f"WARN: no download found for video {youtube_track.video_id}")
             self.ui.download_progress.setVisible(False)
@@ -200,22 +209,32 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         debug(f"_on_album_clicked({self.entry})")
         self.album_clicked.emit(self.entry)
 
-class DownloadsModel(ListWidgetModel):
+class BaseDownloadsModel(ListWidgetModel):
+    def __init__(self):
+        super().__init__()
+
+    def index(self, video_id: str) -> Optional[int]:
+        for idx, e in enumerate(self.entries()):
+            if e["video_id"] == video_id:
+                return idx
+        return None
+
+class DownloadsModel(BaseDownloadsModel):
     def __init__(self):
         super().__init__()
 
     def entries(self) -> List:
-        return [down["user_data"] for down in ytdownloader.downloads.values()]
+        return list(ytdownloader.downloads.values())
 
     def entry_count(self) -> int:
         return len(ytdownloader.downloads)
 
-class FinishedDownloadsModel(ListWidgetModel):
+class FinishedDownloadsModel(BaseDownloadsModel):
     def __init__(self):
         super().__init__()
 
     def entries(self) -> List:
-        return [down["user_data"] for down in ytdownloader.finished_downloads.values()]
+        return list(ytdownloader.finished_downloads.values())
 
     def entry_count(self) -> int:
         return len(ytdownloader.finished_downloads)
@@ -236,14 +255,14 @@ class DownloadsWidget(ListWidgetModelView):
         w.album_clicked.connect(self._on_album_clicked)
         return w
 
-    def _on_cancel_button_clicked(self, entry: str):
-        row = self.model.index(entry)
+    def _on_cancel_button_clicked(self, entry: dict):
+        row = self.model.index(entry["video_id"])
         self.cancel_button_clicked.emit(row)
 
-    def _on_artist_clicked(self, entry: str):
-        row = self.model.index(entry)
+    def _on_artist_clicked(self, entry: dict):
+        row = self.model.index(entry["video_id"])
         self.artist_clicked.emit(row)
 
-    def _on_album_clicked(self, entry: str):
-        row = self.model.index(entry)
+    def _on_album_clicked(self, entry: dict):
+        row = self.model.index(entry["video_id"])
         self.album_clicked.emit(row)

@@ -3,6 +3,7 @@ from statistics import mean, multimode
 from typing import List, Dict, Optional, Union
 
 import Levenshtein as levenshtein
+import requests
 
 import cache
 import localsongs
@@ -22,6 +23,8 @@ _release_groups: Dict[str, 'ReleaseGroup'] = {}
 _releases: Dict[str, 'Release'] = {}
 _tracks: Dict[str, 'Track'] = {}
 _youtube_tracks: Dict[str, 'YtTrack'] = {}
+
+# _track_id_by_video_id: Dict[str, str] = {}
 
 RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX = 0
 RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX = 1
@@ -350,6 +353,9 @@ def get_entity(entity_id):
     debug(f"get_entity({entity_id}): not found")
     return None
 
+# def get_track_id_by_youtube_video_id(video_id: str):
+#     return _track_id_by_video_id.get(video_id)
+
 def search_artists(query, artists_callback, artist_image_callback=None, limit=3):
     query = query.lower()
     debug(f"search_artists(query={query})")
@@ -534,6 +540,59 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
             musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=limit)
 
 
+def fetch_release_group_by_name(release_group_name: str, artist_name_hint: str, release_group_callback, release_group_image_callback):
+    debug(f"fetch_mp3_release_group({release_group_name})")
+    limit = 15
+
+    request_name = f"mb-search-release-groups-{stable_hash(release_group_name)}-{limit}"
+    cache_hit = False
+
+
+    def release_groups_callback_wrapper(query_, result: List[dict]):
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
+        release_groups = [ReleaseGroup(rg) for rg in result]
+        for rg in release_groups:
+            _add_release_group(rg)
+
+        debug("Figuring out which is the most appropriate release group...")
+        if release_groups:
+            album_title_distances = [levenshtein.distance(rg.title, release_group_name) for rg in release_groups]
+            if artist_name_hint:
+                artist_distances = [levenshtein.distance(rg.artists_string(), artist_name_hint) for rg in release_groups]
+            else:
+                artist_distances = [0] * len(release_groups)
+
+            weighted_distance = [2 * album_title_distances[i] + artist_distances[i] for i in
+                                 range(len(release_groups))]
+
+            debug("Computed edit distances for best candidates")
+            for idx, rg in enumerate(release_groups):
+                debug(f"[{idx}] (album={rg.title}, artist={rg.artists_string()}): {weighted_distance[idx]}")
+
+            best_release_group = release_groups[min_index(weighted_distance)]
+
+            # TODO: more than an artist
+            artist_id = best_release_group.artist_ids[0]
+
+            release_group_callback(release_group_name, best_release_group)
+
+            # (eventually) image
+            if release_group_image_callback:
+                fetch_release_group_cover(best_release_group.id, release_group_image_callback)
+
+
+    req = cache.get_request(request_name)
+    if req:
+        # storage cached
+        cache_hit = True
+        release_groups_callback_wrapper(release_group_name, req)
+    else:
+        # actually fetch
+        musicbrainz.search_release_groups(release_group_name, release_groups_callback_wrapper, limit=limit)
+
+
 def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
     debug(f"fetch_mp3_artist({mp3})")
     limit=10
@@ -593,6 +652,55 @@ def fetch_mp3_artist(mp3: Mp3, mp3_artist_callback, mp3_artist_image_callback):
         else:
             # actually fetch
             musicbrainz.search_artists(mp3.artist, artists_callback_wrapper, limit=limit)
+
+
+
+def fetch_artist_by_name(artist_name: str, artist_callback, artist_image_callback):
+    debug(f"fetch_artist_by_name({artist_name})")
+    limit=10
+
+    request_name = f"mb-search-artists-{stable_hash(artist_name)}-{limit}"
+    cache_hit = False
+
+    def artists_callback_wrapper(query_, result: List[dict]):
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
+        artists = [Artist(a) for a in result]
+        for a in artists:
+            _add_artist(a)
+
+        debug("Figuring out which is the most appropriate artist...")
+        if artists:
+            # album_title_distances = [levenshtein.distance(rg.title, mp3.album) for rg in release_groups]
+            artist_distances = [levenshtein.distance(a.name, artist_name) for a in artists]
+
+            weighted_distance = [artist_distances[i] for i in range(len(artists))]
+
+            debug("Computed edit distances for best candidates")
+            for idx, a in enumerate(artists):
+                debug(f"[{idx}] (artist={a.name}): {weighted_distance[idx]}")
+
+            best_artist = artists[min_index(weighted_distance)]
+
+            artist_callback(artist_name, best_artist)
+
+            # (eventually) image
+            if artist_image_callback:
+                def artist_callback_pass(_1, _2):
+                    pass
+
+                fetch_artist(best_artist.id, artist_callback_pass, artist_image_callback)
+
+
+    req = cache.get_request(request_name)
+    if req:
+        # storage cached
+        cache_hit = True
+        artists_callback_wrapper(artist_name, req)
+    else:
+        # actually fetch
+        musicbrainz.search_artists(artist_name, artists_callback_wrapper, limit=limit)
 
 
 def fetch_release_group_cover(release_group_id: str, release_group_cover_callback):
@@ -693,11 +801,11 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 TRACK_POSITION_DISTANCE_FACTOR = 5
 
                 def compute_track_yttrack_score(t_: Track, yt_: YtTrack):
-                    debug(f"compute_track_yttrack_score({t_.title}, {yt_.video_title})")
+                    debug(f"compute_track_yttrack_score({t_.title}, {yt_.song})")
 
                     # hack special characters
                     t_title = t_.title.lower()
-                    yt_title = yt_.video_title.lower()
+                    yt_title = yt_.song.lower()
 
                     t_title = t_title.replace("’", "'")
                     yt_title = yt_title.replace("’", "'")
@@ -711,7 +819,7 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                     t_title = t_title.replace("_", " ")
                     yt_title = yt_title.replace("_", " ")
 
-                    if t_title in yt_.video_title or yt_title in t_title:
+                    if t_title in yt_.song or yt_title in t_title:
                         edit_distance_component = 0
                     else:
                         edit_distance_component = levenshtein.distance(t_title, yt_title)
@@ -813,9 +921,9 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 for yttrack_ in yttracks:
                     yttrack = _add_youtube_track(yttrack_)
 
-                    # debug(f"Handling yttrack: {yttrack.video_title}")
+                    # debug(f"Handling yttrack: {yttrack.song}")
 
-                    closest_track_names = get_close_matches(yttrack.video_title, track_names)
+                    closest_track_names = get_close_matches(yttrack.song, track_names)
                     debug(f"closest_track_names={closest_track_names}")
                     if closest_track_names:
                         closest_tracks = []
@@ -829,10 +937,11 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                         closest_track.fetched_youtube_track = True
                         closest_track.youtube_track_is_official = True
                         closest_track.youtube_track_id = yttrack.id
+                        # _track_id_by_video_id[yttrack.video_id] = closest_track.id
                         debug(
-                            f"'{yttrack.video_title} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
+                            f"'{yttrack.song} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
                     else:
-                        print(f"WARN: no close track found for youtube track with title {yttrack.video_title}")
+                        print(f"WARN: no close track found for youtube track with title {yttrack.song}")
 
                 release_group_releases_callback(release_group_id_, releases)
 
@@ -995,6 +1104,86 @@ def search_track_youtube_track(track_id: str, track_youtube_track_callback):
             ytmusic.search_youtube_track(query, track_youtube_track_callback_wrapper)
 
 
+
+def download_youtube_track_manual(video_id: str,
+                           queued_callback, started_callback, progress_callback,
+                           finished_callback, canceled_callback, error_callback):
+    # no cache needed here, since should be one shot
+
+    def queued_callback_wrapper(down: dict):
+        queued_callback(down)
+
+    def started_callback_wrapper(down: dict):
+        started_callback(down)
+
+    def progress_callback_wrapper(down: dict, progress: float):
+        progress_callback(down, progress)
+
+    def finished_callback_wrapper(down: dict, output_file: str):
+        # track.downloading = False
+
+        def finished_and_loaded_callback(mp3: Mp3):
+            finished_callback(down)
+
+        localsongs.load_mp3_background(output_file, finished_and_loaded_callback, load_image=True)
+
+    def canceled_callback_wrapper(down: dict):
+        # track.downloading = False
+        canceled_callback(down)
+
+    def error_callback_wrapper(down: dict, error_msg: str):
+        # track.downloading = False
+        error_callback(down, error_msg)
+
+    # track.downloading = True
+    def track_info_result(video_id_, result, user_data):
+        debug(f"track_info_result")
+
+        # fetch image, eventually
+        image = None
+        if result.get("thumbnails"):
+            preferred_area = preferences.cover_size() ** 2
+            areas = [thumb["width"] * thumb["height"] for thumb in result["thumbnails"]]
+            deltas = [abs(preferred_area - a) for a in areas]
+            thumb_idx = min_index(deltas)
+            best_thumb = result["thumbnails"][thumb_idx]
+
+            debug(f"Image will be retrieved from {best_thumb['url']}")
+            image = requests.get(best_thumb["url"], headers={
+                "User-Agent": "MusicDragonBot/1.0 (docheinstein@gmail.com) MusicDragon/1.0",
+            }).content
+            debug(f"Retrieved image data size: {len(result)}")
+
+        yttrack = YtTrack(result)
+        _add_youtube_track(yttrack)
+
+        ytdownloader.enqueue_track_download(
+            video_id=video_id,
+            artist=yttrack.artists[0],
+            album=yttrack.album,
+            song=yttrack.song,
+            track_num=yttrack.track_number,
+            image=image,
+            output_directory=preferences.directory(),
+            output_format=preferences.output_format(),
+            queued_callback=queued_callback_wrapper,
+            started_callback=started_callback_wrapper,
+            progress_callback=progress_callback_wrapper,
+            finished_callback=finished_callback_wrapper,
+            canceled_callback=canceled_callback_wrapper,
+            error_callback=error_callback_wrapper,
+            metadata=True,
+            user_data=user_data
+        )
+
+    ytdownloader.fetch_track_info(video_id, track_info_result,
+                                  user_data={
+            "type": "manual",
+            "id": video_id
+        })
+
+
+
 def download_youtube_track(track_id: str,
                            queued_callback, started_callback, progress_callback,
                            finished_callback, canceled_callback, error_callback):
@@ -1005,33 +1194,32 @@ def download_youtube_track(track_id: str,
         print(f"WARN: no youtube track associated with track {track.id}")
         return
 
-    def queued_callback_wrapper(video_id: str, track_id_: str):
-        queued_callback(track_id, None)
+    def queued_callback_wrapper(down: dict):
+        queued_callback(down)
 
-    def started_callback_wrapper(video_id: str, track_id_: str):
-        started_callback(track_id, None)
+    def started_callback_wrapper(down: dict):
+        started_callback(down)
 
-    def progress_callback_wrapper(video_id: str, progress: float, track_id_: str):
-        progress_callback(track_id, progress, None)
+    def progress_callback_wrapper(down: dict, progress: float):
+        progress_callback(down, progress)
 
-    def finished_callback_wrapper(video_id: str, output_file: str, track_id_: str):
+    def finished_callback_wrapper(down: dict, output_file: str):
         track.downloading = False
 
         def finished_and_loaded_callback(mp3: Mp3):
-            finished_callback(track_id, None)
+            finished_callback(down)
 
         localsongs.load_mp3_background(output_file, finished_and_loaded_callback, load_image=True)
 
-    def canceled_callback_wrapper(video_id: str, track_id_: str):
+    def canceled_callback_wrapper(down: dict):
         track.downloading = False
-        canceled_callback(track_id, None)
+        canceled_callback(down)
 
-    def error_callback_wrapper(video_id: str, error_msg: str, track_id_: str):
+    def error_callback_wrapper(down: dict, error_msg: str):
         track.downloading = False
-        error_callback(track_id, error_msg, None)
+        error_callback(down, error_msg)
 
-    track.downloading = True
-    ytdownloader.enqueue_track_download(
+    if ytdownloader.enqueue_track_download(
         video_id=track.youtube_track().video_id,
         artist=rg.artists_string(),
         album=rg.title,
@@ -1047,14 +1235,12 @@ def download_youtube_track(track_id: str,
         canceled_callback=canceled_callback_wrapper,
         error_callback=error_callback_wrapper,
         metadata=True,
-        user_data=track.id
-    )
+        user_data= {
+            "type": "official",
+            "id": track.id
+        }
+    ):
+        track.downloading = True
 
-def cancel_youtube_track_download(track_id: str):
-    track = get_track(track_id)
-
-    if not track.youtube_track_id:
-        print(f"WARN: no youtube track associated with track {track.id}")
-        return
-
-    ytdownloader.cancel_track_download(track.youtube_track().video_id)
+def cancel_youtube_track_download(video_id: str):
+    ytdownloader.cancel_track_download(video_id)

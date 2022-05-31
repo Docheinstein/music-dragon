@@ -181,7 +181,7 @@ class LocalAlbumsModel(QAbstractListModel):
     def reload(self):
         mp3s_by_albums = {}
         for mp3 in localsongs.mp3s:
-            if mp3.album not in mp3s_by_albums or not mp3s_by_albums[mp3.album].image:
+            if mp3.album and (mp3.album not in mp3s_by_albums or not mp3s_by_albums[mp3.album].image):
                 mp3s_by_albums[mp3.album] = mp3
 
         self.localalbums = list(mp3s_by_albums.values())

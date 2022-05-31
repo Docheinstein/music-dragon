@@ -1,6 +1,6 @@
 import re
 
-YOUTUBE_RE = re.compile(r"(?:[a-z_:\/\.]+)youtube\.com\/watch\?v=(\w+)(?:&list=(\w+)?)?")
+YOUTUBE_RE = re.compile(r"(?:[a-z_:\/\.]+)youtube\.com\/watch\?v=([0-9a-zA-Z_\-]+)(?:&list=(\w+)?)?")
 # YOUTUBE_RE = re.compile(r"([a-z_:/.]+)youtube\.com/watch\?v=(\w+)(?:&list=(\w+)?)?")
 
 

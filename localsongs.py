@@ -87,6 +87,7 @@ def get_by_metadata(artist: str, album: str, song: str):
     idx = mp3s_indexes_by_metadata.get((artist, album, song))
     debug(f"Checking availability of ({artist}, {album}, {song})")
     if idx is not None and 0 <= idx < len(mp3s):
+        debug("-> found")
         return mp3s[idx]
     return None
 

@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>1</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="searchPage">
          <layout class="QVBoxLayout" name="verticalLayout">
@@ -420,6 +420,12 @@ border-radius: 5px;
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>160</width>
+                  <height>160</height>
+                 </size>
                 </property>
                 <property name="maximumSize">
                  <size>
@@ -702,6 +708,12 @@ border-radius: 5px;
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>160</width>
+                <height>160</height>
+               </size>
               </property>
               <property name="maximumSize">
                <size>

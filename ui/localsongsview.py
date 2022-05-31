@@ -28,8 +28,10 @@ class LocalSongsItemWidget(QWidget):
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
+            self.dash: Optional[QLabel] = None
             self.artist: Optional[QLabel] = None
             self.album: Optional[QLabel] = None
+            self.subtitle_widget: Optional[QWidget] = None
 
     def __init__(self, parent, row, artist, album, song, image):
         super().__init__(parent)
@@ -63,12 +65,12 @@ class LocalSongsItemWidget(QWidget):
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
         # -
-        dash = QLabel(" - ")
-        f = dash.font()
+        self.ui.dash = QLabel(" - ")
+        f = self.ui.dash.font()
         f.setPointSize(10)
-        dash.setFont(f)
-        dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.dash.setFont(f)
+        self.ui.dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
         # album
         self.ui.album = ClickableLabel()
@@ -89,16 +91,18 @@ class LocalSongsItemWidget(QWidget):
         content_layout = QVBoxLayout()
         content_layout.setSpacing(0)
 
+        self.ui.subtitle_widget = QWidget()
         subtitle_layout = QHBoxLayout()
         subtitle_layout.setSpacing(0)
         subtitle_layout.addWidget(self.ui.artist)
-        subtitle_layout.addWidget(dash)
+        subtitle_layout.addWidget(self.ui.dash)
         subtitle_layout.addWidget(self.ui.album)
         subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         subtitle_layout.setContentsMargins(0, 0, 0, 0)
+        self.ui.subtitle_widget.setLayout(subtitle_layout)
 
         content_layout.addWidget(self.ui.title)
-        content_layout.addLayout(subtitle_layout)
+        content_layout.addWidget(self.ui.subtitle_widget)
 
         grid_layout = QGridLayout()
         grid_layout.setContentsMargins(8, 0, 0, 0)
@@ -114,10 +118,28 @@ class LocalSongsItemWidget(QWidget):
         self.ui.title.setText(self.song)
 
         # artist
-        self.ui.artist.setText(self.artist)
+        if self.artist:
+            self.ui.artist.setVisible(True)
+            self.ui.artist.setText(self.artist)
+        else:
+            self.ui.artist.setVisible(False)
 
         # album
-        self.ui.album.setText(self.album)
+        if self.album:
+            self.ui.album.setVisible(True)
+            self.ui.album.setText(self.album)
+        else:
+            self.ui.album.setVisible(False)
+
+        if self.artist or self.album:
+            self.ui.subtitle_widget.setVisible(True)
+            self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+            if self.artist and self.album:
+                self.ui.dash.setVisible(True)
+        else:
+            self.ui.subtitle_widget.setVisible(False)
+            self.ui.dash.setVisible(False)
+            self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
     def _on_artist_clicked(self):
         debug(f"_on_artist_clicked({self.artist})")
@@ -152,7 +174,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
         w = main_rect.width()
         h = main_rect.height()
 
-        # # Icon
+        # Icon
         icon = make_icon_from_data(image, default=ui.resources.COVER_PLACEHOLDER_ICON)
         icon_size = QSize(48, 48)
         icon_rect = QRect(x, y, icon_size.width(), icon_size.height())
@@ -161,7 +183,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
 
         # Title
         if song:
-            title_y = int(y + h / 2 - 5) if song and (artist or album) else int(y + h / 2 + 5)
+            title_y = int(y + h / 2 - 5) if song and (artist or album) else int(y + h / 2 + 6)
             title_position = QPoint(icon_rect.right() + ICON_TO_TEXT_SPACING, title_y)
             painter.drawText(title_position, song)
 

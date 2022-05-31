@@ -21,17 +21,18 @@ def initialize():
 
 class YtTrack(Mergeable):
     def __init__(self, yt_track: dict):
-        self.id = yt_track["videoId"]
-        self.video_id = yt_track["videoId"]
-        self.video_title = yt_track["title"]
+        self.id = yt_track.get("videoId") or yt_track.get("id")
+        self.video_id = self.id
+        self.video_title = yt_track.get("title")
+        self.song = yt_track.get("track") or self.video_title
         self.album = {
             "id": yt_track["album"]["id"],
             "title": yt_track["album"]["name"]
-        }
+        } if "album" in yt_track and isinstance(yt_track["album"], dict) else yt_track.get("album")
         self.artists = [{
             "id": a["id"],
             "name": a["name"]
-        } for a in yt_track["artists"]]
+        } for a in yt_track["artists"]] if "artists" in yt_track else [yt_track.get("artist")]
         self.track_number = yt_track.get("track_number")
 
 # ========== SEARCH YOUTUBE TRACK ===========

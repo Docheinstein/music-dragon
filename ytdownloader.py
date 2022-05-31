@@ -73,18 +73,18 @@ class CancelException(Exception):
 # =========================================
 
 class TrackDownloaderWorker(Worker):
-    progress = pyqtSignal(str, float, str)
-    error = pyqtSignal(str, str, str)
-    output_destination_known = pyqtSignal(str, str, str)
-    download_finished = pyqtSignal(str, str)
-    conversion_finished = pyqtSignal(str, str)
-    tagging_finished = pyqtSignal(str, str)
+    progress = pyqtSignal(str, float)
+    error = pyqtSignal(str, str)
+    output_destination_known = pyqtSignal(str, str)
+    download_finished = pyqtSignal(str)
+    conversion_finished = pyqtSignal(str)
+    tagging_finished = pyqtSignal(str)
 
     def __init__(self,
                  video_id: str,
                  artist: str, album: str, song: str, track_num: int, image: bytes,
                  output_directory: str, output_format: str,
-                 metadata=True, user_data=None):
+                 metadata=True):
         super().__init__()
         self.video_id = video_id
         self.artist = artist
@@ -93,7 +93,6 @@ class TrackDownloaderWorker(Worker):
         self.track_num = track_num
         self.image = image
         self.metadata = metadata
-        self.user_data = user_data
         self.output_directory = output_directory
         self.output_format = output_format
 
@@ -119,15 +118,15 @@ class TrackDownloaderWorker(Worker):
                 debug("YOUTUBE_DL update: downloading")
 
                 if "_percent_str" in hook_info:
-                    self.progress.emit(self.video_id, float(hook_info["_percent_str"].strip("%")), self.user_data)
+                    self.progress.emit(self.video_id, float(hook_info["_percent_str"].strip("%")))
 
             if hook_info["status"] == "finished":
                 debug("YOUTUBE_DL update: finished")
-                self.download_finished.emit(self.video_id, self.user_data)
+                self.download_finished.emit(self.video_id)
 
             if hook_info["status"] == "error":
                 debug(f"YOUTUBE_DL update: error\n{j(hook_info)}")
-                self.error.emit(self.video_id, "ERROR", self.user_data)
+                self.error.emit(self.video_id, "ERROR")
 
 
         # https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L141
@@ -138,9 +137,9 @@ class TrackDownloaderWorker(Worker):
 
         # Output format substitutions
         if self.metadata is True:
-            outtmpl = outtmpl.replace("{artist}", sanitize_filename(self.artist))
-            outtmpl = outtmpl.replace("{album}", sanitize_filename(self.album))
-            outtmpl = outtmpl.replace("{song}", sanitize_filename(self.song))
+            outtmpl = outtmpl.replace("{artist}", sanitize_filename(self.artist) or "Unknown Artist")
+            outtmpl = outtmpl.replace("{album}", sanitize_filename(self.album) or "Unknown Album")
+            outtmpl = outtmpl.replace("{song}", sanitize_filename(self.song) or "Unknown Song")
 
         outtmpl = outtmpl.replace("{ext}", "%(ext)s")
 
@@ -186,11 +185,11 @@ class TrackDownloaderWorker(Worker):
 
                     output = str(Path(result['_filename']).with_suffix(".mp3").absolute())
                     debug(f"Download destination: {output}")
-                    self.output_destination_known.emit(self.video_id, output, self.user_data)
+                    self.output_destination_known.emit(self.video_id, output)
 
                     debug("Conversion completed")
 
-                    self.conversion_finished.emit(self.video_id, self.user_data)
+                    self.conversion_finished.emit(self.video_id)
 
                     if self.metadata is True:
                         artist = self.artist
@@ -200,10 +199,10 @@ class TrackDownloaderWorker(Worker):
                         image = self.image
 
                         debug(f"Applying mp3 tags to {output}\n"
-                              f"artist={artist}"
-                              f"album={album}"
-                              f"song={song}"
-                              f"track_num={track_num}"
+                              f"artist={artist}\n"
+                              f"album={album}\n"
+                              f"song={song}\n"
+                              f"track_num={track_num}\n"
                               f"image={'yes' if image else 'no'}"
                           )
 
@@ -226,7 +225,7 @@ class TrackDownloaderWorker(Worker):
                                     tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
                                 tag.save()
                                 debug("Tagging completed")
-                                self.tagging_finished.emit(self.video_id, self.user_data)
+                                self.tagging_finished.emit(self.video_id)
                             else:
                                 print(f"WARN: failed to apply mp3 tags to {output}: cannot load mp3")
                         except Exception as e:
@@ -243,7 +242,7 @@ class TrackDownloaderWorker(Worker):
 
         print(f"ERROR: all download attempts ({YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS} "
               f"failed for video {self.video_id}: {last_error}", file=sys.stderr)
-        self.error.emit(self.video_id, f"ERROR: {last_error}", self.user_data)
+        self.error.emit(self.video_id, f"ERROR: {last_error}")
 
     def can_execute(self):
         # Can execute only if there are less running (or dispatched) workers than max_simultaneous_downloads
@@ -283,12 +282,17 @@ def enqueue_track_download(
         finished_callback,
         canceled_callback,
         error_callback,
-        metadata=True, user_data=None):
+        metadata=True,
+        user_data=None):
+
+    if video_id in downloads:
+        print(f"WARN: already download video with id {video_id}")
+        return False
 
     worker = TrackDownloaderWorker(
         video_id, artist, album, song, track_num, image,
         output_directory, output_format,
-        metadata, user_data)
+        metadata)
     worker.priority = Worker.PRIORITY_BELOW_NORMAL
 
     def internal_started_callback():
@@ -299,18 +303,18 @@ def enqueue_track_download(
 
         d["status"] = "downloading"
         if started_callback:
-            started_callback(video_id, user_data)
+            started_callback(d)
 
-    def internal_progress_callback(video_id_, progress, user_data_):
+    def internal_progress_callback(video_id_, progress):
         d = downloads.get(video_id)
         if not d:
             print(f"WARN: no track with video id = {video_id} was in download")
             return
         d["progress"] = progress
         if progress_callback:
-            progress_callback(video_id_, progress, user_data_)
+            progress_callback(d, progress)
 
-    def internal_output_destination_known_callback(video_id_, output, user_data_):
+    def internal_output_destination_known_callback(video_id_, output):
         d = downloads.get(video_id)
         if not d:
             print(f"WARN: no track with video id = {video_id} was in download")
@@ -319,36 +323,35 @@ def enqueue_track_download(
         d["file"] = output
 
     def internal_finished_callback():
-        file = None
         try:
             d = downloads.pop(video_id)
             d["status"] = "finished"
             file = d["file"]
             finished_downloads[video_id] = d
+            if finished_callback:
+                finished_callback(d, file)
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        if finished_callback:
-            finished_callback(video_id, file, user_data)
 
     def internal_canceled_callback():
         try:
             d = downloads.pop(video_id)
             d["status"] = "canceled"
+            if canceled_callback:
+                canceled_callback(d)
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        if canceled_callback:
-            canceled_callback(video_id, user_data)
 
-    def internal_error_callback(video_id_, error_msg, user_data_):
+    def internal_error_callback(video_id_, error_msg):
         try:
             d = downloads.pop(video_id)
             d["status"] = "finished"
             d["error"] = error_msg
             finished_downloads[video_id] = d
+            if error_callback:
+                error_callback(d, error_msg)
         except KeyError:
             print(f"WARN: no track with video id = {video_id} was in download")
-        if error_callback:
-            error_callback(video_id, error_msg, user_data)
 
     worker.started.connect(internal_started_callback)
     worker.progress.connect(internal_progress_callback)
@@ -358,11 +361,17 @@ def enqueue_track_download(
     worker.error.connect(internal_error_callback)
 
     downloads[video_id] = {
-        "user_data": user_data,
+        "video_id": video_id,
         "status": "queued",
         "progress": 0,
         "attempt": 0,
-        "worker": worker
+        "worker": worker,
+        "artist": artist,
+        "album": album,
+        "song": song,
+        "track_num": track_num,
+        "image": image,
+        "user_data": user_data,
     }
     for video_id, down in downloads.items():
         debug(f"{video_id}: {down['status']} ({down['progress']}%)")
@@ -371,7 +380,8 @@ def enqueue_track_download(
 
     # call directly
     if queued_callback:
-        queued_callback(video_id, user_data)
+        queued_callback(downloads[video_id])
+    return True
 
 def cancel_track_download(video_id: str):
     d = downloads.get(video_id)
@@ -385,9 +395,9 @@ def cancel_track_download(video_id: str):
 # =========================================
 
 class TrackInfoFetcherWorker(Worker):
-    result = pyqtSignal(str, dict, str)
+    result = pyqtSignal(str, dict, dict)
 
-    def __init__(self, video_id: str, user_data=None):
+    def __init__(self, video_id: str, user_data: dict=None):
         super().__init__()
         self.video_id = video_id
         self.user_data = user_data
