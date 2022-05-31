@@ -18,7 +18,7 @@ search artists, albums and songs and automatically download and tag those with o
 ![Search](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-0.png "Search")
 ![Artist](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-1.png "Artist")
 ![Album](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-2.png "Album")
-![Download](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-3.png "Downloads")
+![Downloads](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-3.png "Downloads")
 
 ## INSTALLATION
 ```
