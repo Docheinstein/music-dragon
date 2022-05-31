@@ -10,7 +10,7 @@ PILL_HIGHLIGHTED_STYLESHEET = "QLabel {background-color: #1E90FF; border: 1px so
 PILL_UNHIGHLIGHTED_STYLESHEET = "QLabel {background-color: gray; border: 1px solid black;border-radius: 5px; }"
 
 
-IMAGES_PATH = "res/images/"
+IMAGES_PATH = ":/images/"
 
 COVER_PLACEHOLDER_PATH = f"{IMAGES_PATH}/questionmark.png"
 PERSON_PLACEHOLDER_PATH = f"{IMAGES_PATH}/person.jpg"

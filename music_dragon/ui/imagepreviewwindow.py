@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QDialog, QFileDialog
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from music_dragon.log import debug
 from music_dragon.ui.ui_imagepreviewwindow import Ui_ImagePreviewWindow
@@ -25,20 +25,22 @@ class ImagePreviewWindow(QDialog):
 
     def _on_save_button_clicked(self):
         directory_picker = QFileDialog()
-        directory_picker.setFileMode(QFileDialog.AnyFile)
-        if directory_picker.exec():
-            results = directory_picker.selectedFiles()
-            if not results:
-                print("WARN: no directory has been selected")
-                return
 
-            result = results[0]
-            debug(f"Selected file: {result}")
+        result = directory_picker.getSaveFileName(self, "Save file", "", "")
+        if result:
+            filename = result[0]
+            debug(f"Selected file: {filename}")
 
             try:
-                with Path(result).open("w") as f:
+                with Path(filename).open("wb") as f:
                     f.write(self.image)
+                QMessageBox.information(self, "Saved",
+                                     "Image has been saved successfully",
+                                     QMessageBox.Ok)
+                self.close()
             except:
-                print("WARN: failed to save image")
-
+                print(f"WARN: failed to save image to {filename}")
+                QMessageBox.critical(self, "Save failed",
+                                     "Failed to save image to",
+                                     QMessageBox.Ok)
 

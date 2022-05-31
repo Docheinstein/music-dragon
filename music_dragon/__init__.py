@@ -1,3 +1,3 @@
 
 APP_NAME = "music-dragon"
-APP_VERSION = "0.3"
+APP_VERSION = "0.5"

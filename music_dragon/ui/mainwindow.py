@@ -80,13 +80,13 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.set_model(self.album_tracks_model)
         self.ui.albumTracks.row_clicked.connect(self.on_album_track_clicked)
 
-        self.ui.artistCover.double_clicked.connect(self.on_artist_image_double_clicked)
         self.ui.albumArtist.set_underline_on_hover(True)
         self.ui.albumArtist.clicked.connect(self.on_album_artist_clicked)
 
         self.ui.albumCover.double_clicked.connect(self.on_album_cover_double_clicked)
         self.ui.albumCover.set_clickable(False)
         self.ui.albumCover.set_double_clickable(True)
+        self.album_cover_data = None
         self.ui.albumCoverPrevButton.clicked.connect(self.on_album_cover_prev_button_clicked)
         self.ui.albumCoverNextButton.clicked.connect(self.on_album_cover_next_button_clicked)
         self.album_change_cover_empty_image_callback = None
@@ -100,6 +100,8 @@ class MainWindow(QMainWindow):
         self.artist_albums_model = ArtistAlbumsModel()
         self.ui.artistAlbums.set_model(self.artist_albums_model)
         self.ui.artistAlbums.row_clicked.connect(self.on_artist_album_clicked)
+        self.ui.artistCover.double_clicked.connect(self.on_artist_image_double_clicked)
+        self.artist_cover_data = None
 
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
@@ -269,6 +271,7 @@ class MainWindow(QMainWindow):
         # icon
         cover = release_group.preferred_front_cover()
         self.ui.albumCover.setPixmap(make_pixmap_from_data(cover, default=resources.COVER_PLACEHOLDER_PIXMAP))
+        self.album_cover_data = cover
         self.set_album_cover(release_group.id)
 
         # download
@@ -310,6 +313,7 @@ class MainWindow(QMainWindow):
 
         # icon
         self.ui.albumCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
+        self.album_cover_data = mp3.image
         self.ui.albumCoverNumber.setText("")
 
         # download
@@ -346,6 +350,7 @@ class MainWindow(QMainWindow):
 
         # icon
         self.ui.albumCover.setPixmap(resources.COVER_PLACEHOLDER_PIXMAP)
+        self.album_cover_data = None
         self.ui.albumCoverNumber.setText("")
 
         # download
@@ -385,6 +390,7 @@ class MainWindow(QMainWindow):
         # icon
         cover = artist.image
         self.ui.artistCover.setPixmap(make_pixmap_from_data(cover, default=resources.PERSON_PLACEHOLDER_PIXMAP))
+        self.artist_cover_data = cover
 
         # albums
         self.artist_albums_model.artist_id = artist.id
@@ -411,6 +417,7 @@ class MainWindow(QMainWindow):
         # icon
         # self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
         self.ui.artistCover.setPixmap(resources.COVER_PLACEHOLDER_PIXMAP)
+        self.artist_cover_data = None
 
         # albums
         self.artist_albums_model.artist_id = None
@@ -437,8 +444,8 @@ class MainWindow(QMainWindow):
         self.ui.artistName.setText(artist_name)
 
         # icon
-        # self.ui.artistCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
         self.ui.artistCover.setPixmap(resources.COVER_PLACEHOLDER_PIXMAP)
+        self.artist_cover_data = None
 
         # albums
         self.artist_albums_model.artist_id = None
@@ -622,6 +629,7 @@ class MainWindow(QMainWindow):
             self.ui.artistCover.setPixmap(make_pixmap_from_data(
                 image, default=resources.PERSON_PLACEHOLDER_PIXMAP)
             )
+            self.artist_cover_data = image
 
     def on_search_result_clicked(self, row: int):
         debug(f"on_search_result_clicked({row})")
@@ -715,6 +723,7 @@ class MainWindow(QMainWindow):
             raise ValueError(f"Unexpected direction: {direction}")
 
         self.ui.albumCover.setPixmap(resources.COVER_PLACEHOLDER_PIXMAP)
+        self.album_cover_data = None
         self.ui.albumCoverNumber.setText("")
 
         release_group = get_release_group(self.current_release_group_id)
@@ -783,6 +792,7 @@ class MainWindow(QMainWindow):
         self.ui.albumCover.setPixmap(make_pixmap_from_data(
             cover, default=resources.COVER_PLACEHOLDER_PIXMAP)
         )
+        self.album_cover_data = cover
 
         self.ui.albumCoverNumber.setText(f"{release_group.preferred_front_cover_index + 1}/{release_group.front_cover_count()}")
 
@@ -803,13 +813,13 @@ class MainWindow(QMainWindow):
     def on_album_cover_double_clicked(self, ev: QMouseEvent):
         debug("on_album_cover_double_clicked")
         image_preview_window = ImagePreviewWindow()
-        image_preview_window.set_image(self.ui.albumCover.pixmap().toImage().bits())
+        image_preview_window.set_image(self.album_cover_data)
         image_preview_window.exec()
 
     def on_artist_image_double_clicked(self, ev: QMouseEvent):
         debug("on_artist_image_double_clicked")
         image_preview_window = ImagePreviewWindow()
-        image_preview_window.set_image(self.ui.albumCover.pixmap().toImage().bits())
+        image_preview_window.set_image(self.artist_cover_data)
         image_preview_window.exec()
 
     def on_release_group_youtube_tracks_result(self, release_group_id: str, yttracks: List[YtTrack]):
