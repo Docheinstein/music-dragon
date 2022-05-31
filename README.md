@@ -16,16 +16,16 @@ search artists, albums and songs and automatically download and tag those with o
 ### What it looks like
 
 <div>
-    <img src="img/screenshot-0.png" width="400" alt="artist-view">
+    <img src="img/screenshot-0.png" alt="artist-view">
 </div>
 <div>
-    <img src="img/screenshot-1.png" width="400" alt="artist-view">
+    <img src="img/screenshot-1.png" alt="artist-view">
 </div>
 <div>
-    <img src="img/screenshot-2.png" width="400" alt="album-view">
+    <img src="img/screenshot-2.png" alt="album-view">
 </div>
 <div>
-    <img src="img/screenshot-3.png" width="400" alt="download-view">
+    <img src="img/screenshot-3.png" alt="download-view">
 </div>
 
 ## INSTALLATION
