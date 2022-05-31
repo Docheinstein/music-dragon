@@ -4,6 +4,4 @@
 - handle reload of local songs around the app - DONE?
 - setuptools and PyPi
 - mp3 tagger
-- click on queued or downloaded artist/album
-- pro: replace strange - with common -, everywhere when fetching from musicbrainz
-- some kind of spinner/loader at least when retrieve playlist videos
+- refactor

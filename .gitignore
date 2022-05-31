@@ -2,3 +2,5 @@
 /__pycache__/
 *.pyc
 /.idea/
+/music_dragon.egg-info/
+/dist/

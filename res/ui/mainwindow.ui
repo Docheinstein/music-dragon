@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>964</width>
-    <height>715</height>
+    <height>693</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>3</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="searchPage">
          <layout class="QVBoxLayout" name="verticalLayout">
@@ -361,8 +361,11 @@ border-radius: 5px;
            <layout class="QHBoxLayout" name="horizontalLayout_7">
             <item>
              <widget class="QLineEdit" name="manualDownloadURL">
+              <property name="text">
+               <string/>
+              </property>
               <property name="placeholderText">
-               <string>YouTube URL...</string>
+               <string>YouTube video or playlist URL...</string>
               </property>
              </widget>
             </item>
@@ -842,42 +845,42 @@ border-radius: 5px;
   <customwidget>
    <class>ClickableLabel</class>
    <extends>QLabel</extends>
-   <header>ui/clickablelabel.h</header>
+   <header>music_dragon/ui/clickablelabel.h</header>
   </customwidget>
   <customwidget>
    <class>AlbumTracksWidget</class>
    <extends>QListWidget</extends>
-   <header>ui/albumtrackswidget.h</header>
+   <header>music_dragon/ui/albumtrackswidget.h</header>
   </customwidget>
   <customwidget>
    <class>DownloadsWidget</class>
    <extends>QListWidget</extends>
-   <header>ui/downloadswidget.h</header>
+   <header>music_dragon/ui/downloadswidget.h</header>
   </customwidget>
   <customwidget>
    <class>ArtistAlbumsWidget</class>
    <extends>QListWidget</extends>
-   <header>ui/artistalbumswidget.h</header>
+   <header>music_dragon/ui/artistalbumswidget.h</header>
   </customwidget>
   <customwidget>
    <class>SearchResultsWidget</class>
    <extends>QListWidget</extends>
-   <header>ui/searchresultswidget.h</header>
+   <header>music_dragon/ui/searchresultswidget.h</header>
   </customwidget>
   <customwidget>
    <class>LocalSongsView</class>
    <extends>QListView</extends>
-   <header>ui/localsongsview.h</header>
+   <header>music_dragon/ui/localsongsview.h</header>
   </customwidget>
   <customwidget>
    <class>LocalArtistsView</class>
    <extends>QListView</extends>
-   <header>ui/localartistsview.h</header>
+   <header>music_dragon/ui/localartistsview.h</header>
   </customwidget>
   <customwidget>
    <class>LocalAlbumsView</class>
    <extends>QListView</extends>
-   <header>ui/localalbumsview.h</header>
+   <header>music_dragon/ui/localalbumsview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
