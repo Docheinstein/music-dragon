@@ -119,8 +119,8 @@
            <string/>
           </property>
           <property name="icon">
-           <iconset>
-            <normaloff>../images/back.png</normaloff>../images/back.png</iconset>
+           <iconset resource="../res.qrc">
+            <normaloff>:/images/back.png</normaloff>:/images/back.png</iconset>
           </property>
           <property name="flat">
            <bool>true</bool>
@@ -136,8 +136,8 @@
            <string/>
           </property>
           <property name="icon">
-           <iconset>
-            <normaloff>../images/forward.png</normaloff>../images/forward.png</iconset>
+           <iconset resource="../res.qrc">
+            <normaloff>:/images/forward.png</normaloff>:/images/forward.png</iconset>
           </property>
           <property name="flat">
            <bool>true</bool>
@@ -162,7 +162,7 @@
       <item>
        <widget class="QStackedWidget" name="pages">
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="searchPage">
          <layout class="QVBoxLayout" name="verticalLayout">
@@ -443,7 +443,7 @@ border-radius: 5px;
                  <string/>
                 </property>
                 <property name="pixmap">
-                 <pixmap>../images/questionmark.png</pixmap>
+                 <pixmap resource="../res.qrc">:/images/questionmark.png</pixmap>
                 </property>
                 <property name="scaledContents">
                  <bool>true</bool>
@@ -467,8 +467,8 @@ border-radius: 5px;
                    <string/>
                   </property>
                   <property name="icon">
-                   <iconset>
-                    <normaloff>../images/left.png</normaloff>../images/left.png</iconset>
+                   <iconset resource="../res.qrc">
+                    <normaloff>:/images/left.png</normaloff>:/images/left.png</iconset>
                   </property>
                   <property name="iconSize">
                    <size>
@@ -512,8 +512,8 @@ border-radius: 5px;
                    <string/>
                   </property>
                   <property name="icon">
-                   <iconset>
-                    <normaloff>../images/right.png</normaloff>../images/right.png</iconset>
+                   <iconset resource="../res.qrc">
+                    <normaloff>:/images/right.png</normaloff>:/images/right.png</iconset>
                   </property>
                   <property name="iconSize">
                    <size>
@@ -653,8 +653,8 @@ border-radius: 5px;
                <string>Download missing songs</string>
               </property>
               <property name="icon">
-               <iconset>
-                <normaloff>../images/download.png</normaloff>../images/download.png</iconset>
+               <iconset resource="../res.qrc">
+                <normaloff>:/images/download.png</normaloff>:/images/download.png</iconset>
               </property>
               <property name="iconSize">
                <size>
@@ -728,7 +728,7 @@ border-radius: 5px;
                <string/>
               </property>
               <property name="pixmap">
-               <pixmap>../images/questionmark.png</pixmap>
+               <pixmap resource="../res.qrc">:/images/questionmark.png</pixmap>
               </property>
               <property name="scaledContents">
                <bool>true</bool>
@@ -883,6 +883,8 @@ border-radius: 5px;
    <header>music_dragon/ui/localalbumsview.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="../res.qrc"/>
+ </resources>
  <connections/>
 </ui>

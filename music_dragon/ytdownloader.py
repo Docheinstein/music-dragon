@@ -10,6 +10,7 @@ from eyed3.core import AudioFile
 from eyed3.id3 import Tag
 from youtube_dl import YoutubeDL
 
+import music_dragon.log
 from music_dragon import preferences, workers, ytcommons
 from music_dragon.log import debug
 from music_dragon.utils import j, sanitize_filename
@@ -25,7 +26,7 @@ YDL_DEFAULT_OPTS = {
         'preferredcodec': 'mp3',
         'preferredquality': '320',
     }],
-    'verbose': True,
+    'verbose': music_dragon.log.debug_enabled,
 }
 
 downloads = {}
@@ -168,7 +169,7 @@ class TrackDownloaderWorker(Worker):
             'progress_hooks': [progress_hook],
             'outtmpl': outtmpl,
             'cachedir': False,
-            'verbose': True,
+            'verbose': music_dragon.log.debug_enabled,
         }
 
         # TODO: download speed up?

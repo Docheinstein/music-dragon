@@ -4,6 +4,8 @@ import sys
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication
 
+import music_dragon.ui.res_rc
+
 from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz
 from music_dragon.log import debug
 from music_dragon.ui.mainwindow import MainWindow
@@ -20,7 +22,7 @@ def main():
     parsed = vars(parser.parse_args(sys.argv[1:]))
 
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("res/images/logo.png"))
+    app.setWindowIcon(QIcon(":/images/logo.png"))
     app.setOrganizationName("Docheinstein")
     app.setApplicationName("MusicDragon")
 

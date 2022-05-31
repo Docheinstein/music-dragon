@@ -126,7 +126,7 @@ class Ui_PreferencesWindow(object):
         self.scrollArea_3.setWidgetResizable(True)
         self.scrollArea_3.setObjectName("scrollArea_3")
         self.scrollAreaWidgetContents_3 = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents_3.setGeometry(QtCore.QRect(0, 0, 160, 241))
+        self.scrollAreaWidgetContents_3.setGeometry(QtCore.QRect(0, 0, 438, 533))
         self.scrollAreaWidgetContents_3.setObjectName("scrollAreaWidgetContents_3")
         self.verticalLayout_12 = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents_3)
         self.verticalLayout_12.setObjectName("verticalLayout_12")
@@ -163,7 +163,7 @@ class Ui_PreferencesWindow(object):
         self.verticalLayout_13.addWidget(self.cacheSize)
         self.cacheClearButton = QtWidgets.QPushButton(self.cacheWidget)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("./res/ui/../images/delete.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(":/images/delete.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.cacheClearButton.setIcon(icon)
         self.cacheClearButton.setIconSize(QtCore.QSize(24, 24))
         self.cacheClearButton.setObjectName("cacheClearButton")
@@ -182,7 +182,7 @@ class Ui_PreferencesWindow(object):
         self.scrollArea_2.setWidgetResizable(True)
         self.scrollArea_2.setObjectName("scrollArea_2")
         self.scrollAreaWidgetContents_2 = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 368, 246))
+        self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 438, 533))
         self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
         self.verticalLayout_7 = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents_2)
         self.verticalLayout_7.setSpacing(12)
@@ -278,3 +278,4 @@ class Ui_PreferencesWindow(object):
         self.label_7.setText(_translate("PreferencesWindow", "This option requires an application restart to take effect."))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("PreferencesWindow", "Threads"))
 from music_dragon.ui.clickablelabel import ClickableLabel
+from . import res_rc

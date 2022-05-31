@@ -1,0 +1,18 @@
+<RCC>
+  <qresource prefix="/">
+    <file>images/ytdownload.png</file>
+    <file>images/x.png</file>
+    <file>images/right.png</file>
+    <file>images/questionmark.png</file>
+    <file>images/person.jpg</file>
+    <file>images/openlink.png</file>
+    <file>images/openfolder.png</file>
+    <file>images/logo.png</file>
+    <file>images/loader.gif</file>
+    <file>images/left.png</file>
+    <file>images/forward.png</file>
+    <file>images/download.png</file>
+    <file>images/delete.png</file>
+    <file>images/back.png</file>
+  </qresource>
+</RCC>

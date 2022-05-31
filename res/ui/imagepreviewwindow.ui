@@ -23,7 +23,7 @@
       <string/>
      </property>
      <property name="pixmap">
-      <pixmap>../images/questionmark.png</pixmap>
+      <pixmap resource="../res.qrc">:/images/questionmark.png</pixmap>
      </property>
      <property name="scaledContents">
       <bool>false</bool>
@@ -39,8 +39,8 @@
       <string>Save</string>
      </property>
      <property name="icon">
-      <iconset>
-       <normaloff>../images/download.png</normaloff>../images/download.png</iconset>
+      <iconset resource="../res.qrc">
+       <normaloff>:/images/download.png</normaloff>:/images/download.png</iconset>
      </property>
      <property name="iconSize">
       <size>
@@ -52,6 +52,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="../res.qrc"/>
+ </resources>
  <connections/>
 </ui>
