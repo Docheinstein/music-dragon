@@ -53,7 +53,7 @@ class Mp3:
             mp3: AudioFile = eyed3.load(self.path)
             if mp3:
                 if not mp3.tag:
-                    print(f"WARN: not tag for mp3 '{file}', skipping")
+                    print(f"WARN: no mp3 tag found for file '{file}', skipping")
                     return False
 
                 self.tag = mp3.tag
@@ -101,14 +101,19 @@ def load_mp3(file: str, load_image=True):
 
 def load_mp3s(directory: str, load_images=True, mp3_loaded_callback=None):
     root = Path(directory)
+    if not root.exists():
+        print(f"WARN: cannot load mp3s from directory '{directory}': does not exist")
+        return
     if not root.is_dir():
-        print(f"ERROR: cannot load from directory '{directory}': not a directory")
+        print(f"WARN: cannot load mp3s from directory '{directory}': not a directory")
         return
 
     file_count = 0
     loaded_file_count = 0
     for root, dirs, files in os.walk(str(root.absolute()), topdown=False):
         for file in files:
+            if not file.endswith(".mp3"):
+                continue # skip non mp3
             file_count += 1
             mp3 = load_mp3(os.path.join(root, file), load_image=load_images)
             if mp3:

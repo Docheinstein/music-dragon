@@ -573,7 +573,7 @@ class MainWindow(QMainWindow):
 
 
     def on_search_tracks_result(self, query, tracks: List[Track]):
-        debug(f"on_search_tracks_result(query={query}")
+        debug(f"on_search_tracks_result(query={query})")
 
         pending_changes = False
 
@@ -602,6 +602,7 @@ class MainWindow(QMainWindow):
 
         # TODO: not here/better
         # search page
+        debug("Updating search result with track image")
         self.ui.searchResults.update_row(track_id)
 
     def on_artist_result(self, artist_id, artist: Artist):

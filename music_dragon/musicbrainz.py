@@ -1,22 +1,22 @@
 import musicbrainzngs as mb
 from PyQt5.QtCore import pyqtSignal
 
-from music_dragon import workers
+from music_dragon import workers, APP_DISPLAY_NAME, APP_VERSION
 from music_dragon.log import debug
 from music_dragon.utils import j
 from music_dragon.workers import Worker
 
 
 def initialize():
-    mb.set_useragent("MusicDragon", "0.1")
+    mb.set_useragent(APP_DISPLAY_NAME, APP_VERSION)
 
 def release_belongs_to_official_album(mb_release: dict):
-    return mb_release.get("status", "").lower() == "official" and \
-           "release-group" in mb_release and release_group_is_official_album(mb_release["release-group"])
+    # return mb_release.get("status", "").lower() == "official" and \
+    return "release-group" in mb_release and release_group_is_official_album(mb_release["release-group"])
 
 def release_group_is_official_album(mb_release_group: dict):
-    return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] and \
-           ("secondary-type-list" not in mb_release_group or not mb_release_group.get("secondary-type-list"))
+    return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] \
+           and ("secondary-type-list" not in mb_release_group or not mb_release_group.get("secondary-type-list"))
 
 #
 # class MbTrack: # recording belonging to a release
@@ -236,35 +236,45 @@ def search_release_groups(query, callback, limit, priority=workers.Worker.PRIORI
 # =======================================
 
 class SearchRecordingsWorker(Worker):
-    result = pyqtSignal(str, list)
+    result = pyqtSignal(str, str, list)
 
-    def __init__(self, query, limit):
+    def __init__(self, recording_query, artist_hint, limit):
         super().__init__()
-        self.query = query
+        self.recording_query = recording_query
+        self.artist_hint = artist_hint
         self.limit = limit
 
     def run(self):
-        if not self.query:
+        if not self.recording_query:
             return
-        debug(f"MUSICBRAINZ: search_recordings: '{self.query}'")
-        result = mb.search_recordings (
-            self.query, primarytype="Album", status="Official", limit=self.limit
-        )["recording-list"]
+
+        if self.artist_hint:
+            debug(f"MUSICBRAINZ: search_recordings: recording='{self.recording_query}', artist='{self.artist_hint}'")
+            result = mb.search_recordings(
+                self.recording_query, artistname=self.artist_hint, primarytype="Album", limit=self.limit, strict=True
+            )["recording-list"]
+        else:
+            debug(f"MUSICBRAINZ: search_recordings: '{self.recording_query}'")
+            result = mb.search_recordings(
+                self.recording_query, primarytype="Album", limit=self.limit
+            )["recording-list"]
+
         debug(
             "=== search_recordings ==="
             f"{j(result)}"
             "======================"
         )
-        # tracks = [MbRecording(rec) for rec in result]
 
         # strip out non-official releases
         for t in result:
+            if "release-list" not in t:
+                t["release-list"] = []
             t["release-list"] = [rel for rel in t["release-list"] if release_belongs_to_official_album(rel)]
 
-        self.result.emit(self.query, result)
+        self.result.emit(self.recording_query, self.artist_hint or "", result)
 
-def search_recordings(query, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
-    worker = SearchRecordingsWorker(query, limit)
+def search_recordings(recording_query, artist_hint, callback, limit, priority=workers.Worker.PRIORITY_NORMAL):
+    worker = SearchRecordingsWorker(recording_query, artist_hint, limit)
     worker.priority = priority
     worker.result.connect(callback)
     workers.schedule(worker)

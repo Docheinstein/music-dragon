@@ -25,9 +25,11 @@ class ListWidgetModel:
     def index(self, entry: Any) -> Optional[int]:
         try:
             debug(f"Searching index of {entry}")
-            return self.entries().index(entry)
+            idx = self.entries().index(entry)
+            debug(f"Found at {idx}")
+            return idx
         except ValueError:
-            # debug("WARN: index() failed")
+            debug("WARN: index() failed")
             pass
         return None
 

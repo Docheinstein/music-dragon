@@ -420,14 +420,26 @@ def search_release_groups(query, release_groups_callback, release_group_image_ca
         # actually fetch
         musicbrainz.search_release_groups(query, release_groups_callback_wrapper, limit)
 
-def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
+def search_tracks(query, tracks_callback, track_image_callback=None, limit=100):
     query = query.lower()
+
+    recording_query = query
+    artist_hint = None
+    if "-" in query:
+        parts = query.split("-")
+        artist_name = "".join(parts[:-1])
+        recording_name = parts[-1]
+        artist_hint = artist_name.strip()
+        recording_query = recording_name.strip()
+        debug(f"Query converted to Artist='{artist_hint}' Track='{recording_query}'")
+
+
     debug(f"search_tracks(query={query})")
 
     request_name = f"mb-search-tracks-{stable_hash(query)}-{limit}"
     cache_hit = False
 
-    def recordings_callback_wrapper(query_, result: List[dict]):
+    def recordings_callback_wrapper(recording_query_, artist_hint_, result: List[dict]):
         # add a track for each release the recoding belongs to
         if not cache_hit:
             cache.put_request(request_name, result)
@@ -456,25 +468,26 @@ def search_tracks(query, tracks_callback, track_image_callback=None, limit=3):
         for rgid, t in track_by_release_group.items():
             debug(f"RG={get_release_group(rgid).title} ({rgid})- TRACK={t.title}")
 
-        tracks_callback(query_, tracks)
+        tracks_callback(query, tracks)
 
         # (eventually) image
         if track_image_callback:
             debug("Fetching tracks image too")
             for t in tracks:
                 def tracks_image_callback_wrapper(rg_id, img):
-                    debug(f"Received image for track {t.id} with rg_id = {rg_id}")
-                    track_image_callback(t.id, img)
+                    tr = track_by_release_group[rg_id] # t.id is buggy!
+                    debug(f"Received image for track {tr.id} with rg_id = {rg_id}")
+                    track_image_callback(tr.id, img)
                 fetch_release_group_cover(t.release().release_group_id, tracks_image_callback_wrapper)
 
     req = cache.get_request(request_name)
     if req:
         # storage cached
         cache_hit = True
-        recordings_callback_wrapper(query, req)
+        recordings_callback_wrapper(recording_query, artist_hint, req)
     else:
         # actually fetch
-        musicbrainz.search_recordings(query, recordings_callback_wrapper, limit)
+        musicbrainz.search_recordings(recording_query, artist_hint, recordings_callback_wrapper, limit)
 
 
 def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_group_image_callback):

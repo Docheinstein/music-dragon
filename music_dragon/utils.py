@@ -89,6 +89,9 @@ def app_config_path():
 def app_cache_path():
     return Path(QStandardPaths.writableLocation(QStandardPaths.CacheLocation))
 
+def app_music_path():
+    return Path(QStandardPaths.writableLocation(QStandardPaths.MusicLocation), "MusicDragon")
+
 def is_dark_mode():
     return QPalette().color(QPalette.Window).value() < 128
 

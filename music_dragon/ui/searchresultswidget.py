@@ -126,8 +126,10 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
             pixmap = make_pixmap_from_data(image, default=resources.PERSON_PLACEHOLDER_PIXMAP)
         elif isinstance(self.result, Track):
             if self.result.release():
+                # debug(f"Found cover for track {self.result.id}")
                 image = self.result.release().release_group().preferred_front_cover()
             else:
+                # debug(f"No cover found for track {self.result.id}")
                 image = None # hack
             pixmap = make_pixmap_from_data(image, default=resources.COVER_PLACEHOLDER_PIXMAP)
 

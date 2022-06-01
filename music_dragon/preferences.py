@@ -3,13 +3,14 @@ from typing import Optional
 from PyQt5.QtCore import QSettings, QThread
 
 from music_dragon.log import debug
+from music_dragon.utils import app_music_path
 
 _preferences: Optional[QSettings] = None
 
 def initialize():
     global _preferences
     _preferences = QSettings("Docheinstein", "MusicDragon")
-    debug(f"Preferences file path: {_preferences.fileName()}")
+    print(f"Preferences path: {_preferences.fileName()}")
 
 
 # TODO: when the hierarchy of the preferences UI is well defined,
@@ -19,7 +20,7 @@ def initialize():
 # Directory
 
 def directory() -> str:
-    return _preferences.value("directory", "~/MusicDragon")
+    return _preferences.value("directory", str(app_music_path().absolute()))
 
 def set_directory(value: str):
     _preferences.setValue("directory", value)

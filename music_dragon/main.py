@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 
 from PyQt5.QtGui import QIcon
@@ -6,7 +7,8 @@ from PyQt5.QtWidgets import QApplication
 
 import music_dragon.ui.res_rc
 
-from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz
+from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz, APP_DISPLAY_NAME, \
+    APP_ORGANIZATION_NAME
 from music_dragon.log import debug
 from music_dragon.ui.mainwindow import MainWindow
 from music_dragon.ui import resources
@@ -19,12 +21,19 @@ def main():
         description="MusicDragon"
     )
 
+    # --verbose
+    parser.add_argument("-v", "--verbose",
+                        action="store_const", const=True, default=False,
+                        dest="verbose",
+                        help="Print more messages")
+
     parsed = vars(parser.parse_args(sys.argv[1:]))
+    music_dragon.log.debug_enabled = parsed.get("verbose")
 
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(":/images/logo.png"))
-    app.setOrganizationName("Docheinstein")
-    app.setApplicationName("MusicDragon")
+    app.setOrganizationName(APP_ORGANIZATION_NAME)
+    app.setApplicationName(APP_DISPLAY_NAME)
 
     debug(f"Config location: {utils.app_config_path()}")
     debug(f"Cache location: {utils.app_cache_path()}")

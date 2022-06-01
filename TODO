@@ -5,6 +5,5 @@
 - setuptools and PyPi
 - mp3 tagger
 - refactor
-- bugfix: click on album loads random albums
 - windows: ~/MusicDragon
 - windows: ui -> local createEditor is little different
