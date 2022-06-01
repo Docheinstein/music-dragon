@@ -66,7 +66,7 @@ def search_youtube_track(query: str, callback, priority=workers.Worker.PRIORITY_
 # ==============================================================
 
 class SearchYoutubeAlbumTracksWorker(Worker):
-    result = pyqtSignal(str, str, list)
+    result = pyqtSignal(str, str, dict)
 
     def __init__(self, artist_name: str, album_title: str):
         super().__init__()
@@ -75,6 +75,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
 
     def run(self) -> None:
         def get_closest(query, elements: List[dict], field: str) -> Optional[dict]:
+            query = query.lower()
             scores = [0] * len(elements)
 
             # Figure out the best match based on
@@ -82,6 +83,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             # 2. Edit distance
             for i, e in enumerate(elements):
                 e_name = e[field]
+                e_name = e_name.lower()
                 if query == e_name:
                     scores[i] += 2000
                 elif query in e_name or e_name in query:
@@ -101,8 +103,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         def get_closest_album(query, albums: List[dict]) -> Optional[dict]:
             return get_closest(query, albums, "title")
 
-
-        result = []
+        result = {}
 
         artist_query = self.artist_name
         album_query = self.album_title
@@ -152,9 +153,9 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                         "======================"
                     )
 
-                    result = album_details["tracks"]
-                    for idx, yttrack in enumerate(result):
+                    result = album_details
 
+                    for idx, yttrack in enumerate(album_details["tracks"]):
                         # hack
                         yttrack["track_number"] = idx + 1
 
@@ -162,6 +163,8 @@ class SearchYoutubeAlbumTracksWorker(Worker):
                             "id": album['browseId'],
                             "name": album["title"]
                         }
+
+
 
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")
@@ -171,7 +174,7 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         self.result.emit(self.artist_name, self.album_title, result)
 
 
-def search_youtube_album_tracks(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
+def search_youtube_album(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
     if _yt:
         worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
         worker.priority = priority

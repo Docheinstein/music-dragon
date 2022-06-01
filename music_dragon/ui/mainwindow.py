@@ -94,6 +94,7 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_missing_album_tracks_clicked)
+        self.ui.albumOpenButton.clicked.connect(self.on_open_album_button_clicked)
 
         # Artist
         self.current_artist_id = None
@@ -278,6 +279,7 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadAllButton.setEnabled(False)
         self.ui.albumDownloadAllButton.setText(f"Download missing songs")
         self.ui.albumDownloadStatus.setText("")
+        self.ui.albumOpenButton.setVisible(False)
 
         # tracks
         self.album_tracks_model.release_id = None
@@ -320,6 +322,7 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadAllButton.setEnabled(False)
         self.ui.albumDownloadAllButton.setText(f"Download missing songs")
         self.ui.albumDownloadStatus.setText("")
+        self.ui.albumOpenButton.setVisible(False)
 
         # tracks
         self.album_tracks_model.release_id = None
@@ -357,6 +360,7 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadAllButton.setEnabled(False)
         self.ui.albumDownloadAllButton.setText(f"Download missing songs")
         self.ui.albumDownloadStatus.setText("")
+        self.ui.albumOpenButton.setVisible(False)
 
         # tracks
         self.album_tracks_model.release_id = None
@@ -496,6 +500,11 @@ class MainWindow(QMainWindow):
         query = self.ui.searchBar.text()
         debug(f"on_search_debounce_time_elapsed(query={query})")
 
+        debug("Clearing search results")
+        self.last_search_query = query
+        self.search_results_model.results.clear()
+        self.ui.searchResults.invalidate()
+
         repository.search_artists(
             query,
             artists_callback=self.on_search_artists_result,
@@ -516,38 +525,27 @@ class MainWindow(QMainWindow):
     def on_search_release_groups_result(self, query, release_groups: List[ReleaseGroup]):
         debug(f"on_search_release_groups_result(query={query}")
 
-        pending_changes = False
-
         if query != self.last_search_query:
-            debug("Clearing search results")
-            self.last_search_query = query
-            self.search_results_model.results.clear()
-            pending_changes = True
+            print(
+                f"WARN: ignoring results for query: {query} since differs from current query: {self.last_search_query}")
+            return
 
-        for release_group in release_groups:
-            self.search_results_model.results.append(release_group.id)
-            pending_changes = True
-
-        if pending_changes:
+        if release_groups:
+            for release_group in release_groups:
+                self.search_results_model.results.append(release_group.id)
             self.ui.searchResults.invalidate()
 
 
     def on_search_artists_result(self, query, artists: List[Artist]):
         debug(f"on_search_artists_result(query={query}")
 
-        pending_changes = False
-
         if query != self.last_search_query:
-            debug("Clearing search results")
-            self.last_search_query = query
-            self.search_results_model.results.clear()
-            pending_changes = True
+            print(f"WARN: ignoring results for query: {query} since differs from current query: {self.last_search_query}")
+            return
 
-        for artist in artists:
-            self.search_results_model.results.append(artist.id)
-            pending_changes = True
-
-        if pending_changes:
+        if artists:
+            for artist in artists:
+                self.search_results_model.results.append(artist.id)
             self.ui.searchResults.invalidate()
 
 
@@ -575,20 +573,16 @@ class MainWindow(QMainWindow):
     def on_search_tracks_result(self, query, tracks: List[Track]):
         debug(f"on_search_tracks_result(query={query})")
 
-        pending_changes = False
-
         if query != self.last_search_query:
-            debug("Clearing search results")
-            self.last_search_query = query
-            self.search_results_model.results.clear()
-            pending_changes = True
+            print(
+                f"WARN: ignoring results for query: {query} since differs from current query: {self.last_search_query}")
+            return
 
-        for track in tracks:
-            self.search_results_model.results.append(track.id)
-            pending_changes = True
-
-        if pending_changes:
+        if tracks:
+            for track in tracks:
+                self.search_results_model.results.append(track.id)
             self.ui.searchResults.invalidate()
+
 
     def on_release_group_image_result(self, release_group_id, image):
         debug(f"on_release_group_image_result(release_group_id={release_group_id})")
@@ -866,7 +860,6 @@ class MainWindow(QMainWindow):
 
         if self.current_release_group_id == release.release_group_id:
             self.ui.albumTracks.invalidate()
-
             self.update_album_download_widgets()
 
     def update_album_download_widgets(self):
@@ -900,6 +893,9 @@ class MainWindow(QMainWindow):
         # Download missing tracks status
         self.ui.albumDownloadStatus.setText(f"Verified songs: {verified}/{release.track_count()}")
         self.ui.albumDownloadStatus.setToolTip("\n".join([f'{t.title} [{"verified" if t.youtube_track_is_official else "not verified"}]' for t in tracks]))
+
+        self.ui.albumOpenButton.setVisible(True)
+        self.ui.albumOpenButton.setToolTip("Open album in YouTube")
 
 
     def on_youtube_track_download_queued(self, down: dict):
@@ -991,6 +987,12 @@ class MainWindow(QMainWindow):
         for track in rg.main_release().tracks():
             if not track.is_locally_available() and not track.downloading:
                 self.do_download_youtube_track(track.id)
+
+    def on_open_album_button_clicked(self):
+        debug("on_open_album_button_clicked")
+        rg = get_release_group(self.current_release_group_id)
+        if rg.youtube_playlist_id:
+            open_url(ytcommons.youtube_playlist_id_to_youtube_url(rg.youtube_playlist_id))
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,

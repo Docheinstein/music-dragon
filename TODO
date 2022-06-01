@@ -5,5 +5,9 @@
 - setuptools and PyPi
 - mp3 tagger
 - refactor
-- windows: ~/MusicDragon
+- reload local artists albums
 - windows: ui -> local createEditor is little different
+
+- toto - africa not found?
+- dream theater - images and words: why fetch not the official one?
+- escape ” with ascii "
