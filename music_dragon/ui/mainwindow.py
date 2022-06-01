@@ -555,7 +555,7 @@ class MainWindow(QMainWindow):
         debug(f"on_search_release_group_releases_result(release_group_id={release_group_id})")
 
         rg = get_release_group(release_group_id)
-        if rg:
+        if rg and self.current_release_group_id == rg.id:
             main_release_id = rg.main_release_id
             main_release = get_release(main_release_id)
             if main_release:
