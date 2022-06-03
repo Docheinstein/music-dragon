@@ -121,6 +121,8 @@ def stable_hash(s: str):
     m.update(s.encode())
     return m.hexdigest()
 
+def rangify(a, x, b):
+    return max(a, min(x, b))
 
 class Mergeable:
     def merge(self, other):

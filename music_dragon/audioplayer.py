@@ -1,15 +1,11 @@
-from typing import Optional
-
 import vlc
 
 from music_dragon.log import debug
-from music_dragon.repository import Track
 
 media_player = vlc.MediaPlayer()
-media_player_track: Optional[Track] = None
 
 def open_stream(url: str):
-    debug(f"Opening stream from url: {url}")
+    debug(f"Opening audio stream from url: {url}")
     media_player.set_media(vlc.get_default_instance().media_new(url))
 
 def stream_is_open():
@@ -23,10 +19,25 @@ def pause():
     debug("PAUSE")
     media_player.pause()
 
-def is_playing():
-    return stream_is_open() and media_player.is_playing()
+def get_state():
+    s = media_player.get_state()
+    debug(f"STATE: {s}")
+    return s
 
-def current_time():
+def is_playing():
+    return get_state() == vlc.State.Playing
+
+def is_paused():
+    return get_state() == vlc.State.Paused
+
+def is_ended():
+    return get_state() == vlc.State.Ended
+
+def get_time():
     return media_player.get_time()
+
+def set_time(t: int):
+    debug(f"Setting time = {t}")
+    return media_player.set_time(t)
 
 

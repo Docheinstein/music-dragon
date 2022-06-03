@@ -18,6 +18,7 @@ mp3s = []
 class Mp3:
     def __init__(self):
         # tag
+        self.length = None
         self.tag = None
         self.artist = None
         self.album = None
@@ -55,7 +56,7 @@ class Mp3:
                 if not mp3.tag:
                     print(f"WARN: no mp3 tag found for file '{file}', skipping")
                     return False
-
+                self.length = 1000 * mp3.info.time_secs
                 self.tag = mp3.tag
                 self.artist = mp3.tag.artist
                 self.album = mp3.tag.album

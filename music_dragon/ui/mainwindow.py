@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont, QMouseEvent
@@ -21,13 +21,21 @@ from music_dragon.ui.preferenceswindow import PreferencesWindow
 from music_dragon.ui.searchresultswidget import SearchResultsModel
 from music_dragon.ui.ui_mainwindow import Ui_MainWindow
 from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_long_string, \
-    millis_to_short_string
+    millis_to_short_string, rangify
 from music_dragon.ytmusic import YtTrack
 
 SEARCH_DEBOUNCE_MS = 800
 
 DOWNLOADS_TABS_QUEUED_INDEX = 0
 DOWNLOADS_TABS_COMPLETED_INDEX = 1
+
+# class Mp3PlayInfo:
+#     def __init__(self):
+#         self.mp3 = None
+#
+# class TrackPlayInfo:
+#     def __init__(self):
+#         self.track = None
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -179,9 +187,14 @@ class MainWindow(QMainWindow):
         self.ui.playAlbum.set_underline_on_hover(True)
         self.ui.playAlbum.clicked.connect(self.on_play_album_clicked)
         self.ui.playContainer.setVisible(False)
-        self.playingTrack: Optional[Track] = None
+        self.ui.playBar.valueChanged.connect(self.on_play_bar_changed)
+        self.ui.prevSongButton.clicked.connect(self.on_prev_song_button_clicked)
+        self.ui.nextSongButton.clicked.connect(self.on_next_song_button_clicked)
+
+        self.playing: Optional[Union[Track, Mp3]] = None
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.on_play_timer_tick)
+
 
     def set_local_page(self):
         self.push_page(self.ui.localPage)
@@ -1178,8 +1191,7 @@ class MainWindow(QMainWindow):
         mp3 = localsongs.mp3s[row]
         debug(f"on_local_song_double_clicked: {mp3}")
         if mp3.path:
-            debug(f"Mp3 path: {mp3.path}")
-            open_folder(mp3.path.parent)
+            self.play_local_song(mp3)
 
     def on_finished_download_double_clicked(self, row: int):
         debug("on_finished_download_double_clicked")
@@ -1232,28 +1244,54 @@ class MainWindow(QMainWindow):
     def on_track_double_clicked(self, row: int):
         debug("on_track_double_clicked")
         track_id = self.album_tracks_model.entry(row)
+        self.play_track(track_id)
+
+    def play_local_song(self, mp3: Mp3):
+        self.ui.playContainer.setVisible(False)
+
+        self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
+        self.ui.playTitle.setText(mp3.song)
+        self.ui.playArtist.setText(mp3.artist)
+        self.ui.playAlbum.setText(mp3.album)
+
+        self.ui.playBar.setValue(0, notify=False)
+        self.ui.playCurrentTime.setText(millis_to_short_string(0))
+        self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
+
+        self.playing = mp3
+        self.play_audio(str(mp3.path))
+
+    def play_track(self, track_id):
         track = get_track(track_id)
+        self.ui.playContainer.setVisible(False)
+
         self.ui.playCover.setPixmap(self.ui.albumCover.pixmap())
         self.ui.playTitle.setText(track.title)
         self.ui.playArtist.setText(track.release().release_group().artists_string())
         self.ui.playAlbum.setText(track.release().release_group().title)
+
+        self.ui.playBar.setValue(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(track.length))
-        self.ui.playContainer.setVisible(False)
 
         def track_streams_fetched(_1, _2):
             yttrack = get_youtube_track(track.youtube_track_id)
 
             audios = sorted([s for s in yttrack.streams if s["type"] == "audio"], key=lambda s: s["size"])
             if audios:
-                self.ui.playContainer.setVisible(True)
-                self.playingTrack = track
-                audioplayer.open_stream(audios[0]["url"])
-                audioplayer.play()
-                self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
-                self.playTimer.start(1000)
+                self.playing = track
+                self.play_audio(audios[0]["url"])
 
         repository.fetch_youtube_track_streams(track_id, track_streams_fetched)
+
+    def play_audio(self, audio_url: str):
+        audioplayer.set_time(0)
+        audioplayer.open_stream(audio_url)
+        audioplayer.play()
+
+        self.ui.playContainer.setVisible(True)
+        self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
+        self.playTimer.start(200)
 
     def on_play_pause_button_clicked(self):
         if not audioplayer.stream_is_open():
@@ -1263,19 +1301,82 @@ class MainWindow(QMainWindow):
         if audioplayer.is_playing():
             audioplayer.pause()
             self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
-        else:
+        elif audioplayer.is_paused():
             audioplayer.play()
             self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
+        elif audioplayer.is_ended():
+            audioplayer.set_time(0)
+            audioplayer.play()
+            self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
+            self.update_play_progress()
+        else:
+            print(f"WARN: unexpected audio player state: {audioplayer.get_state()}")
 
     def on_play_artist_clicked(self):
         # TODO: more than an artist
-        self.open_artist(self.playingTrack.release().release_group().artists()[0])
+        if isinstance(self.playing, Track):
+            self.open_artist(self.playing.release().release_group().artists()[0])
+        elif isinstance(self.playing, Mp3):
+            self.open_mp3_artist(self.playing)
 
     def on_play_album_clicked(self):
-        self.open_release_group(self.playingTrack.release().release_group())
+        if isinstance(self.playing, Track):
+            self.open_release_group(self.playing.release().release_group())
+        elif isinstance(self.playing, Mp3):
+            self.open_mp3_release_group(self.playing)
 
     def on_play_timer_tick(self):
+        self.update_play_progress()
+
+    def update_play_progress(self):
         if audioplayer.is_playing():
-            t = audioplayer.current_time()
+            t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
-            self.ui.playBar.setValue(int(100 * t / self.playingTrack.length))
+            self.ui.playBar.setValue(int(100 * t / self.playing.length), notify=False)
+        elif audioplayer.is_paused():
+            self.playTimer.stop()
+        elif audioplayer.is_ended():
+            self.playTimer.stop()
+            self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
+            self.ui.playCurrentTime.setText(millis_to_short_string(0))
+            self.ui.playBar.setValue(0, notify=False)
+            self.play_next()
+
+
+    def play_by_offset(self, delta):
+        debug("play_next")
+        if isinstance(self.playing, Track):
+            rg = self.playing.release().release_group()
+            main_release = rg.main_release()
+            next_idx = main_release.track_ids.index(self.playing.id) + delta
+            if 0 <= next_idx < main_release.track_count():
+                self.play_track(main_release.track_ids[next_idx])
+            else:
+                print("Nothing else to play")
+        elif isinstance(self.playing, Mp3):
+            next_idx = localsongs.mp3s.index(self.playing) + delta
+            if 0 <= next_idx < len(localsongs.mp3s):
+                self.play_local_song(localsongs.mp3s[next_idx])
+            else:
+                print("Nothing else to play")
+
+    def play_next(self):
+        debug("play_next")
+        self.play_by_offset(1)
+
+    def play_prev(self):
+        debug("play_prev")
+        self.play_by_offset(-1)
+
+    def on_play_bar_changed(self):
+        debug(f"on_play_bar_changed, value = {self.ui.playBar.value()}")
+        # t : length = value : 100
+        t = rangify(0, int(self.ui.playBar.value() * self.playing.length / 100), self.playing.length)
+        audioplayer.set_time(t)
+        self.update_play_progress()
+
+    def on_prev_song_button_clicked(self):
+        self.play_prev()
+
+    def on_next_song_button_clicked(self):
+        self.play_next()

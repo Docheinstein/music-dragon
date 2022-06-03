@@ -864,9 +864,21 @@ border-radius: 5px;
        </size>
       </property>
       <property name="styleSheet">
-       <string notr="true">.QWidget { background-color:  #252626; border-top: 1px solid #929696; }</string>
+       <string notr="true">.QWidget { background-color:  #252626; border-top: 1px solid #929696;}</string>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout_13">
+       <property name="leftMargin">
+        <number>12</number>
+       </property>
+       <property name="topMargin">
+        <number>12</number>
+       </property>
+       <property name="rightMargin">
+        <number>12</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_10">
          <property name="spacing">
@@ -908,6 +920,9 @@ border-radius: 5px;
          </item>
          <item>
           <layout class="QVBoxLayout" name="verticalLayout_17">
+           <property name="spacing">
+            <number>0</number>
+           </property>
            <item>
             <widget class="QLabel" name="playTitle">
              <property name="font">
@@ -994,6 +1009,9 @@ border-radius: 5px;
        </item>
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_18">
+         <property name="spacing">
+          <number>0</number>
+         </property>
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_12">
            <item>
@@ -1008,6 +1026,41 @@ border-radius: 5px;
               </size>
              </property>
             </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="prevSongButton">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>32</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res.qrc">
+               <normaloff>:/images/prev.png</normaloff>:/images/prev.png</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>32</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QPushButton" name="playPauseButton">
@@ -1035,12 +1088,47 @@ border-radius: 5px;
              </property>
              <property name="iconSize">
               <size>
+               <width>48</width>
+               <height>48</height>
+              </size>
+             </property>
+             <property name="flat">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="nextSongButton">
+             <property name="minimumSize">
+              <size>
+               <width>32</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>32</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="cursor">
+              <cursorShape>PointingHandCursor</cursorShape>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res.qrc">
+               <normaloff>:/images/next.png</normaloff>:/images/next.png</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
                <width>32</width>
                <height>32</height>
               </size>
              </property>
              <property name="flat">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -1061,6 +1149,9 @@ border-radius: 5px;
          </item>
          <item>
           <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <property name="spacing">
+            <number>12</number>
+           </property>
            <item>
             <widget class="QLabel" name="playCurrentTime">
              <property name="text">
@@ -1069,24 +1160,15 @@ border-radius: 5px;
             </widget>
            </item>
            <item>
-            <widget class="QProgressBar" name="playBar">
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>8</height>
-              </size>
+            <widget class="ClickSlider" name="playBar">
+             <property name="maximum">
+              <number>100</number>
              </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>8</height>
-              </size>
-             </property>
-             <property name="value">
+             <property name="sliderPosition">
               <number>0</number>
              </property>
-             <property name="textVisible">
-              <bool>false</bool>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
@@ -1195,6 +1277,11 @@ border-radius: 5px;
    <class>LocalAlbumsView</class>
    <extends>QListView</extends>
    <header>music_dragon/ui/localalbumsview.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ClickSlider</class>
+   <extends>QSlider</extends>
+   <header>music_dragon/ui/clickslider.h</header>
   </customwidget>
  </customwidgets>
  <resources>
