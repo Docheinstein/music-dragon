@@ -198,15 +198,15 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
             self.ui.cancel_button.setVisible(False)
 
     def _on_cancel_button_clicked(self):
-        debug(f"_on_cancel_button_clicked({self.entry})")
+        debug(f"_on_cancel_button_clicked")
         self.cancel_button_clicked.emit(self.entry)
 
     def _on_artist_clicked(self):
-        debug(f"_on_artist_clicked({self.entry})")
+        debug(f"_on_artist_clicked")
         self.artist_clicked.emit(self.entry)
 
     def _on_album_clicked(self):
-        debug(f"_on_album_clicked({self.entry})")
+        debug(f"_on_album_clicked")
         self.album_clicked.emit(self.entry)
 
 class BaseDownloadsModel(ListWidgetModel):

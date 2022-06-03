@@ -38,7 +38,7 @@ def current_execution_millis():
 def current_execution_seconds():
     return current_execution_millis() / 1000
 
-def millis_to_human_string(ms, hr_fmt="hr", min_fmt="min", sec_fmt="sec"):
+def millis_to_long_string(ms, hr_fmt="hr", min_fmt="min", sec_fmt="sec"):
     secs = int(ms / 1000)
     h = int(secs / 3600)
     m = int((secs % 3600) / 60)
@@ -48,6 +48,15 @@ def millis_to_human_string(ms, hr_fmt="hr", min_fmt="min", sec_fmt="sec"):
     if m:
         return f"{m} {min_fmt}, {s} {sec_fmt}"
     return f"{s} {sec_fmt}"
+
+def millis_to_short_string(ms):
+    secs = int(ms / 1000)
+    h = int(secs / 3600)
+    m = int((secs % 3600) / 60)
+    s = secs % 60
+    if h:
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
 
 def min_index(sequence: Sequence):
     return sequence.index(min(sequence))
@@ -71,6 +80,8 @@ def sanitize_filename(f: str):
 def normalize_metadata(something: str):
     something = something.replace("’", "'")
     something = something.replace("‐", "-")
+    something = something.replace("”", "\"")
+    something = something.replace("“", "\"")
     return something
 
 def open_url(url: str):

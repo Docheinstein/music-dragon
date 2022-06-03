@@ -193,7 +193,11 @@ class WorkerScheduler(QObject):
 
     def _on_worker_finished(self, worker_id):
         # Remove worker
-        self.workers.pop(worker_id)
+        try:
+            w = self.workers.pop(worker_id)
+            debug(f"Removed {w} from {self}")
+        except KeyError:
+            print(f"WARN: no worker with id {worker_id} among workers of {self}")
 
         # Dispatch next worker if possible
         self._dispatch_job_while_possible()
@@ -313,8 +317,11 @@ class WorkerScheduler(QObject):
             debug(f"Removing canceled workers: {canceled_worker_ids}")
 
         for wid in canceled_worker_ids:
-            self.workers.pop(wid)
-
+            try:
+                w = self.workers.pop(wid)
+                debug(f"Removed {w} from {self}")
+            except KeyError:
+                print(f"WARN: no worker with id {wid} among workers of {self}")
 
 def schedule(worker: Worker):
     worker_scheduler.schedule(worker)

@@ -31,6 +31,14 @@ class YtTrack(Mergeable):
             "name": a["name"]
         } for a in yt_track["artists"]] if "artists" in yt_track else [yt_track.get("artist")]
         self.track_number = yt_track.get("track_number")
+        self.streams = []
+        self.streams_fetched = False
+
+    def merge(self, other):
+        # handle flags apart
+        streams_fetched = self.streams_fetched or other.streams_fetched
+        super().merge(other)
+        self.streams_fetched = streams_fetched
 
 # ========== SEARCH YOUTUBE TRACK ===========
 # Search youtube track for a given query
@@ -177,6 +185,35 @@ class SearchYoutubeAlbumTracksWorker(Worker):
 def search_youtube_album(artist_name: str, album_title: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
     if _yt:
         worker = SearchYoutubeAlbumTracksWorker(artist_name, album_title)
+        worker.priority = priority
+        worker.result.connect(callback)
+        workers.schedule(worker)
+
+# ========== FETCH YOUTUBE TRACK ===========
+# Fetch youtube track
+# ===========================================
+
+class FetchYoutubeTrackWorker(Worker):
+    result = pyqtSignal(str, dict)
+
+    def __init__(self, video_id: str):
+        super().__init__()
+        self.video_id = video_id
+
+    def run(self) -> None:
+        debug(f"YOUTUBE_MUSIC: get_song: '{self.video_id}'")
+        result = _yt.get_song(self.video_id)
+        debug(
+            "=== get_song ==="
+            f"{j(result)}"
+            "======================"
+        )
+        if result:
+            self.result.emit(self.video_id, result)
+
+def fetch_track_info(video_id: str, callback, priority=workers.Worker.PRIORITY_NORMAL):
+    if _yt:
+        worker = FetchYoutubeTrackWorker(video_id)
         worker.priority = priority
         worker.result.connect(callback)
         workers.schedule(worker)

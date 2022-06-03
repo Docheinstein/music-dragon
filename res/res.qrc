@@ -1,6 +1,7 @@
 <RCC>
   <qresource prefix="/">
-    <file>images/ytdownload.png</file>
+    <file>images/pause.png</file>
+    <file>images/play.png</file>
     <file>images/x.png</file>
     <file>images/right.png</file>
     <file>images/questionmark.png</file>

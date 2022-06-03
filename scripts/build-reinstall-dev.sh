@@ -1,4 +1,4 @@
 #!/bin/bash
 
 scripts/build.sh
-scripts/reinstall.sh
+scripts/reinstall-dev.sh

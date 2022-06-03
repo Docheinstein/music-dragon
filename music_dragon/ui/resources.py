@@ -17,6 +17,8 @@ PERSON_PLACEHOLDER_PATH = f"{IMAGES_PATH}/person.jpg"
 DOWNLOAD_PATH = f"{IMAGES_PATH}/download.png"
 X_PATH = f"{IMAGES_PATH}/x.png"
 OPEN_LINK_PATH = f"{IMAGES_PATH}/openlink.png"
+PLAY_PATH = f"{IMAGES_PATH}/play.png"
+PAUSE_PATH = f"{IMAGES_PATH}/pause.png"
 
 COVER_PLACEHOLDER_PIXMAP: Optional[QPixmap] = None
 PERSON_PLACEHOLDER_PIXMAP: Optional[QPixmap] = None
@@ -29,6 +31,8 @@ PERSON_PLACEHOLDER_ICON: Optional[QIcon] = None
 DOWNLOAD_ICON: Optional[QIcon] = None
 X_ICON: Optional[QIcon] = None
 OPEN_LINK_ICON: Optional[QIcon] = None
+PLAY_ICON: Optional[QIcon] = None
+PAUSE_ICON: Optional[QIcon] = None
 
 def initialize():
     global COVER_PLACEHOLDER_PIXMAP
@@ -41,6 +45,8 @@ def initialize():
     global DOWNLOAD_ICON
     global OPEN_LINK_ICON
     global X_ICON
+    global PLAY_ICON
+    global PAUSE_ICON
 
     COVER_PLACEHOLDER_PIXMAP = QPixmap(COVER_PLACEHOLDER_PATH)
     PERSON_PLACEHOLDER_PIXMAP = QPixmap(PERSON_PLACEHOLDER_PATH)
@@ -53,3 +59,5 @@ def initialize():
     DOWNLOAD_ICON = QIcon(DOWNLOAD_PATH)
     OPEN_LINK_ICON = QIcon(OPEN_LINK_PATH)
     X_ICON = QIcon(X_PATH)
+    PLAY_ICON = QIcon(PLAY_PATH)
+    PAUSE_ICON = QIcon(PAUSE_PATH)

@@ -34,11 +34,12 @@ setup(
         "musicbrainzngs",
         "youtube_dl",
         "ytmusicapi",
+        "python-vlc",
         "eyed3",
         "PyQt5",
         "wikidata",
         "requests",
-        "levenshtein"
+        "levenshtein",
     ],
 
     # Metadata

@@ -49,6 +49,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # title
         self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         # download button
         self.ui.download_button = QPushButton()

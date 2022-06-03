@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont, QMouseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
-from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences
+from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.repository import Artist, ReleaseGroup, Release, Track, get_artist, \
@@ -20,14 +20,14 @@ from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelega
 from music_dragon.ui.preferenceswindow import PreferencesWindow
 from music_dragon.ui.searchresultswidget import SearchResultsModel
 from music_dragon.ui.ui_mainwindow import Ui_MainWindow
-from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_human_string
+from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_long_string, \
+    millis_to_short_string
 from music_dragon.ytmusic import YtTrack
 
 SEARCH_DEBOUNCE_MS = 800
 
 DOWNLOADS_TABS_QUEUED_INDEX = 0
 DOWNLOADS_TABS_COMPLETED_INDEX = 1
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
 
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
+        self.ui.albumTracks.row_double_clicked.connect(self.on_track_double_clicked)
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_missing_album_tracks_clicked)
         self.ui.albumOpenButton.clicked.connect(self.on_open_album_button_clicked)
 
@@ -170,6 +171,17 @@ class MainWindow(QMainWindow):
             finished_callback=self.on_mp3s_loaded,
             load_images=False
         )
+
+        # Play
+        self.ui.playPauseButton.clicked.connect(self.on_play_pause_button_clicked)
+        self.ui.playArtist.set_underline_on_hover(True)
+        self.ui.playArtist.clicked.connect(self.on_play_artist_clicked)
+        self.ui.playAlbum.set_underline_on_hover(True)
+        self.ui.playAlbum.clicked.connect(self.on_play_album_clicked)
+        self.ui.playContainer.setVisible(False)
+        self.playingTrack: Optional[Track] = None
+        self.playTimer = QTimer(self)
+        self.playTimer.timeout.connect(self.on_play_timer_tick)
 
     def set_local_page(self):
         self.push_page(self.ui.localPage)
@@ -560,7 +572,7 @@ class MainWindow(QMainWindow):
                 self.album_tracks_model.release_id = main_release_id
                 self.ui.albumTracks.invalidate()
                 self.ui.albumYear.setText(rg.year())
-                self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_human_string(main_release.length())}")
+                self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_long_string(main_release.length())}")
 
                 self.set_album_cover(release_group_id)
                 self.update_album_download_widgets()
@@ -1173,7 +1185,7 @@ class MainWindow(QMainWindow):
         debug("on_finished_download_double_clicked")
         down = self.finished_downloads_model.entry(row)
         if down:
-            debug(f"Associated download: {down}")
+            # debug(f"Associated download: {down}")
             folder = down.get("file")
             if folder:
                 debug(f"Opening folder of {folder}")
@@ -1216,3 +1228,54 @@ class MainWindow(QMainWindow):
         debug("on_local_album_artist_clicked")
         mp3_group_leader = self.local_albums_model.entry(row)
         self.open_mp3_artist(mp3_group_leader)
+
+    def on_track_double_clicked(self, row: int):
+        debug("on_track_double_clicked")
+        track_id = self.album_tracks_model.entry(row)
+        track = get_track(track_id)
+        self.ui.playCover.setPixmap(self.ui.albumCover.pixmap())
+        self.ui.playTitle.setText(track.title)
+        self.ui.playArtist.setText(track.release().release_group().artists_string())
+        self.ui.playAlbum.setText(track.release().release_group().title)
+        self.ui.playCurrentTime.setText(millis_to_short_string(0))
+        self.ui.playMaxTime.setText(millis_to_short_string(track.length))
+        self.ui.playContainer.setVisible(False)
+
+        def track_streams_fetched(_1, _2):
+            yttrack = get_youtube_track(track.youtube_track_id)
+
+            audios = sorted([s for s in yttrack.streams if s["type"] == "audio"], key=lambda s: s["size"])
+            if audios:
+                self.ui.playContainer.setVisible(True)
+                self.playingTrack = track
+                audioplayer.open_stream(audios[0]["url"])
+                audioplayer.play()
+                self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
+                self.playTimer.start(1000)
+
+        repository.fetch_youtube_track_streams(track_id, track_streams_fetched)
+
+    def on_play_pause_button_clicked(self):
+        if not audioplayer.stream_is_open():
+            print("WARN: stream is not loaded yet")
+            return
+
+        if audioplayer.is_playing():
+            audioplayer.pause()
+            self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
+        else:
+            audioplayer.play()
+            self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
+
+    def on_play_artist_clicked(self):
+        # TODO: more than an artist
+        self.open_artist(self.playingTrack.release().release_group().artists()[0])
+
+    def on_play_album_clicked(self):
+        self.open_release_group(self.playingTrack.release().release_group())
+
+    def on_play_timer_tick(self):
+        if audioplayer.is_playing():
+            t = audioplayer.current_time()
+            self.ui.playCurrentTime.setText(millis_to_short_string(t))
+            self.ui.playBar.setValue(int(100 * t / self.playingTrack.length))
