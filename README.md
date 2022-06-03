@@ -12,6 +12,7 @@ search artists, albums and songs and automatically download and tag those with o
 - Show and manage local songs
 - Automatically recognize whether songs and albums have already been downloaded
   (the border of the song/album's cover changes accordingly)
+- Play songs, either locally or directly from youtube stream
 
 ### What it looks like
 
@@ -33,4 +34,5 @@ music-dragon
 ## TODO
 * Improve UI
 * Allow manual tagging of local songs (`eyed3`)
+* Solve some known bugs
 * Refactor

@@ -1265,10 +1265,11 @@ class MainWindow(QMainWindow):
         track = get_track(track_id)
         self.ui.playContainer.setVisible(False)
 
-        self.ui.playCover.setPixmap(self.ui.albumCover.pixmap())
+        rg = track.release().release_group()
+        self.ui.playCover.setPixmap(rg.preferred_front_cover())
         self.ui.playTitle.setText(track.title)
-        self.ui.playArtist.setText(track.release().release_group().artists_string())
-        self.ui.playAlbum.setText(track.release().release_group().title)
+        self.ui.playArtist.setText(rg.artists_string())
+        self.ui.playAlbum.setText(rg.title)
 
         self.ui.playBar.setValue(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))

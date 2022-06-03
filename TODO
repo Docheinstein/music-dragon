@@ -13,3 +13,5 @@
 
 - rename workers... XXXfetcher or fetchXXX
 - fetch from MB when pasting yt track or yt playlist, if possible
+
+- sometime a row is added above ModelViewWidget
