@@ -6,3 +6,6 @@
 /dist/
 /build/
 main.spec
+/venv/
+/other/pyinstaller_data/windows/ffmpeg/
+/other/pyinstaller_data/windows/vlc/

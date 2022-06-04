@@ -1,15 +1,5 @@
-import os
-
-import vlc
-
 from music_dragon.log import debug
-from music_dragon.utils import is_win
-
-# TODO: more reliable way?
-# if is_win():
-#     pass
-# else:
-#     os.environ["PYTHON_VLC_MODULE_PATH"] = "/usr/lib/vlc/plugins"
+import vlc
 
 _vlc_instance = vlc.Instance()
 media_player = _vlc_instance.media_player_new()
