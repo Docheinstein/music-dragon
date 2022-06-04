@@ -1266,7 +1266,7 @@ class MainWindow(QMainWindow):
         self.ui.playContainer.setVisible(False)
 
         rg = track.release().release_group()
-        self.ui.playCover.setPixmap(rg.preferred_front_cover())
+        self.ui.playCover.setPixmap(make_pixmap_from_data(rg.preferred_front_cover(), default=resources.COVER_PLACEHOLDER_PIXMAP))
         self.ui.playTitle.setText(track.title)
         self.ui.playArtist.setText(rg.artists_string())
         self.ui.playAlbum.setText(rg.title)

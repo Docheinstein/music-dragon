@@ -1,12 +1,22 @@
+import os
+
 import vlc
 
 from music_dragon.log import debug
+from music_dragon.utils import is_win
 
-media_player = vlc.MediaPlayer()
+# TODO: more reliable way?
+# if is_win():
+#     pass
+# else:
+#     os.environ["PYTHON_VLC_MODULE_PATH"] = "/usr/lib/vlc/plugins"
+
+_vlc_instance = vlc.Instance()
+media_player = _vlc_instance.media_player_new()
 
 def open_stream(url: str):
     debug(f"Opening audio stream from url: {url}")
-    media_player.set_media(vlc.get_default_instance().media_new(url))
+    media_player.set_media(_vlc_instance.media_new(url))
 
 def stream_is_open():
     return media_player.get_media() is not None

@@ -4,3 +4,5 @@
 /.idea/
 /music_dragon.egg-info/
 /dist/
+/build/
+main.spec

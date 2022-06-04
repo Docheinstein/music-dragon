@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Sequence, Optional, Union
@@ -78,6 +79,8 @@ def sanitize_filename(f: str):
     return f
 
 def normalize_metadata(something: str):
+    if not something:
+        return something
     something = something.replace("’", "'")
     something = something.replace("‐", "-")
     something = something.replace("”", "\"")
@@ -123,6 +126,10 @@ def stable_hash(s: str):
 
 def rangify(a, x, b):
     return max(a, min(x, b))
+
+def is_win():
+    return sys.platform.startswith("win")
+
 
 class Mergeable:
     def merge(self, other):

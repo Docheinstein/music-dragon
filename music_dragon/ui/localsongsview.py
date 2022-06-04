@@ -268,7 +268,7 @@ class LocalSongsModel(QAbstractListModel):
         mp3 = localsongs.mp3s[row]
 
         if role == LocalSongsItemRole.SONG:
-            return mp3.song or mp3.path
+            return mp3.song or str(mp3.path)
 
         if role == LocalSongsItemRole.ARTIST:
             if mp3.artist:

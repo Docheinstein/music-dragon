@@ -787,21 +787,22 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
 
             def search_youtube_album_tracks_callback(_1, _2, album: dict):
 
-                yttracks = album["tracks"]
+                yttracks = album.get("tracks", [])
 
-                if len(yttracks) == 0:
-                    return
+                # if len(yttracks) == 0:
+                #     return
 
                 if not cache_hit2:
                     cache.put_request(request_name2, album)
                 yttracks = [YtTrack(yttrack) for yttrack in yttracks]
 
-                _search_youtube_album_tracks_callback(_1, _2, album["audioPlaylistId"], yttracks)
+                _search_youtube_album_tracks_callback(_1, _2, album.get("audioPlaylistId"), yttracks)
 
             def _search_youtube_album_tracks_callback(_1, _2, playlist_id, yttracks: List[YtTrack]):
-                rg.fetched_youtube_video_ids = True
-                rg.youtube_playlist_id = playlist_id
-                rg.youtube_video_ids = [yt.id for yt in yttracks]
+                if playlist_id:
+                    rg.fetched_youtube_video_ids = True
+                    rg.youtube_playlist_id = playlist_id
+                    rg.youtube_video_ids = [yt.id for yt in yttracks]
 
                 release_candidates = releases
 
@@ -823,8 +824,12 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
                 def get_close_matches_smart(word, possibilities):
                     res = get_close_matches(word, possibilities)
                     for p in possibilities:
+                        if p in res:
+                            continue # already there
                         debug(f"Smart check of {word} with {p}")
-                        if p in word or word in p:
+                        p_ = p.lower()
+                        w_ = word.lower()
+                        if p_ in w_ or w_ in p_:
                             debug("-> yes")
                             res.insert(0, p)
                     return res
@@ -1146,14 +1151,17 @@ def fetch_youtube_track_streams(track_id: str, fetch_youtube_track_streams_callb
         else:
             def fetch_track_info_callback(video_id_, info, user_data):
                 ytt = get_youtube_track(video_id_)
-                ytt.streams_fetched = True
-                for f in info["formats"]:
-                    ytt.streams.append({
-                        "type": "video" if f.get("height") is not None else "audio",
-                        "size": f.get("filesize"),
-                        "url": f.get("url")
-                    })
-                fetch_youtube_track_streams_callback(track_id, ytt.streams)
+                if ytt:
+                    ytt.streams_fetched = True
+                    for f in info["formats"]:
+                        ytt.streams.append({
+                            "type": "video" if f.get("height") is not None else "audio",
+                            "size": f.get("filesize"),
+                            "url": f.get("url")
+                        })
+                    fetch_youtube_track_streams_callback(track_id, ytt.streams)
+                else:
+                    print("WARN: no youtube track found")
 
 
             # actually fetch

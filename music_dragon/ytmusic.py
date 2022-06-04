@@ -6,7 +6,7 @@ from ytmusicapi import YTMusic
 
 from music_dragon import workers
 from music_dragon.log import debug
-from music_dragon.utils import j, Mergeable, max_index
+from music_dragon.utils import j, Mergeable, max_index, normalize_metadata
 from music_dragon.workers import Worker
 
 _yt: Optional[YTMusic] = None
@@ -20,16 +20,16 @@ class YtTrack(Mergeable):
     def __init__(self, yt_track: dict):
         self.id = yt_track.get("videoId") or yt_track.get("id")
         self.video_id = self.id
-        self.video_title = yt_track.get("title")
-        self.song = yt_track.get("track") or self.video_title
+        self.video_title = normalize_metadata(yt_track.get("title"))
+        self.song = normalize_metadata(yt_track.get("track")) or self.video_title
         self.album = {
             "id": yt_track["album"]["id"],
-            "title": yt_track["album"]["name"]
-        } if "album" in yt_track and isinstance(yt_track["album"], dict) else yt_track.get("album")
+            "title": normalize_metadata(yt_track["album"]["name"])
+        } if "album" in yt_track and isinstance(yt_track["album"], dict) else normalize_metadata(yt_track.get("album"))
         self.artists = [{
             "id": a["id"],
-            "name": a["name"]
-        } for a in yt_track["artists"]] if "artists" in yt_track else [yt_track.get("artist")]
+            "name": normalize_metadata(a["name"])
+        } for a in yt_track["artists"]] if "artists" in yt_track else [normalize_metadata(yt_track.get("artist"))]
         self.track_number = yt_track.get("track_number")
         self.streams = []
         self.streams_fetched = False
@@ -82,17 +82,20 @@ class SearchYoutubeAlbumTracksWorker(Worker):
         self.album_title = album_title
 
     def run(self) -> None:
-        def get_closest(query, elements: List[dict], field: str) -> Optional[dict]:
-            query = query.lower()
+        def get_closest(query_raw, elements: List[dict], field: str) -> Optional[dict]:
+            query = query_raw.lower()
             scores = [0] * len(elements)
 
             # Figure out the best match based on
             # 1. The query contains the target or the target contains the query
             # 2. Edit distance
             for i, e in enumerate(elements):
-                e_name = e[field]
-                e_name = e_name.lower()
-                if query == e_name:
+                e_name_raw = e[field]
+                e_name = e_name_raw.lower()
+
+                if query_raw == e_name_raw:
+                    scores[i] += 4000
+                elif query == e_name:
                     scores[i] += 2000
                 elif query in e_name or e_name in query:
                     scores[i] += 1000
