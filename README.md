@@ -3,6 +3,8 @@
 Desktop application written in Python3 + PyQt5 with a spotify-likish interface that can be used to 
 search artists, albums and songs and automatically download and tag those with one click.
 
+Supports Linux and Windows (experimental).
+
 ### Features
 - Search artists, albums or songs (`musicbrainz`)
 - Automatically download single songs or entire albums from youtube with a single click (`youtube_dl`)
@@ -22,9 +24,29 @@ search artists, albums and songs and automatically download and tag those with o
 ![Downloads](https://raw.githubusercontent.com/Docheinstein/music-dragon/master/img/screenshot-3.png "Downloads")
 
 ## INSTALLATION
+
+#### Linux
+
 ```
 pip install music-dragon
 ```
+
+#### Windows
+
+Using pip:
+
+```
+pip install music-dragon
+```
+
+Otherwise:
+
+* Clone the repository
+* Follow the instructions at .\other\pyinstaller_data\windows\README.txt:
+  * Place the ffmpeg binaries (ffmpeg, ffplay, ffprobe) in .\other\pyinstaller_data\windows\ffmpeg
+  * Place the content of the VLC folder in .\other\pyinstaller_data\windows\vlc
+* Compile with .\scripts\build-windows-exe.cmd
+* Run the executable in .\dist\main\main.exe
 
 ## USAGE
 ```

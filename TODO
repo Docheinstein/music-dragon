@@ -14,11 +14,11 @@
 - rename workers... XXXfetcher or fetchXXX
 - fetch from MB when pasting yt track or yt playlist, if possible
 
-- sometime a row is added above ModelViewWidget
 - "official" is too strict sometimes: renaissance
 - some download failed
 - why double download: with escaped and unescaped char?
+- sometime a row is added above ModelViewWidget
 - use list view everywhere?
 - back forward for releases?
 - save preferred release and preferred image?
-- handle no connection: no crash!
+- handle no connection: no crash! (ytmusic)
