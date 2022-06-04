@@ -931,6 +931,9 @@ border-radius: 5px;
                <bold>true</bold>
               </font>
              </property>
+             <property name="styleSheet">
+              <string notr="true">color: white</string>
+             </property>
              <property name="text">
               <string>Be Quick or Be Dead</string>
              </property>
@@ -946,6 +949,9 @@ border-radius: 5px;
              </property>
              <item>
               <widget class="ClickableLabel" name="playArtist">
+               <property name="styleSheet">
+                <string notr="true">color: white</string>
+               </property>
                <property name="text">
                 <string>Iron Maiden</string>
                </property>
@@ -962,6 +968,9 @@ border-radius: 5px;
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
+               <property name="styleSheet">
+                <string notr="true">color: white</string>
+               </property>
                <property name="text">
                 <string> - </string>
                </property>
@@ -976,6 +985,9 @@ border-radius: 5px;
                 <font>
                  <underline>false</underline>
                 </font>
+               </property>
+               <property name="styleSheet">
+                <string notr="true">color: white</string>
                </property>
                <property name="text">
                 <string>Fear of the Dark</string>
@@ -1154,6 +1166,9 @@ border-radius: 5px;
            </property>
            <item>
             <widget class="QLabel" name="playCurrentTime">
+             <property name="styleSheet">
+              <string notr="true">color: white</string>
+             </property>
              <property name="text">
               <string>0:00</string>
              </property>
@@ -1174,6 +1189,9 @@ border-radius: 5px;
            </item>
            <item>
             <widget class="QLabel" name="playMaxTime">
+             <property name="styleSheet">
+              <string notr="true">color: white</string>
+             </property>
              <property name="text">
               <string>4:17</string>
              </property>
@@ -1286,6 +1304,7 @@ border-radius: 5px;
  </customwidgets>
  <resources>
   <include location="../res.qrc"/>
+  <include location="../../../../../.designer/res.qrc"/>
  </resources>
  <connections/>
 </ui>
