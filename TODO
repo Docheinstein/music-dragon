@@ -22,3 +22,8 @@
 - back forward for releases?
 - save preferred release and preferred image?
 - handle no connection: no crash! (ytmusic)
+- use release count to evaluate score of release groups?
+- fix sanitize metadata
+- update mp3 player cover on mp3 image loaded
+- sort artists/songs/albums
+- proxy model song/artists/albums?

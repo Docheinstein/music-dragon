@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 
 import eyed3
-import youtube_dl
+import yt_dlp
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from eyed3.core import AudioFile
 from eyed3.id3 import Tag
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 import music_dragon.log
 from music_dragon import preferences, workers, ytcommons
@@ -17,7 +17,7 @@ from music_dragon.utils import j, sanitize_filename
 from music_dragon.workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
-YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 10
+YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 5
 
 YDL_DEFAULT_OPTS = {
     'format': 'bestaudio/best',
@@ -31,6 +31,30 @@ YDL_DEFAULT_OPTS = {
 
 downloads = {}
 finished_downloads = {}
+
+email = None
+password = None
+
+def set_credentials(ytemail: str, ytpassword: str):
+    if ytemail and ytpassword:
+        sign_in(ytemail, ytpassword)
+    else:
+        sign_out()
+
+def sign_in(ytemail: str, ytpassword: str):
+    global email, password
+    debug(f"YT Sign in: username={ytemail}, password={'*' * len(ytpassword)}")
+    email = ytemail
+    password = ytpassword
+
+def sign_out():
+    global email, password
+    debug(f"YT Sign out")
+    email = None
+    password = None
+
+def is_signed_in():
+    return True if (email and password) else False
 
 def download_count():
     return len(downloads)
@@ -46,12 +70,12 @@ def get_finished_download(video_id: str):
 
 def ytdl_download(ytdl, url_list):
     """Download a given list of URLs."""
-    outtmpl = ytdl.params.get('outtmpl', youtube_dl.DEFAULT_OUTTMPL)
+    outtmpl = ytdl.outtmpl_dict['default']
     if (len(url_list) > 1
             and outtmpl != '-'
             and '%' not in outtmpl
             and ytdl.params.get('max_downloads') != 1):
-        raise youtube_dl.SameFileError(outtmpl)
+        raise yt_dlp.SameFileError(outtmpl)
 
     res = None
 
@@ -60,11 +84,11 @@ def ytdl_download(ytdl, url_list):
             # It also downloads the videos
             res = ytdl.extract_info(
                 url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
-        except youtube_dl.utils.UnavailableVideoError:
+        except yt_dlp.utils.UnavailableVideoError:
             ytdl.report_error('unable to download video')
-        except youtube_dl.MaxDownloadsReached:
-            ytdl.to_screen('[info] Maximum number of downloaded files reached.')
-            raise
+        # except yt_dlp.MaxDownloadsReached:
+        #     ytdl.to_screen('[info] Maximum number of downloaded files reached.')
+        #     raise
         else:
             if ytdl.params.get('dump_single_json', False):
                 ytdl.to_stdout(json.dumps(res))
@@ -172,6 +196,11 @@ class TrackDownloaderWorker(Worker):
             'verbose': music_dragon.log.debug_enabled,
         }
 
+        if is_signed_in():
+            debug("Adding youtube credentials")
+            ydl_opts["username"] = email
+            ydl_opts["password"] = password
+
         # TODO: download speed up?
 
         last_error = None
@@ -238,11 +267,9 @@ class TrackDownloaderWorker(Worker):
                         except Exception as e:
                             print(f"WARN: failed to apply mp3 tags to {output}: {e}")
                 return # download done
-
             except CancelException as ce:
                 print(f"WARN: cancel request received during attempt n. {attempt} for video {self.video_id}")
                 return
-
             except Exception as e:
                 print(f"WARN: download attempt n. {attempt} failed for video {self.video_id}: {e}")
                 last_error = e

@@ -83,3 +83,20 @@ def is_requests_cache_enabled() -> bool:
 def set_requests_cache_enabled(enabled: bool):
     _preferences.setValue("cache_requests", "1" if enabled else "0")
 
+# YouTube credentials
+# TODO: not plain text?
+
+def set_youtube_email(value: str):
+    _preferences.setValue("youtube_email", value)
+
+
+def get_youtube_email():
+    return _preferences.value("youtube_email")
+
+
+def set_youtube_password(value: str):
+    _preferences.setValue("youtube_password", value)
+
+
+def get_youtube_password():
+    return _preferences.value("youtube_password")

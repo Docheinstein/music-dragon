@@ -67,7 +67,7 @@ class Mp3:
 
                 debug(f"Loaded {self.path}: "
                       f"(artist={self.artist}, album={self.album}, "
-                      f"title={self.album}, image={'yes' if self.image else 'no'})")
+                      f"title={self.song}, image={'yes' if self.image else 'no'})")
                 return True
         except Exception as e:
             print(f"WARN: failed to load mp3 from '{file}': {e}")
@@ -90,6 +90,8 @@ def get_by_metadata(artist: str, album: str, song: str):
     if idx is not None and 0 <= idx < len(mp3s):
         debug("-> found")
         return mp3s[idx]
+    else:
+        debug("-> not found")
     return None
 
 def load_mp3(file: str, load_image=True):

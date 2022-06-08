@@ -91,7 +91,8 @@ class ListWidgetModelView(QListWidget):
             print(f"WARN: no widget at index {idx}")
 
     def add_row(self, entry: Any):
-        debug(f"{type(self).__name__}.add_row({entry})")
+        # debug(f"{type(self).__name__}.add_row({entry})")
+        debug(f"{type(self).__name__}.add_row")
         item = QListWidgetItem()
         widget = self.make_item_widget(entry)
         item.setSizeHint(widget.sizeHint())

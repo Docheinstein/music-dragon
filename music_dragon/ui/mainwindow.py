@@ -20,6 +20,7 @@ from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelega
 from music_dragon.ui.preferenceswindow import PreferencesWindow
 from music_dragon.ui.searchresultswidget import SearchResultsModel
 from music_dragon.ui.ui_mainwindow import Ui_MainWindow
+from music_dragon.ui.youtubesigninwindow import YouTubeSignInWindow
 from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_long_string, \
     millis_to_short_string, rangify
 from music_dragon.ytmusic import YtTrack
@@ -999,6 +1000,34 @@ class MainWindow(QMainWindow):
             track_id = down["user_data"]["id"]
             self.ui.albumTracks.update_row(track_id)
 
+        error_managed = False
+
+        # if "age" in error_msg:
+        #     debug("Age problem, eventually showing sign in window")
+        #     # Show sign in alert
+        #     if not ytdownloader.is_signed_in():
+        #         error_managed = True
+        #         sign_in_window = YouTubeSignInWindow()
+        #         sign_in_window.exec()
+        #         if ytdownloader.is_signed_in():
+        #             # Now we are signed in, try again
+        #             debug("Now we are signed in, trying again to download song")
+        #             if down["user_data"]["type"] == "official":
+        #                 track_id = down["user_data"]["id"]
+        #                 self.do_download_youtube_track(track_id)
+        #             elif down["user_data"]["type"] == "manual":
+        #                 video_id = down["user_data"]["id"]
+        #                 self.do_download_youtube_track_manual(video_id)
+
+        if not error_managed:
+            artist = down["artist"]
+            album = down["album"]
+            song = down["song"]
+            QMessageBox.warning(self, "Download failed",
+                                f"Download of {artist} - {album} - {song} failed\n"
+                                f"Reason: {error_msg}",
+                                QMessageBox.Ok)
+
     def update_downloads_count(self):
         queued_count = ytdownloader.download_count()
         finished_count = ytdownloader.finished_download_count()
@@ -1021,6 +1050,15 @@ class MainWindow(QMainWindow):
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,
+                                          queued_callback=self.on_youtube_track_download_queued,
+                                          started_callback=self.on_youtube_track_download_started,
+                                          progress_callback=self.on_youtube_track_download_progress,
+                                          finished_callback=self.on_youtube_track_download_finished,
+                                          canceled_callback=self.on_youtube_track_download_canceled,
+                                          error_callback=self.on_youtube_track_download_error)
+
+    def do_download_youtube_track_manual(self, video_id):
+        repository.download_youtube_track(video_id,
                                           queued_callback=self.on_youtube_track_download_queued,
                                           started_callback=self.on_youtube_track_download_started,
                                           progress_callback=self.on_youtube_track_download_progress,

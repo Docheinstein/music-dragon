@@ -32,7 +32,7 @@ setup(
     # Dependencies
     install_requires=[
         "musicbrainzngs",
-        "youtube_dl",
+        "yt_dlp",
         "ytmusicapi",
         "python-vlc",
         "eyed3",
