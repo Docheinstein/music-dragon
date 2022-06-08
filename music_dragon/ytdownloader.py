@@ -17,7 +17,7 @@ from music_dragon.utils import j, sanitize_filename
 from music_dragon.workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
-YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 5
+YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 1
 
 YDL_DEFAULT_OPTS = {
     'format': 'bestaudio/best',
@@ -81,17 +81,18 @@ def ytdl_download(ytdl, url_list):
 
     for url in url_list:
         try:
-            # It also downloads the videos
             res = ytdl.extract_info(
                 url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
-        except yt_dlp.utils.UnavailableVideoError:
-            ytdl.report_error('unable to download video')
-        # except yt_dlp.MaxDownloadsReached:
-        #     ytdl.to_screen('[info] Maximum number of downloaded files reached.')
-        #     raise
+        except yt_dlp.utils.UnavailableVideoError as e:
+            ytdl.report_error(e)
+        except yt_dlp.DownloadCancelled as e:
+            ytdl.to_screen(f'[info] {e}')
+            if not ytdl.params.get('break_per_url'):
+                raise
         else:
             if ytdl.params.get('dump_single_json', False):
-                ytdl.to_stdout(json.dumps(res))
+                ytdl.post_extract(res)
+                ytdl.to_stdout(json.dumps(ytdl.sanitize_info(res)))
 
     res["_filename"] = ytdl.prepare_filename(res) # as performed internally
     return res
@@ -213,11 +214,15 @@ class TrackDownloaderWorker(Worker):
 
                     debug(f"YOUTUBE_DL: download: '{self.video_id}'")
                     result = ytdl_download(ydl, [yt_url])
-                    debug(
-                        "=== ytdl_download ==="
-                        f"{j(result)}"
-                        "======================"
-                    )
+                    # Fix for "Object of type FFmpegFixupM4aPP is not JSON serializable"
+                    try:
+                        debug(
+                            "=== ytdl_download ==="
+                            f"{j(result)}"
+                            "======================"
+                        )
+                    except Exception as e:
+                        debug(f"WARN: ytdl_download dump failed: {e}")
 
                     output = str(Path(result['_filename']).with_suffix(".mp3").absolute())
                     debug(f"Download destination: {output}")
@@ -271,11 +276,11 @@ class TrackDownloaderWorker(Worker):
                 print(f"WARN: cancel request received during attempt n. {attempt} for video {self.video_id}")
                 return
             except Exception as e:
-                print(f"WARN: download attempt n. {attempt} failed for video {self.video_id}: {e}")
+                print(f"WARN: download attempt n. {attempt} failed for video {self.video_id}: {type(e).__name__} {e}")
                 last_error = e
 
         print(f"ERROR: all download attempts ({YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS} "
-              f"failed for video {self.video_id}: {last_error}", file=sys.stderr)
+              f"fails for video {self.video_id}: {last_error}", file=sys.stderr)
         self.error.emit(self.video_id, f"ERROR: {last_error}")
 
     def can_execute(self):
