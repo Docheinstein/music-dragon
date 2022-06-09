@@ -203,6 +203,7 @@ class LocalArtistsModel(QAbstractListModel):
                 mp3s_by_artists[mp3.artist] = mp3
 
         self.localartists = list(mp3s_by_artists.values())
+        self.localartists = sorted(self.localartists, key=lambda mp3: mp3.artist)
 
     # def flags(self, index: QModelIndex) -> Qt.ItemFlags:
     #     return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable

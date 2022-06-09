@@ -184,6 +184,7 @@ class LocalAlbumsModel(QAbstractListModel):
                 mp3s_by_albums[mp3.album] = mp3
 
         self.localalbums = list(mp3s_by_albums.values())
+        self.localalbums = sorted(self.localalbums, key=lambda mp3: mp3.album)
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
         return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable

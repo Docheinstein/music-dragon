@@ -1154,6 +1154,7 @@ class MainWindow(QMainWindow):
 
     def reload_local_songs_artists_albums(self):
         self.local_songs_model.beginResetModel()
+        self.local_songs_model.reload()
         self.local_songs_model.endResetModel()
 
         self.local_artists_model.beginResetModel()

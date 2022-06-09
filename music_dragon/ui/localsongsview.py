@@ -249,12 +249,17 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
 class LocalSongsModel(QAbstractListModel):
     def __init__(self):
         super().__init__()
+        self.localsongs = []
+
+    def reload(self):
+        self.localsongs = [mp3 for mp3 in localsongs.mp3s]
+        self.localsongs = sorted(self.localsongs, key=lambda mp3: mp3.song)
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
         return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
-        return len(localsongs.mp3s)
+        return len(self.localsongs)
 
     def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
@@ -265,7 +270,7 @@ class LocalSongsModel(QAbstractListModel):
         if row < 0 or row >= self.rowCount():
             return QVariant()
 
-        mp3 = localsongs.mp3s[row]
+        mp3 = self.localsongs[row]
 
         if role == LocalSongsItemRole.SONG:
             return mp3.song or str(mp3.path)
