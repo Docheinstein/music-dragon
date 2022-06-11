@@ -786,210 +786,25 @@ def fetch_release_group_releases(release_group_id: str, release_group_releases_c
             cache_hit2 = False
 
             def search_youtube_album_tracks_callback(_1, _2, album: dict):
-
-                yttracks = album.get("tracks", [])
-
-                # if len(yttracks) == 0:
-                #     return
-
                 if not cache_hit2:
                     cache.put_request(request_name2, album)
+
+                yttracks = album.get("tracks", [])
                 yttracks = [YtTrack(yttrack) for yttrack in yttracks]
 
-                _search_youtube_album_tracks_callback(_1, _2, album.get("audioPlaylistId"), yttracks)
+                _set_release_group_tracks(release_group_id_, album.get("audioPlaylistId"), yttracks,
+                                          release_group_releases_callback, release_group_youtube_tracks_callback)
+                # _search_youtube_album_tracks_callback(_1, _2, album.get("audioPlaylistId"), yttracks)
 
-            def _search_youtube_album_tracks_callback(_1, _2, playlist_id, yttracks: List[YtTrack]):
-                if playlist_id:
-                    rg.fetched_youtube_video_ids = True
-                    rg.youtube_playlist_id = playlist_id
-                    rg.youtube_video_ids = [yt.id for yt in yttracks]
-
-                release_candidates = releases
-
-                releases_track_count = [r.track_count() for r in release_candidates]
-                yt_track_count = len(yttracks)
-                track_count_modes = multimode(releases_track_count)
-                track_count_mean = mean(releases_track_count)
-
-                debug(f"releases_track_count={releases_track_count}")
-                debug(f"mean_track_count={track_count_modes}")
-                debug(f"modes_track_count={track_count_mean}")
-
-                best_release_candidate = None
-
-                TRACK_NUMBER_FACTOR = 50
-                EDIT_DISTANCE_FACTOR = 1
-                TRACK_POSITION_DISTANCE_FACTOR = 5
-
-                def get_close_matches_smart(word, possibilities):
-                    res = get_close_matches(word, possibilities)
-                    for p in possibilities:
-                        if p in res:
-                            continue # already there
-                        debug(f"Smart check of {word} with {p}")
-                        p_ = p.lower()
-                        w_ = word.lower()
-                        if p_ in w_ or w_ in p_:
-                            debug("-> yes")
-                            res.insert(0, p)
-                    return res
-
-                def compute_track_yttrack_score(t_: Track, yt_: YtTrack):
-                    debug(f"compute_track_yttrack_score({t_.title}, {yt_.song})")
-
-                    # hack special characters
-                    t_title = t_.title.lower()
-                    yt_title = yt_.song.lower()
-
-                    t_title = t_title.replace("’", "'")
-                    yt_title = yt_title.replace("’", "'")
-
-                    t_title = t_title.replace("-", " ")
-                    yt_title = yt_title.replace("-", " ")
-
-                    t_title = t_title.replace("‐", " ")
-                    yt_title = yt_title.replace("‐", " ")
-
-                    t_title = t_title.replace("_", " ")
-                    yt_title = yt_title.replace("_", " ")
-
-                    if t_title in yt_.song or yt_title in t_title:
-                        edit_distance_component = 0
-                    else:
-                        edit_distance_component = levenshtein.distance(t_title, yt_title)
-
-                    track_position_component = 0
-                    if t_.track_number is not None and yt_.track_number is not None:
-                        track_position_component += abs(t_.track_number - yt_.track_number)
-
-                    edit_distance_component *= EDIT_DISTANCE_FACTOR
-                    track_position_component *= TRACK_POSITION_DISTANCE_FACTOR
-
-                    scr = edit_distance_component + track_position_component
-                    debug(
-                        f"-> {scr} (edit_distance={edit_distance_component} + track_pos={track_position_component}){' *************' if scr == 0 else ''}")
-                    return scr
-
-                if yt_track_count:
-                    debug(f"Taking main release with tracks more similar to youtube one = {yt_track_count}")
-
-                    def compute_release_score(r: Release):
-                        debug(f"Computing release score of {r.title} ({r.id}): {r.track_count()} tracks)")
-
-                        # 1. Same number of track is better
-                        # 2. Consider edit distance between the tracks
-                        # 3. Consider the difference between the position of the tracks
-
-                        debug("")
-                        release_score = abs(r.track_count() - len(yttracks)) * TRACK_NUMBER_FACTOR
-                        debug(f"ReleaseScore after track number counting: {release_score}")
-
-                        # compute score based on tracks similarity
-                        for t in r.tracks():
-                            best_yt_track_score = min([compute_track_yttrack_score(t, y) for y in yttracks])
-                            release_score += best_yt_track_score
-                            debug(f"Score now is {release_score}")
-
-                        debug(f"Computed release score of {r.title} ({r.id}) = {release_score}")
-
-                        return release_score
-
-                    scores = [compute_release_score(r) for r in release_candidates]
-
-                    for i, sc in enumerate(scores):
-                        rc = release_candidates[i]
-                        debug(
-                            f"Release candidate {rc.title} ({rc.id}) with {release_candidates[i].track_count()} tracks has score = {sc}")
-
-                    best_release_candidate = release_candidates[min_index(scores)]
-
-                    if min(scores) > 0:
-                        print(
-                            f"WARN: youtube release does not match perfectly musicbrainz release (off by {min(scores)} points)")
-                    else:
-                        debug(f"Youtube release does match perfectly musicbrainz release")
-                else:
-                    # fallback: no youtube available
-
-                    # consider only CDs, if possible
-                    has_cds = [r.format == "CD" for r in releases].count(True) > 0
-
-                    release_candidates = []
-
-                    if has_cds:
-                        for r in releases:
-                            candidate = r.format == "CD"
-                            debug(
-                                f"Release: {r.title}, format={r.format}, track_count={r.track_count()}: candidate {candidate}")
-
-                            if candidate:
-                                release_candidates.append(r)
-                    else:
-                        release_candidates = releases
-
-                    if len(track_count_modes) == 1:
-                        # There is only a mode (there could be multiple), take a release with that mode
-                        track_count_mode = track_count_modes[0]
-                        debug(f"Taking main release with track count equal to the only mode = {track_count_mode}")
-                        for r in release_candidates:
-                            if r.track_count() == track_count_mode:
-                                best_release_candidate = r
-                                break
-                    else:
-                        # Fallback: take the release with the number of track nearest to the mean
-                        debug(f"Taking main release with track count nearest to mean = {track_count_mean}")
-                        mean_deltas = [abs(tc - track_count_mean) for tc in releases_track_count]
-                        best_release_candidate = release_candidates[min_index(mean_deltas)]
-
-                if best_release_candidate:
-                    debug(
-                        f"Best release candidate: {best_release_candidate.title} ({best_release_candidate.id}) with {best_release_candidate.track_count()} tracks")
-                    release_group.main_release_id = best_release_candidate.id
-
-                # Tag track with yttrack ids
-
-                tracks = release_group.main_release().tracks()
-                track_names = [t.title for t in tracks]
-
-                debug("Associating yttracks <===> tracks")
-                for yttrack_ in yttracks:
-                    yttrack = _add_youtube_track(yttrack_)
-
-                    # debug(f"Handling yttrack: {yttrack.song}")
-
-                    closest_track_names = get_close_matches_smart(yttrack.song, track_names)
-                    debug(f"closest_track_names={closest_track_names}")
-                    if closest_track_names:
-                        closest_tracks = []
-                        for closest_track_name in closest_track_names:
-                            for t in tracks:
-                                if t.title == closest_track_name:
-                                    closest_tracks.append(t)
-                        closest_tracks_scores = [compute_track_yttrack_score(t, yttrack) for t in closest_tracks]
-                        closest_track = closest_tracks[min_index(closest_tracks_scores)]
-                        # debug(f"Closest track found: {closest_track.title}")
-                        closest_track.fetched_youtube_track = True
-                        closest_track.youtube_track_is_official = True
-                        closest_track.youtube_track_id = yttrack.id
-                        # add the yt title as an alias
-                        if yttrack.song != closest_track.title and yttrack.song not in closest_track.title_aliases:
-                            closest_track.title_aliases.append(yttrack.song)
-                        # _track_id_by_video_id[yttrack.video_id] = closest_track.id
-                        debug(
-                            f"'{yttrack.song} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
-                    else:
-                        print(f"WARN: no close track found for youtube track with title {yttrack.song}")
-
-                release_group_releases_callback(release_group_id_, releases)
-
-                if release_group_youtube_tracks_callback:
-                    release_group_youtube_tracks_callback(release_group_id_, yttracks)
 
             if rg.fetched_youtube_video_ids:
                 # memory cached
                 debug("Video ids already fetched")
-                _search_youtube_album_tracks_callback(None, None, rg.youtube_playlist_id,
-                                                     [get_youtube_track(video_id) for video_id in rg.youtube_video_ids])
+                _set_release_group_tracks(release_group_id_, rg.youtube_playlist_id,
+                                          [get_youtube_track(video_id) for video_id in rg.youtube_video_ids],
+                                          release_group_releases_callback, release_group_youtube_tracks_callback)
+                # _search_youtube_album_tracks_callback(None, None, rg.youtube_playlist_id,
+                #                                      [get_youtube_track(video_id) for video_id in rg.youtube_video_ids])
             else:
                 req2 = cache.get_request(request_name2)
                 if req2:
@@ -1106,6 +921,242 @@ def fetch_release_cover(release_id: str, release_cover_callback):
 
             musicbrainz.fetch_release_cover(release_id, preferences.cover_size(), release_cover_callback_wrapper,
                                             priority=workers.Worker.PRIORITY_LOW)
+
+def set_release_group_playlist_id(release_group_id: str, playlist_id: str,
+                                  release_group_releases_callback, release_group_youtube_tracks_callback):
+    debug(f"set_release_group_playlist_id(release_group_id={release_group_id}, playlist_id={playlist_id})")
+
+    request_name = f"ytmusic-fetch-playlist-{stable_hash(playlist_id)}"
+    cache_hit = False
+
+    req = cache.get_request(request_name)
+
+    def release_group_youtube_tracks_callback_wrapper(playlist_id_, result: dict):
+        if not cache_hit:
+            cache.put_request(request_name, result)
+
+        yttracks = result.get("tracks", [])
+        yttracks = [YtTrack(yttrack) for yttrack in yttracks]
+
+        _set_release_group_tracks(release_group_id, playlist_id, yttracks,
+                                  release_group_releases_callback, release_group_youtube_tracks_callback)
+
+    if req:
+        # storage cached
+        cache_hit = True
+        release_group_youtube_tracks_callback_wrapper(playlist_id, req)
+    else:
+        # actually fetch
+        ytmusic.fetch_album_or_playlist_info(playlist_id, release_group_youtube_tracks_callback_wrapper)
+
+
+def _set_release_group_tracks(release_group_id, playlist_id, yttracks: List[YtTrack],
+                              release_group_releases_callback, release_group_youtube_tracks_callback):
+# def _set_release_group_tracks(_1, _2, playlist_id, yttracks: List[YtTrack]):
+    rg = get_release_group(release_group_id)
+
+    # if playlist_id:
+    rg.fetched_youtube_video_ids = True
+    rg.youtube_playlist_id = playlist_id
+    rg.youtube_video_ids = [yt.id for yt in yttracks]
+
+    releases = rg.releases()
+    release_candidates = rg.releases()
+
+    releases_track_count = [r.track_count() for r in release_candidates]
+    yt_track_count = len(yttracks)
+    track_count_modes = multimode(releases_track_count)
+    track_count_mean = mean(releases_track_count)
+
+    debug(f"releases_track_count={releases_track_count}")
+    debug(f"mean_track_count={track_count_modes}")
+    debug(f"modes_track_count={track_count_mean}")
+
+    best_release_candidate = None
+
+    TRACK_NUMBER_FACTOR = 50
+    EDIT_DISTANCE_FACTOR = 1
+    TRACK_POSITION_DISTANCE_FACTOR = 5
+
+    def get_close_matches_smart(word, possibilities):
+        res = get_close_matches(word, possibilities)
+        for p in possibilities:
+            if p in res:
+                continue  # already there
+            debug(f"Smart check of {word} with {p}")
+            p_ = p.lower()
+            w_ = word.lower()
+            if p_ in w_ or w_ in p_:
+                debug("-> yes")
+                res.insert(0, p)
+        return res
+
+    def compute_track_yttrack_score(t_: Track, yt_: YtTrack):
+        debug(f"compute_track_yttrack_score({t_.title}, {yt_.song})")
+
+        # hack special characters
+        t_title = t_.title.lower()
+        yt_title = yt_.song.lower()
+
+        t_title = t_title.replace("’", "'")
+        yt_title = yt_title.replace("’", "'")
+
+        t_title = t_title.replace("-", " ")
+        yt_title = yt_title.replace("-", " ")
+
+        t_title = t_title.replace("‐", " ")
+        yt_title = yt_title.replace("‐", " ")
+
+        t_title = t_title.replace("_", " ")
+        yt_title = yt_title.replace("_", " ")
+
+        if t_title in yt_.song or yt_title in t_title:
+            edit_distance_component = 0
+        else:
+            edit_distance_component = levenshtein.distance(t_title, yt_title)
+
+        track_position_component = 0
+        if t_.track_number is not None and yt_.track_number is not None:
+            track_position_component += abs(t_.track_number - yt_.track_number)
+
+        edit_distance_component *= EDIT_DISTANCE_FACTOR
+        track_position_component *= TRACK_POSITION_DISTANCE_FACTOR
+
+        scr = edit_distance_component + track_position_component
+        debug(
+            f"-> {scr} (edit_distance={edit_distance_component} + track_pos={track_position_component}){' *************' if scr == 0 else ''}")
+        return scr
+
+    if yt_track_count:
+        debug(f"Taking main release with tracks more similar to youtube one = {yt_track_count}")
+
+        def compute_release_score(r: Release):
+            debug(f"Computing release score of {r.title} ({r.id}): {r.track_count()} tracks)")
+
+            # 1. Same number of track is better
+            # 2. Consider edit distance between the tracks
+            # 3. Consider the difference between the position of the tracks
+
+            debug("")
+            release_score = abs(r.track_count() - len(yttracks)) * TRACK_NUMBER_FACTOR
+            debug(f"ReleaseScore after track number counting: {release_score}")
+
+            # compute score based on tracks similarity
+            for t in r.tracks():
+                best_yt_track_score = min([compute_track_yttrack_score(t, y) for y in yttracks])
+                release_score += best_yt_track_score
+                debug(f"Score now is {release_score}")
+
+            debug(f"Computed release score of {r.title} ({r.id}) = {release_score}")
+
+            return release_score
+
+        scores = [compute_release_score(r) for r in release_candidates]
+
+        for i, sc in enumerate(scores):
+            rc = release_candidates[i]
+            debug(
+                f"Release candidate {rc.title} ({rc.id}) with {release_candidates[i].track_count()} tracks has score = {sc}")
+
+        best_release_candidate = release_candidates[min_index(scores)]
+
+        if min(scores) > 0:
+            print(
+                f"WARN: youtube release does not match perfectly musicbrainz release (off by {min(scores)} points)")
+        else:
+            debug(f"Youtube release does match perfectly musicbrainz release")
+    else:
+        # fallback: no youtube available
+
+        # consider only CDs, if possible
+        has_cds = [r.format == "CD" for r in releases].count(True) > 0
+
+        release_candidates = []
+
+        if has_cds:
+            for r in releases:
+                candidate = r.format == "CD"
+                debug(
+                    f"Release: {r.title}, format={r.format}, track_count={r.track_count()}: candidate {candidate}")
+
+                if candidate:
+                    release_candidates.append(r)
+        else:
+            release_candidates = releases
+
+        if len(track_count_modes) == 1:
+            # There is only a mode (there could be multiple), take a release with that mode
+            track_count_mode = track_count_modes[0]
+            debug(f"Taking main release with track count equal to the only mode = {track_count_mode}")
+            for r in release_candidates:
+                if r.track_count() == track_count_mode:
+                    best_release_candidate = r
+                    break
+        else:
+            # Fallback: take the release with the number of track nearest to the mean
+            debug(f"Taking main release with track count nearest to mean = {track_count_mean}")
+            mean_deltas = [abs(tc - track_count_mean) for tc in releases_track_count]
+            best_release_candidate = release_candidates[min_index(mean_deltas)]
+
+    if best_release_candidate:
+        debug(
+            f"Best release candidate: {best_release_candidate.title} ({best_release_candidate.id}) with {best_release_candidate.track_count()} tracks")
+        rg.main_release_id = best_release_candidate.id
+
+    for track in rg.main_release().tracks():
+        track.youtube_track_id = None
+        track.youtube_track_is_official = False
+        track.fetched_youtube_track = False
+
+    # Tag track with yttrack ids
+
+    # tracks = release_group.main_release().tracks()
+    # track_names = [t.title for t in tracks]
+
+    # Greedy algorithm
+    remaining_tracks = set([t for t in rg.main_release().tracks()])
+    remaining_track_names = set([t.title for t in remaining_tracks])
+
+    debug(f"Associating yttracks <===> tracks for album {rg.title}")
+
+    for yttrack_ in yttracks:
+        yttrack = _add_youtube_track(yttrack_)
+        debug(f"YtTrack '{yttrack.song}' at position {yttrack.track_number}")
+
+        closest_track_names = get_close_matches_smart(yttrack.song, remaining_track_names)
+        debug(f"YtTrack '{yttrack.song}': closest_track_names={closest_track_names}")
+        if closest_track_names:
+            closest_tracks = []
+            for closest_track_name in closest_track_names:
+                for t in remaining_tracks:
+                    if t.title == closest_track_name:
+                        closest_tracks.append(t)
+            debug(f"YtTrack '{yttrack.song}': closest tracks: {[t.title for t in closest_tracks]}")
+            closest_tracks_scores = [compute_track_yttrack_score(t, yttrack) for t in closest_tracks]
+            closest_track = closest_tracks[min_index(closest_tracks_scores)]
+            debug(f"YtTrack '{yttrack.song}': closest track found: {closest_track.title}")
+
+            closest_track.fetched_youtube_track = True
+            closest_track.youtube_track_is_official = True
+            closest_track.youtube_track_id = yttrack.id
+
+            remaining_tracks.remove(closest_track)
+            remaining_track_names.remove(closest_track.title)
+
+            # add the yt title as an alias
+            if yttrack.song != closest_track.title and yttrack.song not in closest_track.title_aliases:
+                closest_track.title_aliases.append(yttrack.song)
+            # _track_id_by_video_id[yttrack.video_id] = closest_track.id
+            debug(
+                f"YtTrack '{yttrack.song} (#{yttrack.track_number})' <==> '{closest_track.title} (#{closest_track.track_number})' (association score {min(closest_tracks_scores)})")
+        else:
+            print(f"WARN: no close track found for youtube track with title {yttrack.song}")
+
+    release_group_releases_callback(release_group_id, releases)
+
+    if release_group_youtube_tracks_callback:
+        release_group_youtube_tracks_callback(release_group_id, yttracks)
+
 
 def search_track_youtube_track(track_id: str, track_youtube_track_callback):
     debug(f"search_track_youtube_track(track_id={track_id})")

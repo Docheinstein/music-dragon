@@ -28,3 +28,4 @@
 - sort artists/songs/albums
 - proxy model song/artists/albums?
 - download long name progress bar
+- yt playlist fetch is more reliable than music get_album? Sum 41

@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/">
+    <file>images/link.png</file>
     <file>images/prev.png</file>
     <file>images/next.png</file>
     <file>images/pause.png</file>

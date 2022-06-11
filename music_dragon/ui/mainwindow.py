@@ -23,6 +23,7 @@ from music_dragon.ui.ui_mainwindow import Ui_MainWindow
 from music_dragon.ui.youtubesigninwindow import YouTubeSignInWindow
 from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_long_string, \
     millis_to_short_string, rangify
+from music_dragon.ytcommons import youtube_playlist_id_to_youtube_url, youtube_url_to_playlist_id
 from music_dragon.ytmusic import YtTrack
 
 SEARCH_DEBOUNCE_MS = 800
@@ -106,12 +107,25 @@ class MainWindow(QMainWindow):
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_missing_album_tracks_clicked)
         self.ui.albumOpenButton.clicked.connect(self.on_open_album_button_clicked)
 
+        self.ui.albumLinkButton.clicked.connect(self.on_album_link_button_clicked)
+        self.ui.albumLinkOkButton.clicked.connect(self.on_album_link_ok_button_clicked)
+        self.ui.albumLinkCancelButton.clicked.connect(self.on_album_link_cancel_button_clicked)
+
+        self.ui.albumLinkButton.setVisible(True)
+        self.ui.albumLinkButton.setToolTip("Edit YouTube URL")
+        sz = self.ui.albumLinkContainer.sizePolicy()
+        sz.setRetainSizeWhenHidden(True)
+        self.ui.albumLinkContainer.setSizePolicy(sz)
+        self.ui.albumLinkContainer.setVisible(False)
+
         # Artist
         self.current_artist_id = None
         self.artist_albums_model = ArtistAlbumsModel()
         self.ui.artistAlbums.set_model(self.artist_albums_model)
         self.ui.artistAlbums.row_clicked.connect(self.on_artist_album_clicked)
         self.ui.artistCover.double_clicked.connect(self.on_artist_image_double_clicked)
+        self.ui.artistCover.set_clickable(False)
+        self.ui.artistCover.set_double_clickable(True)
         self.artist_cover_data = None
 
         # Menu
@@ -392,6 +406,7 @@ class MainWindow(QMainWindow):
         self.album_tracks_model.release_id = None
         self.ui.albumTracks.invalidate()
 
+
         # switch page
         self.set_album_page()
 
@@ -582,6 +597,13 @@ class MainWindow(QMainWindow):
         if rg and self.current_release_group_id == rg.id:
             main_release_id = rg.main_release_id
             main_release = get_release(main_release_id)
+
+            # link
+            if rg.youtube_playlist_id:
+                self.ui.albumLink.setText(youtube_playlist_id_to_youtube_url(rg.youtube_playlist_id))
+            else:
+                self.ui.albumLink.setText("")
+
             if main_release:
                 self.album_tracks_model.release_id = main_release_id
                 self.ui.albumTracks.invalidate()
@@ -589,6 +611,7 @@ class MainWindow(QMainWindow):
                 self.ui.albumSongCount.setText(f"{main_release.track_count()} songs - {millis_to_long_string(main_release.length())}")
 
                 self.set_album_cover(release_group_id)
+
                 self.update_album_download_widgets()
 
         self.ui.artistAlbums.update_row(release_group_id)
@@ -847,7 +870,8 @@ class MainWindow(QMainWindow):
         debug("on_release_group_youtube_tracks_result")
 
         # fetch missing ones
-        release = get_release_group(release_group_id).main_release()
+        release_group = get_release_group(release_group_id)
+        release = release_group.main_release()
 
         missing = 0
         for t in release.tracks():
@@ -860,6 +884,9 @@ class MainWindow(QMainWindow):
                   f"missing tracks missing youtube video, searching now")
 
         self.handle_youtube_tracks_update(release.id)
+
+        if self.current_release_group_id == release.release_group_id:
+            self.ui.albumLink.setText(youtube_playlist_id_to_youtube_url(release_group.youtube_playlist_id))
 
 
     def on_track_youtube_track_result(self, track_id: str, yttrack: YtTrack):
@@ -1047,6 +1074,8 @@ class MainWindow(QMainWindow):
         rg = get_release_group(self.current_release_group_id)
         if rg.youtube_playlist_id:
             open_url(ytcommons.youtube_playlist_id_to_youtube_url(rg.youtube_playlist_id))
+        else:
+            print(f"WARN: no playlist id available for release group {rg.title}")
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,
@@ -1420,3 +1449,28 @@ class MainWindow(QMainWindow):
 
     def on_next_song_button_clicked(self):
         self.play_next()
+
+    def on_album_link_button_clicked(self):
+        debug("on_album_link_button_clicked")
+        self.ui.albumLinkButton.setVisible(False)
+        self.ui.albumLinkContainer.setVisible(True)
+
+    def on_album_link_ok_button_clicked(self):
+        debug("on_album_link_ok_button_clicked")
+        self.ui.albumLinkButton.setVisible(True)
+        self.ui.albumLinkContainer.setVisible(False)
+        playlist_id = youtube_url_to_playlist_id(self.ui.albumLink.text())
+        if not playlist_id:
+            print("WARN: invalid youtube url")
+            QMessageBox.warning(self, "Invalid URL",
+                                "Invalid YouTube URL",
+                                QMessageBox.Ok)
+            return
+
+        repository.set_release_group_playlist_id(self.current_release_group_id, playlist_id,
+                                                 self.on_release_group_releases_result, self.on_release_group_youtube_tracks_result)
+
+    def on_album_link_cancel_button_clicked(self):
+        debug("on_album_link_cancel_button_clicked")
+        self.ui.albumLinkButton.setVisible(True)
+        self.ui.albumLinkContainer.setVisible(False)

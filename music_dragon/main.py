@@ -46,6 +46,16 @@ def main():
     cache.initialize(images=preferences.is_images_cache_enabled(),
                      requests=preferences.is_requests_cache_enabled())
 
+    # import ytdownloader
+    # def cb(_1, _2, _3):
+    #     pass
+    # ytdownloader.fetch_playlist_info("OLAK5uy_lpSnEyKbjOu3VsxiS7TIpYNZuyXziuy_M", cb, {})
+    # def cb(_1, _2):
+    #     pass
+
+    # ytmusic.fetch_album_or_playlist_info("OLAK5uy_lpSnEyKbjOu3VsxiS7TIpYNZuyXziuy_M", cb)
+    # ytmusic.fetch_album_or_playlist_info("PLCfCU1Ok5NVslWB4mi0MtVsvpjILpFy-p", cb)
+
     window = MainWindow()
     window.show()
 
