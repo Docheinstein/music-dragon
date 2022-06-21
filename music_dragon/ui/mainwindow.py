@@ -1318,7 +1318,7 @@ class MainWindow(QMainWindow):
         self.ui.playContainer.setVisible(False)
 
         self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
-        self.ui.playTitle.setText(mp3.song)
+        self.ui.playTitle.setText(mp3.title())
         self.ui.playArtist.setText(mp3.artist)
         self.ui.playAlbum.setText(mp3.album)
 

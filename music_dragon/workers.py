@@ -323,5 +323,8 @@ class WorkerScheduler(QObject):
             except KeyError:
                 print(f"WARN: no worker with id {wid} among workers of {self}")
 
+    def __str__(self):
+        return self.__class__.__name__
+
 def schedule(worker: Worker):
     worker_scheduler.schedule(worker)

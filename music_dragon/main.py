@@ -10,6 +10,7 @@ import music_dragon.ui.res_rc
 from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz, APP_DISPLAY_NAME, \
     APP_ORGANIZATION_NAME
 from music_dragon.log import debug
+from music_dragon.musicbrainz import fetch_artist
 from music_dragon.ui.mainwindow import MainWindow
 from music_dragon.ui import resources
 
@@ -55,6 +56,16 @@ def main():
 
     # ytmusic.fetch_album_or_playlist_info("OLAK5uy_lpSnEyKbjOu3VsxiS7TIpYNZuyXziuy_M", cb)
     # ytmusic.fetch_album_or_playlist_info("PLCfCU1Ok5NVslWB4mi0MtVsvpjILpFy-p", cb)
+
+    # import logging
+    # logging.basicConfig(level=logging.DEBUG)
+
+
+    # from utils import j
+    # def cb(_1, res):
+        # print(j(res))
+    #
+    # fetch_artist("aeee5fe5-38f5-41bc-8ab8-9f9aa23e4f68", cb)
 
     window = MainWindow()
     window.show()

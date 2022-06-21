@@ -5,7 +5,7 @@ from music_dragon import workers, APP_DISPLAY_NAME, APP_VERSION
 from music_dragon.log import debug
 from music_dragon.utils import j
 from music_dragon.workers import Worker
-
+from musicbrainzngs import musicbrainz
 
 def initialize():
     mb.set_useragent(APP_DISPLAY_NAME, APP_VERSION)
@@ -16,7 +16,8 @@ def release_belongs_to_official_album(mb_release: dict):
 
 def release_group_is_official_album(mb_release_group: dict):
     return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] \
-           and ("secondary-type-list" not in mb_release_group or not mb_release_group.get("secondary-type-list"))
+           and ("secondary-type-list" not in mb_release_group or not mb_release_group["secondary-type-list"] or
+                (len(mb_release_group["secondary-type-list"]) == 1 and mb_release_group["secondary-type-list"][0] == "Soundtrack"))
 
 #
 # class MbTrack: # recording belonging to a release
@@ -103,7 +104,7 @@ def release_group_is_official_album(mb_release_group: dict):
 #         if mb_release_group:
 #             self.id: str = mb_release_group["id"]
 #             self.title: str = mb_release_group["title"]
-#             self.date = mb_release_group.get("first-release-date", "")
+#             self.date = mb_release_group.get("first-release-date", "9999-99-99")
 #             self.score: int = int(mb_release_group.get("ext-score", 0))
 #
 #
@@ -212,6 +213,7 @@ class SearchReleaseGroupsWorker(Worker):
         debug(f"MUSICBRAINZ: search_release_groups: '{self.query}'")
         result = mb.search_release_groups(
             self.query, limit=self.limit, primarytype="Album", status="Official"
+            # self.query, limit=self.limit, primarytype="Album"
         )["release-group-list"]
         debug(
             "=== search_release_groups ==="
@@ -400,10 +402,18 @@ class FetchArtistWorker(Worker):
         # Fetch all the releases and releases tracks for the release groups
         # result = mb.get_artist_by_id(self.artist_id, includes=["aliases", "release-groups", "url-rels", "annotation", "releases", "isrcs"])
         debug(f"MUSICBRAINZ: get_artist_by_id: '{self.artist_id}'")
+
+        # def get_artist_by_id_ext(id, includes=[], release_status=[], release_type=[], limit=25):
+        #     params = musicbrainz._check_filter_and_make_params("artist", includes,
+        #                                            release_status, release_type)
+        #     params["limit"] = limit
+        #     return musicbrainz._do_mb_query("artist", id, includes, params)
+
         result = mb.get_artist_by_id(
             self.artist_id,
-            includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
-            release_status=["official"],
+            # includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
+            includes=["aliases", "release-groups", "release-group-rels", "url-rels"],
+            # release_status=["official"],
             release_type=["album"],
         )["artist"]
         debug(
@@ -412,7 +422,51 @@ class FetchArtistWorker(Worker):
             "======================"
         )
 
-        # self.result.emit(self.artist_id, MbArtist(result))
+        release_group_list = result["release-group-list"]
+        release_group_count = result["release-group-count"]
+
+        if len(release_group_list) < release_group_count:
+            debug("Too many release groups, browsing them...")
+
+            release_group_list = []
+            while len(release_group_list) < release_group_count:
+                offset = len(release_group_list)
+                # debug(f"browse_release_groups(artist={self.artist_id},offset={offset},limit={25}) [COUNT is {release_group_count}]")
+                # rgs_result = browse_release_groups(artist=self.artist_id,
+                #                         includes=["release-rels", "release-group-rels"],
+                #                         release_type=["album"],
+                #                         limit=25,
+                #                         offset=offset)
+                debug(f"search_release_groups(artist={self.artist_id},offset={offset},limit={25}) [COUNT is {release_group_count}]")
+
+                rgs_result = mb.search_release_groups(
+                    query="",
+                    limit=25,
+                    offset=offset,
+                    strict=True,
+                    arid=self.artist_id,
+                    primarytype="album",
+                    status="official")
+
+                debug(
+                    f"=== search_release_groups (offset={offset}) ==="
+                    f"{j(rgs_result)}"
+                    "======================"
+                )
+
+                release_group_list += rgs_result["release-group-list"]
+                release_group_count = rgs_result["release-group-count"]
+
+            release_group_list = sorted(release_group_list, key=lambda rg: rg.get("first-release-date", "9999-99-99"))
+            result["release-group-list"] = release_group_list
+
+        debug(
+            "=== get_artist_by_id EXTENDED ==="
+            f"{j(result)}"
+            "======================"
+        )
+
+
         self.result.emit(self.artist_id, result)
 
 def fetch_artist(artist_id, callback, priority=workers.Worker.PRIORITY_NORMAL):

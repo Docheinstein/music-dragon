@@ -1,3 +1,4 @@
+import json
 from difflib import get_close_matches
 from statistics import mean, multimode
 from typing import List, Dict, Optional, Union
@@ -8,7 +9,7 @@ import requests
 from music_dragon import cache, localsongs, musicbrainz, preferences, wiki, workers, ytdownloader, ytmusic
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
-from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata
+from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata, j
 from music_dragon.ytmusic import YtTrack
 
 _artists: Dict[str, 'Artist'] = {}
@@ -46,8 +47,9 @@ class Artist(Mergeable):
                         continue
 
                     release_group = ReleaseGroup(mb_rg)
-                    # TODO: what if there is more than an artist?
-                    release_group.artist_ids.append(self.id)
+                    if self.id not in release_group.artist_ids:
+                        # TODO: what if there is more than an artist?
+                        release_group.artist_ids.append(self.id)
                     _add_release_group(release_group)
                     self.release_group_ids.append(release_group.id)
 
@@ -86,15 +88,23 @@ class ReleaseGroup(Mergeable):
         if mb_release_group:
             self.id = mb_release_group["id"]
             self.title = normalize_metadata(mb_release_group["title"])
-            self.date = mb_release_group.get("first-release-date", "")
+            self.date = mb_release_group.get("first-release-date", "9999-99-99")
             if "artist-credit" in mb_release_group:
+                # debug(f"mb_release_group['artist-credit'] len is {len(mb_release_group['artist-credit'])}")
+                # debug(f"self.artist_ids before is {self.artist_ids}")
                 for artist_credit in mb_release_group["artist-credit"]:
                     if not isinstance(artist_credit, dict):
                         continue
 
                     artist = Artist(artist_credit["artist"])
                     _add_artist(artist)
-                    self.artist_ids.append(artist.id)
+
+                    if artist.id not in self.artist_ids:
+                        self.artist_ids.append(artist.id)
+                    else:
+                        debug("WARN: duplicate artist id")
+
+                # debug(f"self.artist_ids after is {self.artist_ids}")
 
             if "release-list" in mb_release_group:
                 self.release_ids = [{
@@ -173,13 +183,14 @@ class Release(Mergeable):
         if mb_release:
             self.id = mb_release["id"]
             self.title = normalize_metadata(mb_release["title"]) # should match the release group title
-            if "format" in mb_release["medium-list"][0]:
+            # print(j(mb_release))
+            if mb_release["medium-list"] and "format" in mb_release["medium-list"][0]:
                 self.format = mb_release["medium-list"][0]["format"]
             self.release_group_id = mb_release["release-group"]["id"]
 
             track_names = {}
 
-            if len(mb_release["medium-list"][0]["track-list"]) == mb_release["medium-list"][0]["track-count"]:
+            if mb_release["medium-list"] and len(mb_release["medium-list"][0]["track-list"]) == mb_release["medium-list"][0]["track-count"]:
                 for mb_track in mb_release["medium-list"][0]["track-list"]:
                     t = Track(mb_track, self.id)
                     if t.title not in track_names:

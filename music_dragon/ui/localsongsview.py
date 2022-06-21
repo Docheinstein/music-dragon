@@ -253,7 +253,7 @@ class LocalSongsModel(QAbstractListModel):
 
     def reload(self):
         self.localsongs = [mp3 for mp3 in localsongs.mp3s]
-        self.localsongs = sorted(self.localsongs, key=lambda mp3: mp3.song)
+        self.localsongs = sorted(self.localsongs, key=lambda mp3: mp3.title())
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
         return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
@@ -273,7 +273,7 @@ class LocalSongsModel(QAbstractListModel):
         mp3 = self.localsongs[row]
 
         if role == LocalSongsItemRole.SONG:
-            return mp3.song or str(mp3.path)
+            return mp3.title()
 
         if role == LocalSongsItemRole.ARTIST:
             if mp3.artist:

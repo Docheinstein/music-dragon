@@ -38,6 +38,12 @@ class Mp3:
         self.fetched_track = False
         self.track_id = None
 
+    def title(self):
+        if self.song:
+            return self.song
+        print(f"WARN: not song attribute for mp3 {self.path}")
+        return self.path.stem
+
     def load_from_file(self, file: str, load_image=True):
         p = Path(file)
 
@@ -97,7 +103,7 @@ def get_by_metadata(artist: str, album: str, song: str):
 def load_mp3(file: str, load_image=True):
     mp3: Mp3 = Mp3()
     if mp3.load_from_file(file, load_image=load_image):
-        mp3s_indexes_by_metadata[(mp3.artist, mp3.album, mp3.song)] = len(mp3s)
+        mp3s_indexes_by_metadata[(mp3.artist, mp3.album, mp3.title())] = len(mp3s)
         mp3s.append(mp3)
         return mp3
     return None
