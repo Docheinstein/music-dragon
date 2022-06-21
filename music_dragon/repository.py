@@ -47,11 +47,14 @@ class Artist(Mergeable):
                         continue
 
                     release_group = ReleaseGroup(mb_rg)
+                    # TODO: dict/set?
                     if self.id not in release_group.artist_ids:
                         # TODO: what if there is more than an artist?
                         release_group.artist_ids.append(self.id)
+
                     _add_release_group(release_group)
-                    self.release_group_ids.append(release_group.id)
+                    if release_group.id not in self.release_group_ids:
+                        self.release_group_ids.append(release_group.id)
 
     def merge(self, other):
         # handle flags apart
@@ -88,7 +91,7 @@ class ReleaseGroup(Mergeable):
         if mb_release_group:
             self.id = mb_release_group["id"]
             self.title = normalize_metadata(mb_release_group["title"])
-            self.date = mb_release_group.get("first-release-date", "9999-99-99")
+            self.date = mb_release_group.get("first-release-date", "")
             if "artist-credit" in mb_release_group:
                 # debug(f"mb_release_group['artist-credit'] len is {len(mb_release_group['artist-credit'])}")
                 # debug(f"self.artist_ids before is {self.artist_ids}")

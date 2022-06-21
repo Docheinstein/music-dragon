@@ -413,7 +413,7 @@ class FetchArtistWorker(Worker):
             self.artist_id,
             # includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
             includes=["aliases", "release-groups", "release-group-rels", "url-rels"],
-            # release_status=["official"],
+            release_status=["official"],
             release_type=["album"],
         )["artist"]
         debug(
@@ -441,12 +441,13 @@ class FetchArtistWorker(Worker):
 
                 rgs_result = mb.search_release_groups(
                     query="",
-                    limit=25,
+                    limit=100,
                     offset=offset,
                     strict=True,
                     arid=self.artist_id,
                     primarytype="album",
-                    status="official")
+                    status="official"
+                )
 
                 debug(
                     f"=== search_release_groups (offset={offset}) ==="
