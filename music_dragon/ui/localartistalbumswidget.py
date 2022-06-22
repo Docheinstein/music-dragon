@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout
 
 from music_dragon import localsongs
 from music_dragon.localsongs import Mp3
+from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.repository import get_release_group, get_artist
 from music_dragon.ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
@@ -16,7 +17,7 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
-            # self.subtitle: Optional[QLabel] = None
+            self.subtitle: Optional[QLabel] = None
 
     def __init__(self, album_group_leader: Mp3):
         super().__init__(entry=album_group_leader)
@@ -36,15 +37,15 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         # title
         self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        # self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
         # subtitle
-        # self.ui.subtitle = QLabel()
-        # self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        # self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        # font = self.ui.subtitle.font()
-        # font.setPointSize(10)
-        # self.ui.subtitle.setFont(font)
+        self.ui.subtitle = QLabel()
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        font = self.ui.subtitle.font()
+        font.setPointSize(10)
+        self.ui.subtitle.setFont(font)
 
         # build
         self.ui.layout = QHBoxLayout()
@@ -54,7 +55,7 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.ui.inner_layout = QVBoxLayout()
         self.ui.inner_layout.setSpacing(0)
         self.ui.inner_layout.addWidget(self.ui.title)
-        # self.ui.inner_layout.addWidget(self.ui.subtitle)
+        self.ui.inner_layout.addWidget(self.ui.subtitle)
         self.ui.layout.addLayout(self.ui.inner_layout)
 
         self.setLayout(self.ui.layout)
@@ -67,7 +68,7 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.ui.title.setText(self.album_group_leader.album)
 
         # subtitle
-        # self.ui.subtitle.setText("")
+        self.ui.subtitle.setText(str(self.album_group_leader.year) if self.album_group_leader.year else "")
 
 class LocalArtistAlbumsModel(ListWidgetModel):
     def __init__(self):
@@ -76,13 +77,20 @@ class LocalArtistAlbumsModel(ListWidgetModel):
         self.albums = []
 
     def set(self, mp3: Mp3):
+        def is_better(m1: Mp3, m2: Mp3):
+            if m1.year and not m2.year:
+                return True
+            if m1.image and not m2.image:
+                return True
+            return False
         self.artist = mp3.artist
         albums = {}
         for mp3 in localsongs.mp3s:
             if mp3.artist == self.artist:
-                if mp3.album not in albums or not albums[mp3.album].image:
+                if mp3.album not in albums or is_better(mp3, albums[mp3.album]):
                     albums[mp3.album] = mp3
 
+        debug([mp3.title() for mp3 in albums.values()])
         self.albums = list(albums.values())
 
     def entries(self) -> List:

@@ -28,6 +28,7 @@ class Mp3:
         self.image = None
         self.image_path = None # only available if cached
         self.size = None
+        self.year = None
 
         self.path: Optional[Path] = None
 
@@ -74,13 +75,21 @@ class Mp3:
                 self.album = mp3.tag.album
                 self.song = mp3.tag.title
                 self.track_num = mp3.tag.track_num[0]
+                try:
+                    self.year = mp3.tag.getBestDate().year
+                except:
+                    pass
 
                 if load_image:
                     self._load_image_from_tag()
 
                 debug(f"Loaded {self.path}: "
-                      f"(artist={self.artist}, album={self.album}, "
-                      f"title={self.song}, image={'yes' if self.image else 'no'})")
+                      f"(artist={self.artist}, "
+                      f"album={self.album}, "
+                      f"title={self.song}, "
+                      f"year={self.year}, "
+                      f"track_num={self.track_num}, "
+                      f"image={'yes' if self.image else 'no'})")
                 return True
         except Exception as e:
             print(f"WARN: failed to load mp3 from '{file}': {e}")
@@ -95,6 +104,7 @@ class Mp3:
         self.album = info.get("album")
         self.song = info.get("song")
         self.track_num = info.get("track_num")
+        self.year = info.get("year")
         self.image_path = info.get("image")
         self.tag = None
 
@@ -102,9 +112,13 @@ class Mp3:
             if self.image_path:
                 self._load_image_from_path(self.image_path)
 
-        debug(f"Loaded [cached] {self.path}: "
-              f"(artist={self.artist}, album={self.album}, "
-              f"title={self.song}, image={'yes' if self.image else 'no'})")
+                debug(f"Loaded [cached] {self.path}: "
+                      f"(artist={self.artist}, "
+                      f"album={self.album}, "
+                      f"title={self.song}, "
+                      f"year={self.year}, "
+                      f"track_num={self.track_num}, "
+                      f"image={'yes' if self.image else 'no'})")
 
         return True
 

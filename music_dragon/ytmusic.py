@@ -594,6 +594,7 @@ class YtTrack(Mergeable):
             "name": normalize_metadata(a["name"])
         } for a in yt_track["artists"]] if "artists" in yt_track else [normalize_metadata(yt_track.get("artist"))]
         self.track_number = yt_track.get("track_number")
+        self.year = yt_track.get("year")
         self.streams = []
         self.streams_fetched = False
 

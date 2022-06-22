@@ -115,7 +115,7 @@ class TrackDownloaderWorker(Worker):
 
     def __init__(self,
                  video_id: str,
-                 artist: str, album: str, song: str, track_num: int, image: bytes,
+                 artist: str, album: str, song: str, track_num: int, year: int, image: bytes,
                  output_directory: str, output_format: str,
                  metadata=True):
         super().__init__()
@@ -124,6 +124,7 @@ class TrackDownloaderWorker(Worker):
         self.album = album
         self.song = song
         self.track_num = track_num
+        self.year = year
         self.image = image
         self.metadata = metadata
         self.output_directory = output_directory
@@ -237,6 +238,7 @@ class TrackDownloaderWorker(Worker):
                         album = self.album
                         song = self.song
                         track_num = self.track_num
+                        year = self.year
                         image = self.image
 
                         debug(f"Applying mp3 tags to {output}\n"
@@ -244,6 +246,7 @@ class TrackDownloaderWorker(Worker):
                               f"album={album}\n"
                               f"song={song}\n"
                               f"track_num={track_num}\n"
+                              f"year={year}\n"
                               f"image={'yes' if image else 'no'}"
                           )
 
@@ -262,6 +265,8 @@ class TrackDownloaderWorker(Worker):
                                     tag.title = song
                                 if track_num is not None:
                                     tag.track_num = track_num
+                                if year is not None:
+                                    tag.release_date = eyed3.core.Date(int(year))
                                 if image:
                                     tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
                                 tag.save()
@@ -313,7 +318,7 @@ class TrackDownloaderWorker(Worker):
 
 def enqueue_track_download(
         video_id: str,
-        artist: str, album: str, song: str, track_num: int, image: bytes,
+        artist: str, album: str, song: str, track_num: int, year: int, image: bytes,
         output_directory: str, output_format: str,
         queued_callback,
         started_callback,
@@ -333,6 +338,7 @@ def enqueue_track_download(
         "album": album,
         "song": song,
         "track_num": track_num,
+        "year": year,
         "image": image,
         "user_data": user_data,
     }
@@ -343,7 +349,7 @@ def enqueue_track_download(
         return False
 
     worker = TrackDownloaderWorker(
-        video_id, artist, album, song, track_num, image,
+        video_id, artist, album, song, track_num, year, image,
         output_directory, output_format,
         metadata)
     worker.priority = Worker.PRIORITY_BELOW_NORMAL
