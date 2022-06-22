@@ -8,6 +8,7 @@ from eyed3.core import AudioFile
 
 from music_dragon import workers
 from music_dragon.log import debug
+from music_dragon.utils import crc32
 from music_dragon.workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
@@ -18,13 +19,15 @@ mp3s = []
 class Mp3:
     def __init__(self):
         # tag
-        self.length = None
         self.tag = None
+        self.length = None
         self.artist = None
         self.album = None
         self.song = None
         self.track_num = None
         self.image = None
+        self.image_path = None # only available if cached
+        self.size = None
 
         self.path: Optional[Path] = None
 
@@ -55,8 +58,11 @@ class Mp3:
             return False
 
         self.path = p.absolute()
+        self.tag = None
 
         try:
+            self.size = os.stat(self.path).st_size
+
             mp3: AudioFile = eyed3.load(self.path)
             if mp3:
                 if not mp3.tag:
@@ -67,7 +73,8 @@ class Mp3:
                 self.artist = mp3.tag.artist
                 self.album = mp3.tag.album
                 self.song = mp3.tag.title
-                self.track_num = mp3.tag.track_num
+                self.track_num = mp3.tag.track_num[0]
+
                 if load_image:
                     self._load_image_from_tag()
 
@@ -80,11 +87,63 @@ class Mp3:
 
         return False
 
+    def load_from_info(self, info: dict, load_image=True):
+        self.size = info.get("size")
+        self.path = info.get("path")
+        self.length = info.get("length")
+        self.artist = info.get("artist")
+        self.album = info.get("album")
+        self.song = info.get("song")
+        self.track_num = info.get("track_num")
+        self.image_path = info.get("image")
+        self.tag = None
+
+        if load_image:
+            if self.image_path:
+                self._load_image_from_path(self.image_path)
+
+        debug(f"Loaded [cached] {self.path}: "
+              f"(artist={self.artist}, album={self.album}, "
+              f"title={self.song}, image={'yes' if self.image else 'no'})")
+
+        return True
+
+
+    def load_image(self):
+        if self.image:
+            return
+
+        if self.image_path is not None:
+            self._load_image_from_path(self.image_path)
+        else:
+            self._load_image_from_tag()
+
+
     def _load_image_from_tag(self):
+        # Eventually load tag
+        if not self.tag:
+            try:
+                mp3: AudioFile = eyed3.load(self.path)
+                if mp3:
+                    self.tag = mp3.tag
+            except Exception as e:
+                print(f"WARN: failed to load mp3 from '{self.path}': {e}")
+
+        if not self.tag:
+            print(f"WARN: no tag for mp3 {self.path}")
+            return
+
         for img in self.tag.images:
             if img.picture_type == MP3_IMAGE_TAG_INDEX_FRONT_COVER:
                 self.image = img.image_data
                 debug(f"Loaded image of {self}")
+
+
+    def _load_image_from_path(self, image_path):
+        with Path(image_path).open("rb") as img:
+            self.image = img.read()
+            debug(f"Loaded [cached] image of {self}")
+
 
     def __str__(self):
         return f"{self.artist} - {self.album} - {self.song}"
@@ -108,7 +167,15 @@ def load_mp3(file: str, load_image=True):
         return mp3
     return None
 
-def load_mp3s(directory: str, load_images=True, mp3_loaded_callback=None):
+def load_mp3_from_info(mp3_info: dict, load_image=True):
+    mp3: Mp3 = Mp3()
+    if mp3.load_from_info(mp3_info, load_image=load_image):
+        mp3s_indexes_by_metadata[(mp3.artist, mp3.album, mp3.title())] = len(mp3s)
+        mp3s.append(mp3)
+        return mp3
+    return None
+
+def load_mp3s(directory: str, info=None, load_images=True, mp3_loaded_callback=None):
     root = Path(directory)
     if not root.exists():
         print(f"WARN: cannot load mp3s from directory '{directory}': does not exist")
@@ -124,11 +191,27 @@ def load_mp3s(directory: str, load_images=True, mp3_loaded_callback=None):
             if not file.endswith(".mp3"):
                 continue # skip non mp3
             file_count += 1
-            mp3 = load_mp3(os.path.join(root, file), load_image=load_images)
+
+            full_path = os.path.join(root, file)
+
+            mp3 = None
+
+            # check whether we already know this file
+            if info and full_path in info:
+                mp3_info =  info[full_path]
+                stat = os.stat(full_path)
+                # TODO: md5, crc32 would be more reliable
+                if mp3_info.get("size", 0) == stat.st_size:
+                    mp3 = load_mp3_from_info(mp3_info)
+
+            if not mp3:
+                mp3 = load_mp3(full_path, load_image=load_images)
+
             if mp3:
                 loaded_file_count += 1
                 if callable(mp3_loaded_callback):
                     mp3_loaded_callback(mp3)
+
     debug(f"Loaded {loaded_file_count}/{file_count} mp3 files")
 
 def clear_mp3s():
@@ -142,31 +225,35 @@ def clear_mp3s():
 class LoadMp3sWorker(Worker):
     mp3_loaded = pyqtSignal(Mp3)
 
-    def __init__(self, directory: str, load_images):
+    def __init__(self, directory: str, info: dict, load_images):
         super().__init__()
         self.directory = directory
+        self.info = info
         self.load_images = load_images
 
     def run(self):
         # Fetch all the releases and releases tracks for the release groups
         debug(f"LOCALSONGS: load_mp3s: '{self.directory}'")
 
-        load_mp3s(self.directory, mp3_loaded_callback=self._on_mp3_loaded, load_images=self.load_images)
+        load_mp3s(self.directory, info=self.info, mp3_loaded_callback=self._on_mp3_loaded, load_images=self.load_images)
         # TODO: sort?
 
     def _on_mp3_loaded(self, mp3: Mp3):
         self.mp3_loaded.emit(mp3)
 
 
-def load_mp3s_background(directory, mp3_loaded_callback=None, finished_callback=None,
+def load_mp3s_background(directory,
+                         info: dict=None,
+                         mp3_loaded_callback=None, finished_callback=None,
                          load_images=True, priority=workers.Worker.PRIORITY_BELOW_NORMAL):
-    worker = LoadMp3sWorker(directory, load_images=load_images)
+    worker = LoadMp3sWorker(directory, info=info, load_images=load_images)
     worker.priority = priority
     if mp3_loaded_callback:
         worker.mp3_loaded.connect(mp3_loaded_callback)
     if finished_callback:
         worker.finished.connect(lambda: finished_callback(load_images))
     workers.schedule(worker)
+
 
 # ============ LOAD MP3  ===============
 # Load mp3 and its tags from file
@@ -211,7 +298,7 @@ class LoadMp3sImagesWorker(Worker):
         debug(f"LOCALSONGS: load_mp3s_images: ({len(mp3s)})")
 
         for mp3 in mp3s:
-            mp3._load_image_from_tag()
+            mp3.load_image()
             self.mp3_image_loaded.emit(mp3)
 
 

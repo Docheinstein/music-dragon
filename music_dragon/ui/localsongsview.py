@@ -261,6 +261,9 @@ class LocalSongsModel(QAbstractListModel):
     def rowCount(self, parent: QModelIndex = ...) -> int:
         return len(self.localsongs)
 
+    def entry(self, row: int):
+        return self.localsongs[row]
+
     def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()

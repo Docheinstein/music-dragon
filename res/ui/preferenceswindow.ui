@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>3</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -279,6 +279,13 @@
                <widget class="QCheckBox" name="cacheRequestsBox">
                 <property name="text">
                  <string>Cache requests</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QCheckBox" name="cacheLocalSongs">
+                <property name="text">
+                 <string>Cache local songs</string>
                 </property>
                </widget>
               </item>

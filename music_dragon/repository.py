@@ -9,7 +9,8 @@ import requests
 from music_dragon import cache, localsongs, musicbrainz, preferences, wiki, workers, ytdownloader, ytmusic
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
-from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata, j
+from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata, j, crc32
+from music_dragon.workers import Worker
 from music_dragon.ytmusic import YtTrack
 
 _artists: Dict[str, 'Artist'] = {}
@@ -272,6 +273,10 @@ class Track(Mergeable):
                 return True
         return False
 
+    def get_local(self) -> Optional[Mp3]:
+        rg = self.release().release_group()
+        return localsongs.get_by_metadata(rg.artists_string(), rg.title, self.title)
+
 def _add_artist(artist: Artist):
     debug(f"add_artist({artist.id})")
 
@@ -522,7 +527,7 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
             # TODO: ... callback?
             return
 
-        def release_groups_callback_wrapper(query_, result: List[dict]):
+        def release_groups_callback_wrapper(_1, _2, result: List[dict]):
             if not cache_hit:
                 cache.put_request(request_name, result)
 
@@ -563,10 +568,10 @@ def fetch_mp3_release_group(mp3: Mp3, mp3_release_group_callback, mp3_release_gr
         if req:
             # storage cached
             cache_hit = True
-            release_groups_callback_wrapper(mp3.album, req)
+            release_groups_callback_wrapper(mp3.artist, mp3.album, req)
         else:
             # actually fetch
-            musicbrainz.search_release_groups(mp3.album, release_groups_callback_wrapper, limit=limit)
+            musicbrainz.search_release_group(mp3.artist, mp3.album, release_groups_callback_wrapper)
 
 
 def fetch_release_group_by_name(release_group_name: str, artist_name_hint: str, release_group_callback, release_group_image_callback):
@@ -1548,3 +1553,68 @@ def download_youtube_track(track_id: str,
 
 def cancel_youtube_track_download(video_id: str):
     ytdownloader.cancel_track_download(video_id)
+
+def load_mp3s(directory: str,
+              mp3_loaded_callback,
+              mp3_image_loaded_callback,
+              mp3s_loaded_callback,
+              mp3s_images_loaded_callback):
+
+    def update_localsongs_cache(*args, **kwargs):
+        debug("Computing local songs info...")
+        info = {}
+
+        for mp3 in localsongs.mp3s:
+            img_fingerprint_ = str(crc32(mp3.image)) if mp3.image else None
+
+            # Add info
+            info[str(mp3.path)] = {
+                "path": str(mp3.path),
+                "length": mp3.length,
+                "artist": mp3.artist,
+                "album": mp3.album,
+                "song": mp3.song,
+                "track_num": mp3.track_num,
+                "size": mp3.size,
+                "image_fingerprint": img_fingerprint_,
+            }
+
+            # Save image
+            if img_fingerprint_ is not None and not cache.has_file(img_fingerprint_):
+                cache.put_image(img_fingerprint_, mp3.image)
+
+        debug("Local songs info computed")
+        cache.put_localsongs(info)
+
+    def mp3s_images_loaded_callback_wrapper():
+        mp3s_images_loaded_callback()
+
+        # Update cache
+        workers.schedule_function(update_localsongs_cache)
+
+    def mp3s_loaded_callback_wrapper(_1):
+        mp3s_loaded_callback(_1)
+
+        # Load images
+        debug("Loading images now")
+        localsongs.load_mp3s_images_background(
+            mp3_image_loaded_callback=mp3_image_loaded_callback,
+            finished_callback=mp3s_images_loaded_callback_wrapper)
+
+    # Load local songs info
+    localsongs_info = cache.get_localsongs()
+
+    if localsongs_info:
+        # Link mp3s info with images
+        for _1, mp3_info in localsongs_info.items():
+            img_fingerprint = mp3_info.get("image_fingerprint")
+            if img_fingerprint is not None:
+                mp3_info["image"] = cache._cache_path / img_fingerprint
+
+    # Load mp3s from info
+    localsongs.load_mp3s_background(directory,
+                                    info=localsongs_info,
+                                    mp3_loaded_callback=mp3_loaded_callback,
+                                    finished_callback=mp3s_loaded_callback_wrapper,
+                                    load_images=False)
+

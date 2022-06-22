@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Callable, Union
 
 from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 
@@ -327,4 +327,17 @@ class WorkerScheduler(QObject):
         return self.__class__.__name__
 
 def schedule(worker: Worker):
+    worker_scheduler.schedule(worker)
+
+def schedule_function(func: Callable, *args, **kwargs):
+    class FunctionWorker(Worker):
+        def __init__(self, *args_, **kwargs_):
+            super().__init__()
+            self.args = args_
+            self.kwargs = kwargs_
+
+        def run(self):
+            func(self.args, self.kwargs)
+
+    worker = FunctionWorker(args, kwargs)
     worker_scheduler.schedule(worker)

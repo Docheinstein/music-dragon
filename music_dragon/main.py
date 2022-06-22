@@ -45,7 +45,8 @@ def main():
     ytmusic.initialize()
     musicbrainz.initialize()
     cache.initialize(images=preferences.is_images_cache_enabled(),
-                     requests=preferences.is_requests_cache_enabled())
+                     requests=preferences.is_requests_cache_enabled(),
+                     localsongs=preferences.is_localsongs_cache_enabled())
 
     # import ytdownloader
     # def cb(_1, _2, _3):

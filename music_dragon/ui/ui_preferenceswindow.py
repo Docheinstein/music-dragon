@@ -157,6 +157,9 @@ class Ui_PreferencesWindow(object):
         self.cacheRequestsBox = QtWidgets.QCheckBox(self.cacheWidget)
         self.cacheRequestsBox.setObjectName("cacheRequestsBox")
         self.verticalLayout_13.addWidget(self.cacheRequestsBox)
+        self.cacheLocalSongs = QtWidgets.QCheckBox(self.cacheWidget)
+        self.cacheLocalSongs.setObjectName("cacheLocalSongs")
+        self.verticalLayout_13.addWidget(self.cacheLocalSongs)
         self.cacheSize = QtWidgets.QLabel(self.cacheWidget)
         self.cacheSize.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.cacheSize.setObjectName("cacheSize")
@@ -280,7 +283,7 @@ class Ui_PreferencesWindow(object):
         self.verticalLayout.addWidget(self.buttonBox)
 
         self.retranslateUi(PreferencesWindow)
-        self.tabWidget.setCurrentIndex(3)
+        self.tabWidget.setCurrentIndex(1)
         self.buttonBox.accepted.connect(PreferencesWindow.accept) # type: ignore
         self.buttonBox.rejected.connect(PreferencesWindow.reject) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(PreferencesWindow)
@@ -303,6 +306,7 @@ class Ui_PreferencesWindow(object):
         self.cache.setText(_translate("PreferencesWindow", " ~/MusicDragon"))
         self.cacheImagesCheck.setText(_translate("PreferencesWindow", "Cache images"))
         self.cacheRequestsBox.setText(_translate("PreferencesWindow", "Cache requests"))
+        self.cacheLocalSongs.setText(_translate("PreferencesWindow", "Cache local songs"))
         self.cacheSize.setText(_translate("PreferencesWindow", "Size: 0MB"))
         self.cacheClearButton.setText(_translate("PreferencesWindow", "Clear Cache"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("PreferencesWindow", "Cache"))

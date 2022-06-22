@@ -62,6 +62,7 @@ class PreferencesWindow(QDialog):
         self.ui.maxSimultaneousDownloads.setValue(preferences.max_simultaneous_downloads())
         self.ui.cacheImagesCheck.setChecked(preferences.is_images_cache_enabled())
         self.ui.cacheRequestsBox.setChecked(preferences.is_requests_cache_enabled())
+        self.ui.cacheLocalSongs.setChecked(preferences.is_localsongs_cache_enabled())
         self.ui.cache.setText(str(app_cache_path().absolute()))
         self.ui.youtubeEmail.setText(preferences.get_youtube_email())
         self.ui.youtubePassword.setText(preferences.get_youtube_password())
@@ -75,11 +76,13 @@ class PreferencesWindow(QDialog):
 
         preferences.set_images_cache_enabled(self.ui.cacheImagesCheck.isChecked())
         preferences.set_requests_cache_enabled(self.ui.cacheRequestsBox.isChecked())
+        preferences.set_localsongs_cache_enabled(self.ui.cacheLocalSongs.isChecked())
         preferences.set_youtube_email(self.ui.youtubeEmail.text())
         preferences.set_youtube_password(self.ui.youtubePassword.text())
 
         cache.enable_images_cache(preferences.is_images_cache_enabled())
         cache.enable_requests_cache(preferences.is_requests_cache_enabled())
+        cache.enable_localsongs_cache(preferences.is_localsongs_cache_enabled())
 
         ytdownloader.set_credentials(preferences.get_youtube_email(), preferences.get_youtube_password())
 

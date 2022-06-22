@@ -188,12 +188,11 @@ class MainWindow(QMainWindow):
 
         # Load local songs
         # TODO: preferences flag?
-        localsongs.load_mp3s_background(
-            preferences.directory(),
-            mp3_loaded_callback=self.on_mp3_loaded,
-            finished_callback=self.on_mp3s_loaded,
-            load_images=False
-        )
+        repository.load_mp3s(preferences.directory(),
+                                        mp3_loaded_callback=self.on_mp3_loaded,
+                                        mp3_image_loaded_callback=self.on_mp3_image_loaded,
+                                        mp3s_loaded_callback=self.on_mp3s_loaded,
+                                        mp3s_images_loaded_callback=self.on_mp3s_images_loaded)
 
         # Play
         self.ui.playPauseButton.clicked.connect(self.on_play_pause_button_clicked)
@@ -993,6 +992,7 @@ class MainWindow(QMainWindow):
         debug("Reloading mp3s model")
         self.update_local_song_count()
         self.local_songs_model.beginResetModel()
+        self.local_songs_model.reload()
         self.local_songs_model.endResetModel()
 
         if down["user_data"]["type"] == "official":
@@ -1154,12 +1154,6 @@ class MainWindow(QMainWindow):
         # self.ui.localSongs.invalidate()
         debug("Reloading mp3s model")
         self.reload_local_songs_artists_albums()
-        if not with_images:
-            debug("Loading images now")
-            localsongs.load_mp3s_images_background(
-                mp3_image_loaded_callback=self.on_mp3_image_loaded,
-                finished_callback=self.on_mp3s_images_loaded)
-
 
     def on_mp3_image_loaded(self, mp3: Mp3):
         pass
@@ -1176,10 +1170,11 @@ class MainWindow(QMainWindow):
         self.reload_local_songs_artists_albums()
 
         self.update_local_song_count()
-        localsongs.load_mp3s_background(preferences.directory(),
+        repository.load_mp3s(preferences.directory(),
                                         mp3_loaded_callback=self.on_mp3_loaded,
-                                        finished_callback=self.on_mp3s_loaded,
-                                        load_images=False)
+                                        mp3_image_loaded_callback=self.on_mp3_image_loaded,
+                                        mp3s_loaded_callback=self.on_mp3s_loaded,
+                                        mp3s_images_loaded_callback=self.on_mp3s_images_loaded)
 
     def reload_local_songs_artists_albums(self):
         self.local_songs_model.beginResetModel()
@@ -1242,21 +1237,21 @@ class MainWindow(QMainWindow):
 
 
     def on_local_song_artist_clicked(self, row: int):
-        mp3 = localsongs.mp3s[row]
+        mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_artist_clicked: {mp3}")
         self.open_mp3_artist(mp3)
 
     def on_local_song_album_clicked(self, row: int):
-        mp3 = localsongs.mp3s[row]
+        mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_album_clicked: {mp3}")
         self.open_mp3_release_group(mp3)
 
     def on_local_song_clicked(self, row: int):
-        mp3 = localsongs.mp3s[row]
+        mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_clicked: {mp3}")
 
     def on_local_song_double_clicked(self, row: int):
-        mp3 = localsongs.mp3s[row]
+        mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_double_clicked: {mp3}")
         if mp3.path:
             self.play_local_song(mp3)
@@ -1331,6 +1326,14 @@ class MainWindow(QMainWindow):
 
     def play_track(self, track_id):
         track = get_track(track_id)
+        local_mp3 = track.get_local()
+        if local_mp3:
+            # play locally if available
+            self.play_local_song(local_mp3)
+            self.playing = track # so that prev/next refers to album
+            return
+
+        # play from url
         self.ui.playContainer.setVisible(False)
 
         rg = track.release().release_group()
@@ -1423,9 +1426,9 @@ class MainWindow(QMainWindow):
             else:
                 print("Nothing else to play")
         elif isinstance(self.playing, Mp3):
-            next_idx = localsongs.mp3s.index(self.playing) + delta
-            if 0 <= next_idx < len(localsongs.mp3s):
-                self.play_local_song(localsongs.mp3s[next_idx])
+            next_idx = self.local_songs_model.localsongs.index(self.playing) + delta
+            if 0 <= next_idx < len(self.local_songs_model.localsongs):
+                self.play_local_song(self.local_songs_model.localsongs[next_idx])
             else:
                 print("Nothing else to play")
 

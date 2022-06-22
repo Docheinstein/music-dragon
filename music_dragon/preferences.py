@@ -83,6 +83,15 @@ def is_requests_cache_enabled() -> bool:
 def set_requests_cache_enabled(enabled: bool):
     _preferences.setValue("cache_requests", "1" if enabled else "0")
 
+
+def is_localsongs_cache_enabled() -> bool:
+    x = _preferences.value("cache_localsongs", "1")
+    return x == "1"
+
+
+def set_localsongs_cache_enabled(enabled: bool):
+    _preferences.setValue("cache_localsongs", "1" if enabled else "0")
+
 # YouTube credentials
 # TODO: not plain text?
 

@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import time
+import zlib
 from pathlib import Path
 from typing import Sequence, Optional, Union
 
@@ -130,6 +131,9 @@ def rangify(a, x, b):
 def is_win():
     return sys.platform.startswith("win")
 
+
+def crc32(data: bytes):
+    return zlib.crc32(data)
 
 class Mergeable:
     def merge(self, other):

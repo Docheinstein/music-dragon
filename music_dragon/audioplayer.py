@@ -5,8 +5,12 @@ _vlc_instance = vlc.Instance()
 media_player = _vlc_instance.media_player_new()
 
 def open_stream(url: str):
-    debug(f"Opening audio stream from url: {url}")
-    media_player.set_media(_vlc_instance.media_new(url))
+    debug(f"Opening audio stream at: {url}")
+    if url.startswith("http"):
+        media_player.set_media(_vlc_instance.media_new_location(url))
+    else:
+        media_player.set_media(_vlc_instance.media_new_path(url))
+
 
 def stream_is_open():
     return media_player.get_media() is not None
