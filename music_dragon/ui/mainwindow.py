@@ -1,3 +1,4 @@
+import enum
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -15,6 +16,8 @@ from music_dragon.ui.artistalbumswidget import ArtistAlbumsModel
 from music_dragon.ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
 from music_dragon.ui.imagepreviewwindow import ImagePreviewWindow
 from music_dragon.ui.localalbumsview import LocalAlbumsModel, LocalAlbumsItemDelegate
+from music_dragon.ui.localalbumtrackswidget import LocalAlbumTracksModel
+from music_dragon.ui.localartistalbumswidget import LocalArtistAlbumsModel
 from music_dragon.ui.localartistsview import LocalArtistsModel, LocalArtistsItemDelegate
 from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
 from music_dragon.ui.preferenceswindow import PreferencesWindow
@@ -38,6 +41,19 @@ DOWNLOADS_TABS_COMPLETED_INDEX = 1
 # class TrackPlayInfo:
 #     def __init__(self):
 #         self.track = None
+
+
+class PlayingInfoSource(enum.Enum):
+    MODE_REMOTE_ALBUM_TRACK = 0
+    MODE_LOCAL_ALBUM_TRACK = 1
+    MODE_LOCAL_SONG = 2
+
+class PlayingInfo:
+    def __init__(self):
+        self.source: Optional[PlayingInfoSource] = None
+        self.target_index: int = -1
+        self.target: Optional[Union[Mp3, Track]] = None
+        self.playing_target: Optional[Union[Mp3, Track]] = None
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -128,6 +144,35 @@ class MainWindow(QMainWindow):
         self.ui.artistCover.set_double_clickable(True)
         self.artist_cover_data = None
 
+        # Local Album
+        self.current_local_album_mp3_group_leader = None
+        self.local_album_tracks_model = LocalAlbumTracksModel()
+        self.ui.localAlbumTracks.set_model(self.local_album_tracks_model)
+        self.ui.localAlbumTracks.row_clicked.connect(self.on_local_album_track_clicked)
+
+        self.ui.localAlbumArtist.set_underline_on_hover(True)
+        self.ui.localAlbumArtist.clicked.connect(self.on_local_album_artist_clicked_2)
+
+        self.ui.localAlbumCover.double_clicked.connect(self.on_local_album_cover_double_clicked)
+        self.ui.localAlbumCover.set_clickable(False)
+        self.ui.localAlbumCover.set_double_clickable(True)
+        self.album_cover_data = None
+
+        self.ui.localAlbumTracks.row_double_clicked.connect(self.on_local_track_double_clicked)
+        self.ui.localAlbumOpenRemoteButton.clicked.connect(self.on_local_album_open_remote_button_clicked)
+
+        # Local Artist
+        self.current_local_artist_mp3_group_leader = None
+
+        self.local_artist_albums_model = LocalArtistAlbumsModel()
+        self.ui.localArtistAlbums.set_model(self.local_artist_albums_model)
+        self.ui.localArtistAlbums.row_clicked.connect(self.on_local_artist_album_clicked)
+        self.ui.localArtistCover.double_clicked.connect(self.on_local_artist_image_double_clicked)
+        self.ui.localArtistCover.set_clickable(False)
+        self.ui.localArtistCover.set_double_clickable(True)
+
+        self.ui.localArtistOpenRemoteButton.clicked.connect(self.on_local_artist_open_remote_button_clicked)
+
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
@@ -205,7 +250,7 @@ class MainWindow(QMainWindow):
         self.ui.prevSongButton.clicked.connect(self.on_prev_song_button_clicked)
         self.ui.nextSongButton.clicked.connect(self.on_next_song_button_clicked)
 
-        self.playing: Optional[Union[Track, Mp3]] = None
+        self.playing = PlayingInfo()
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.on_play_timer_tick)
 
@@ -224,6 +269,12 @@ class MainWindow(QMainWindow):
 
     def set_artist_page(self):
         self.push_page(self.ui.artistPage)
+
+    def set_local_album_page(self):
+        self.push_page(self.ui.localAlbumPage)
+
+    def set_local_artist_page(self):
+        self.push_page(self.ui.localArtistPage)
 
     def current_page(self):
         return self.pages_stack[self.pages_stack_cursor] if 0 <= self.pages_stack_cursor <= len(self.pages_stack) - 1 else None
@@ -257,6 +308,10 @@ class MainWindow(QMainWindow):
                 return "album"
             if p == self.ui.artistPage:
                 return "artist"
+            if p == self.ui.localAlbumPage:
+                return "local_album"
+            if p == self.ui.localArtistsPage:
+                return "local_artist"
         next_page = self.pages_stack[self.pages_stack_cursor]
         debug(f"Updating current page to {page_to_string(next_page)}")
         debug(f"Page stack is ",
@@ -273,6 +328,10 @@ class MainWindow(QMainWindow):
         elif next_page == self.ui.albumPage:
             pass
         elif next_page == self.ui.artistPage:
+            pass
+        elif next_page == self.ui.localAlbumPage:
+            pass
+        elif next_page == self.ui.localArtistPage:
             pass
 
         self.ui.pages.setCurrentWidget(next_page)
@@ -338,6 +397,31 @@ class MainWindow(QMainWindow):
 
 
     def open_mp3_release_group(self, mp3: Mp3):
+        self.current_local_album_mp3_group_leader = mp3
+
+        # title
+        self.ui.localAlbumTitle.setText(mp3.album or "")
+
+        # artist
+        self.ui.localAlbumArtist.setText(mp3.artist or "")
+
+        # icon
+        self.ui.localAlbumCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
+        self.album_cover_data = mp3.image
+
+        # tracks
+        self.local_album_tracks_model.set(mp3)
+        self.ui.localAlbumTracks.invalidate()
+
+        # length
+        self.ui.localAlbumSongCount.setText(
+            f"{len(self.local_album_tracks_model.mp3s)} songs - "
+            f"{millis_to_long_string(sum([mp3.length for mp3 in self.local_album_tracks_model.mp3s]))}")
+
+        # switch page
+        self.set_local_album_page()
+
+    def open_mp3_release_group_remote(self, mp3: Mp3):
         # already fetched: open directly
         if mp3.fetched_release_group and mp3.release_group_id:
             self.open_release_group(get_release_group(mp3.release_group_id))
@@ -448,6 +532,24 @@ class MainWindow(QMainWindow):
 
 
     def open_mp3_artist(self, mp3: Mp3):
+        self.current_local_artist_mp3_group_leader = mp3
+
+        # title
+        self.ui.localArtistName.setText(mp3.artist or "")
+
+        # icon
+        self.ui.localArtistCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
+        self.album_cover_data = mp3.image
+
+        # tracks
+        self.local_artist_albums_model.set(mp3)
+        self.ui.localArtistAlbums.invalidate()
+
+        # switch page
+        self.set_local_artist_page()
+
+
+    def open_mp3_artist_remote(self, mp3: Mp3):
         # already fetched: open directly
         if mp3.fetched_artist and mp3.artist_id:
             self.open_artist(get_artist(mp3.artist_id))
@@ -729,6 +831,11 @@ class MainWindow(QMainWindow):
 
         self.open_release_group(release_group)
 
+    def on_local_artist_album_clicked(self, row: int):
+        debug(f"on_local_artist_album_clicked(row={row})")
+        album_group_leader = self.local_artist_albums_model.entry(row)
+        self.open_mp3_release_group(album_group_leader)
+
     def on_album_track_clicked(self, row: int):
         track_id = self.album_tracks_model.entry(row)
         track = get_track(track_id)
@@ -736,6 +843,7 @@ class MainWindow(QMainWindow):
         if not track:
             print(f"WARN: no release group found for id {track_id}")
             return
+
 
     def on_album_artist_clicked(self):
         debug("on_album_artist_clicked")
@@ -859,11 +967,31 @@ class MainWindow(QMainWindow):
         image_preview_window.set_image(self.album_cover_data)
         image_preview_window.exec()
 
+    def on_local_album_cover_double_clicked(self, ev: QMouseEvent):
+        debug("on_local_album_cover_double_clicked")
+        image_preview_window = ImagePreviewWindow()
+        image_preview_window.set_image(self.album_cover_data)
+        image_preview_window.exec()
+
     def on_artist_image_double_clicked(self, ev: QMouseEvent):
         debug("on_artist_image_double_clicked")
         image_preview_window = ImagePreviewWindow()
         image_preview_window.set_image(self.artist_cover_data)
         image_preview_window.exec()
+
+    def on_local_artist_image_double_clicked(self, ev: QMouseEvent):
+        debug("on_local_artist_image_double_clicked")
+        image_preview_window = ImagePreviewWindow()
+        image_preview_window.set_image(self.artist_cover_data)
+        image_preview_window.exec()
+
+
+    def on_local_album_track_clicked(self, row: int):
+        pass
+
+    def on_local_album_artist_clicked_2(self):
+        debug("on_local_album_artist_clicked_2")
+        self.open_mp3_artist(self.current_local_album_mp3_group_leader)
 
     def on_release_group_youtube_tracks_result(self, release_group_id: str, yttracks: List[YtTrack]):
         debug("on_release_group_youtube_tracks_result")
@@ -1077,6 +1205,14 @@ class MainWindow(QMainWindow):
         else:
             print(f"WARN: no playlist id available for release group {rg.title}")
 
+    def on_local_album_open_remote_button_clicked(self):
+        debug("on_local_album_open_remote_button_clicked")
+        self.open_mp3_release_group_remote(self.current_local_album_mp3_group_leader)
+
+    def on_local_artist_open_remote_button_clicked(self):
+        debug("on_local_artist_open_remote_button_clicked")
+        self.open_mp3_artist_remote(self.current_local_artist_mp3_group_leader)
+
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,
                                           queued_callback=self.on_youtube_track_download_queued,
@@ -1254,7 +1390,7 @@ class MainWindow(QMainWindow):
         mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_double_clicked: {mp3}")
         if mp3.path:
-            self.play_local_song(mp3)
+            self.play_local_song(mp3, row, source=PlayingInfoSource.MODE_LOCAL_SONG)
 
     def on_finished_download_double_clicked(self, row: int):
         debug("on_finished_download_double_clicked")
@@ -1304,12 +1440,18 @@ class MainWindow(QMainWindow):
         mp3_group_leader = self.local_albums_model.entry(row)
         self.open_mp3_artist(mp3_group_leader)
 
+
     def on_track_double_clicked(self, row: int):
         debug("on_track_double_clicked")
         track_id = self.album_tracks_model.entry(row)
-        self.play_track(track_id)
+        self.play_track(track_id, row)
 
-    def play_local_song(self, mp3: Mp3):
+    def on_local_track_double_clicked(self, row: int):
+        debug("on_local_track_double_clicked")
+        mp3 = self.local_album_tracks_model.entry(row)
+        self.play_local_song(mp3, row, source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK)
+
+    def play_local_song(self, mp3: Mp3, idx, source: PlayingInfoSource):
         self.ui.playContainer.setVisible(False)
 
         self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -1321,16 +1463,20 @@ class MainWindow(QMainWindow):
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
 
-        self.playing = mp3
+        self.playing.source = source
+        self.playing.target_index = idx
+        self.playing.target = mp3
+        self.playing.playing_target = mp3
         self.play_audio(str(mp3.path))
 
-    def play_track(self, track_id):
+    def play_track(self, track_id, idx):
         track = get_track(track_id)
-        local_mp3 = track.get_local()
+        local_mp3, local_mp3_idx = track.get_local_ext()
         if local_mp3:
             # play locally if available
-            self.play_local_song(local_mp3)
-            self.playing = track # so that prev/next refers to album
+            self.play_local_song(local_mp3, local_mp3_idx, source=PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK)
+            self.playing.target_index = idx
+            self.playing.target = track
             return
 
         # play from url
@@ -1351,7 +1497,10 @@ class MainWindow(QMainWindow):
 
             audios = sorted([s for s in yttrack.streams if s["type"] == "audio"], key=lambda s: s["size"])
             if audios:
-                self.playing = track
+                self.playing.source = PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK
+                self.playing.target_index = idx
+                self.playing.target = track
+                self.playing.playing_target = track
                 self.play_audio(audios[0]["url"])
 
         repository.fetch_youtube_track_streams(track_id, track_streams_fetched)
@@ -1375,6 +1524,7 @@ class MainWindow(QMainWindow):
             self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
         elif audioplayer.is_paused():
             audioplayer.play()
+            self.playTimer.start(200)
             self.ui.playPauseButton.setIcon(resources.PAUSE_ICON)
         elif audioplayer.is_ended():
             audioplayer.set_time(0)
@@ -1385,17 +1535,32 @@ class MainWindow(QMainWindow):
             print(f"WARN: unexpected audio player state: {audioplayer.get_state()}")
 
     def on_play_artist_clicked(self):
-        # TODO: more than an artist
-        if isinstance(self.playing, Track):
-            self.open_artist(self.playing.release().release_group().artists()[0])
-        elif isinstance(self.playing, Mp3):
-            self.open_mp3_artist(self.playing)
+        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
+            # TODO: more than an artist
+            self.open_artist(self.playing.target.release().release_group().artists()[0])
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
+            self.open_mp3_artist(self.playing.target)
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
+            self.open_mp3_artist(self.playing.target)
+
+        # if isinstance(self.playing, Track):
+        #     self.open_artist(self.playing.release().release_group().artists()[0])
+        # elif isinstance(self.playing, Mp3):
+        #     self.open_mp3_artist(self.playing)
 
     def on_play_album_clicked(self):
-        if isinstance(self.playing, Track):
-            self.open_release_group(self.playing.release().release_group())
-        elif isinstance(self.playing, Mp3):
-            self.open_mp3_release_group(self.playing)
+        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
+            # TODO: more than an artist
+            self.open_release_group(self.playing.target.release().release_group())
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
+            self.open_mp3_release_group(self.playing.target)
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
+            self.open_mp3_release_group(self.playing.target)
+
+        # if isinstance(self.playing, Track):
+        #     self.open_release_group(self.playing.release().release_group())
+        # elif isinstance(self.playing, Mp3):
+        #     self.open_mp3_release_group(self.playing)
 
     def on_play_timer_tick(self):
         self.update_play_progress()
@@ -1404,7 +1569,7 @@ class MainWindow(QMainWindow):
         if audioplayer.is_playing():
             t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
-            self.ui.playBar.setValue(int(100 * t / self.playing.length), notify=False)
+            self.ui.playBar.setValue(int(100 * t / self.playing.playing_target.length), notify=False)
         elif audioplayer.is_paused():
             self.playTimer.stop()
         elif audioplayer.is_ended():
@@ -1417,18 +1582,28 @@ class MainWindow(QMainWindow):
 
     def play_by_offset(self, delta):
         debug("play_next")
-        if isinstance(self.playing, Track):
-            rg = self.playing.release().release_group()
+        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
+            rg = self.playing.target.release().release_group()
             main_release = rg.main_release()
-            next_idx = main_release.track_ids.index(self.playing.id) + delta
+            next_idx = self.playing.target_index + delta
             if 0 <= next_idx < main_release.track_count():
-                self.play_track(main_release.track_ids[next_idx])
+                self.play_track(main_release.track_ids[next_idx], next_idx)
             else:
                 print("Nothing else to play")
-        elif isinstance(self.playing, Mp3):
-            next_idx = self.local_songs_model.localsongs.index(self.playing) + delta
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
+            next_idx = self.playing.target_index + delta
             if 0 <= next_idx < len(self.local_songs_model.localsongs):
-                self.play_local_song(self.local_songs_model.localsongs[next_idx])
+                self.play_local_song(self.local_songs_model.localsongs[next_idx],
+                                     next_idx,
+                                     source=PlayingInfoSource.MODE_LOCAL_SONG)
+            else:
+                print("Nothing else to play")
+        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
+            next_idx = self.playing.target_index + delta
+            if 0 <= next_idx < len(self.local_album_tracks_model.mp3s):
+                self.play_local_song(self.local_album_tracks_model.mp3s[next_idx],
+                                     next_idx,
+                                     source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK)
             else:
                 print("Nothing else to play")
 
@@ -1443,7 +1618,7 @@ class MainWindow(QMainWindow):
     def on_play_bar_changed(self):
         debug(f"on_play_bar_changed, value = {self.ui.playBar.value()}")
         # t : length = value : 100
-        t = rangify(0, int(self.ui.playBar.value() * self.playing.length / 100), self.playing.length)
+        t = rangify(0, int(self.ui.playBar.value() * self.playing.playing_target.length / 100), self.playing.playing_target.length)
         audioplayer.set_time(t)
         self.update_play_progress()
 

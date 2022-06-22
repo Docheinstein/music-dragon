@@ -149,7 +149,7 @@ class Mp3:
         return f"{self.artist} - {self.album} - {self.song}"
 
 
-def get_by_metadata(artist: str, album: str, song: str):
+def get_by_metadata(artist: str, album: str, song: str) -> Optional[Mp3]:
     idx = mp3s_indexes_by_metadata.get((artist, album, song))
     debug(f"Checking availability of ({artist}, {album}, {song})")
     if idx is not None and 0 <= idx < len(mp3s):
@@ -158,6 +158,7 @@ def get_by_metadata(artist: str, album: str, song: str):
     else:
         debug("-> not found")
     return None
+
 
 def load_mp3(file: str, load_image=True):
     mp3: Mp3 = Mp3()

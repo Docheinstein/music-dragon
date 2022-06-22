@@ -1,7 +1,7 @@
 import json
 from difflib import get_close_matches
 from statistics import mean, multimode
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
 
 import Levenshtein as levenshtein
 import requests
@@ -274,8 +274,15 @@ class Track(Mergeable):
         return False
 
     def get_local(self) -> Optional[Mp3]:
+        mp3, idx = self.get_local_ext()
+        return mp3
+
+    def get_local_ext(self) -> Tuple[Optional[Mp3], Optional[int]]:
         rg = self.release().release_group()
-        return localsongs.get_by_metadata(rg.artists_string(), rg.title, self.title)
+        idx = localsongs.mp3s_indexes_by_metadata.get((rg.artists_string(), rg.title, self.title))
+        if idx is not None:
+            return localsongs.mp3s[idx], idx
+        return None, None
 
 def _add_artist(artist: Artist):
     debug(f"add_artist({artist.id})")
