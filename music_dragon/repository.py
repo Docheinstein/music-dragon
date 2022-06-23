@@ -1252,7 +1252,8 @@ def fetch_youtube_track_streams(track_id: str, fetch_youtube_track_streams_callb
 
 def download_youtube_track_manual(video_id: str,
                            queued_callback, started_callback, progress_callback,
-                           finished_callback, canceled_callback, error_callback):
+                           finished_callback, canceled_callback, error_callback,
+                            track_number_hint: int=None):
     # TODO: fetch official from MB?
 
     # no cache needed here, since should be one shot
@@ -1320,6 +1321,8 @@ def download_youtube_track_manual(video_id: str,
             # heuristic: usually is better
             yttrack.song = ytmusic_result["videoDetails"]["title"]
 
+        if yttrack.track_number is None:
+            yttrack.track_number = track_number_hint
         _add_youtube_track(yttrack)
 
         # TODO: mb?
@@ -1450,51 +1453,15 @@ def download_youtube_playlist_manual(playlist_id: str,
     def playlist_info_result(playlist_id_, result, user_data):
         debug(f"playlist_info_result")
 
-        for entry in result["entries"]:
-            video_id = entry["id"]
-
-            download_youtube_track_manual(video_id,
-                                          queued_callback, started_callback, progress_callback,
-                                          finished_callback, canceled_callback, error_callback)
-            #
-            # # fetch image, eventually
-            # image = None
-            # if entry.get("thumbnails"):
-            #     preferred_area = preferences.cover_size() ** 2
-            #     areas = [thumb["width"] * thumb["height"] for thumb in entry["thumbnails"]]
-            #     deltas = [abs(preferred_area - a) for a in areas]
-            #     thumb_idx = min_index(deltas)
-            #     best_thumb = entry["thumbnails"][thumb_idx]
-            #
-            #     debug(f"Image will be retrieved from {best_thumb['url']}")
-            #     image = requests.get(best_thumb["url"], headers={
-            #         "User-Agent": "MusicDragonBot/1.0 (docheinstein@gmail.com) MusicDragon/1.0",
-            #     }).content
-            #     debug(f"Retrieved image data size: {len(image)}")
-            #
-            # yttrack = YtTrack(entry)
-            # _add_youtube_track(yttrack)
-            #
-            # ytdownloader.enqueue_track_download(
-            #     video_id=video_id,
-            #     artist=yttrack.artists[0],
-            #     album=yttrack.album,
-            #     song=yttrack.song,
-            #     track_num=yttrack.track_number,
-            #     image=image,
-            #     output_directory=preferences.directory(),
-            #     output_format=preferences.output_format(),
-            #     queued_callback=queued_callback_wrapper,
-            #     started_callback=started_callback_wrapper,
-            #     progress_callback=progress_callback_wrapper,
-            #     finished_callback=finished_callback_wrapper,
-            #     canceled_callback=canceled_callback_wrapper,
-            #     error_callback=error_callback_wrapper,
-            #     metadata=True,
-            #     user_data={
-            #     "type": "manual",
-            #     "id": video_id
-            # })
+        for track_num, entry in enumerate(result["entries"]):
+            try:
+                video_id = entry["id"]
+                download_youtube_track_manual(video_id,
+                                              queued_callback, started_callback, progress_callback,
+                                              finished_callback, canceled_callback, error_callback,
+                                              track_number_hint=track_num + 1)
+            except:
+                print(f"WARN: track {track_num} download failed")
 
     ytdownloader.fetch_playlist_info(
         playlist_id, playlist_info_result, user_data={}

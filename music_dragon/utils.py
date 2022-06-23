@@ -75,8 +75,14 @@ def max_indexes(sequence: Sequence):
     return [idx for idx, element in enumerate(sequence) if element == m]
 
 def sanitize_filename(f: str):
-    if f:
-        return f.replace("/", "-")
+    if not f:
+        return f
+    f = f.replace("/", "-")
+    f = f.replace("? ", " ")
+    f = f.replace("?", " ")
+    f = f.replace(": ", ", ")
+    f = f.replace(":", " ")
+    f = f.replace("\"", "")
     return f
 
 def normalize_metadata(something: str):

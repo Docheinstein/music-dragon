@@ -51,6 +51,7 @@ class PlayingInfoSource(enum.Enum):
 class PlayingInfo:
     def __init__(self):
         self.source: Optional[PlayingInfoSource] = None
+        self.source_info = None
         self.target_index: int = -1
         self.target: Optional[Union[Mp3, Track]] = None
         self.playing_target: Optional[Union[Mp3, Track]] = None
@@ -1458,9 +1459,12 @@ class MainWindow(QMainWindow):
     def on_local_track_double_clicked(self, row: int):
         debug("on_local_track_double_clicked")
         mp3 = self.local_album_tracks_model.entry(row)
-        self.play_local_song(mp3, row, source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK)
+        self.play_local_song(mp3, row,
+                             source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK,
+                             source_info={"artist": self.local_album_tracks_model.artist,
+                                          "album": self.local_album_tracks_model.album})
 
-    def play_local_song(self, mp3: Mp3, idx, source: PlayingInfoSource):
+    def play_local_song(self, mp3: Mp3, idx, source: PlayingInfoSource, source_info=None):
         self.ui.playContainer.setVisible(False)
 
         self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -1473,6 +1477,7 @@ class MainWindow(QMainWindow):
         self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
 
         self.playing.source = source
+        self.playing.source_info = source_info
         self.playing.target_index = idx
         self.playing.target = mp3
         self.playing.playing_target = mp3
@@ -1608,11 +1613,28 @@ class MainWindow(QMainWindow):
             else:
                 print("Nothing else to play")
         elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
+            # TODO: buf if album changes
             next_idx = self.playing.target_index + delta
-            if 0 <= next_idx < len(self.local_album_tracks_model.mp3s):
-                self.play_local_song(self.local_album_tracks_model.mp3s[next_idx],
+            artist = self.playing.source_info["artist"]
+            album = self.playing.source_info["album"]
+            mp3s = []
+
+            if artist == self.local_album_tracks_model.artist and \
+                album == self.local_album_tracks_model.album:
+                mp3s = self.local_album_tracks_model.mp3s
+            else:
+                # TODO: better way
+                # rebuild
+                for mp3 in localsongs.mp3s:
+                    if mp3.artist == artist and mp3.album == album:
+                        mp3s.append(mp3)
+                mp3s = sorted(mp3s, key=lambda mp3: mp3.track_num or 9999)
+
+            if 0 <= next_idx < len(mp3s):
+                self.play_local_song(mp3s[next_idx],
                                      next_idx,
-                                     source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK)
+                                     source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK,
+                                     source_info=self.playing.source_info)
             else:
                 print("Nothing else to play")
 

@@ -28,6 +28,17 @@ YDL_DEFAULT_OPTS = {
     }],
     'verbose': music_dragon.log.debug_enabled,
 }
+YDL_DEFAULT_PLAYLIST_OPTS = {
+    'format': 'bestaudio/best',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '320',
+    }],
+    'verbose': music_dragon.log.debug_enabled,
+    'ignoreerrors': True
+
+}
 
 downloads = {}
 finished_downloads = {}
@@ -510,7 +521,7 @@ class PlaylistInfoFetcherWorker(Worker):
         for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
             debug(f"Retrieval attempt n. {attempt} for playlist {self.playlist_id}")
             try:
-                with YoutubeDL(YDL_DEFAULT_OPTS) as ydl:
+                with YoutubeDL(YDL_DEFAULT_PLAYLIST_OPTS) as ydl:
                     yt_url = ytcommons.youtube_playlist_id_to_youtube_url(self.playlist_id)
                     debug(f"YOUTUBE_DL: extract_info: '{self.playlist_id}'")
                     info = ydl.extract_info(yt_url, download=False)
