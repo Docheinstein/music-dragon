@@ -266,7 +266,7 @@ class TrackDownloaderWorker(Worker):
                                 if track_num is not None:
                                     tag.track_num = track_num
                                 if year is not None:
-                                    tag.release_date = eyed3.core.Date(int(year))
+                                    tag.recording_date = eyed3.core.Date(int(year))
                                 if image:
                                     tag.images.set(MP3_IMAGE_TAG_INDEX_FRONT_COVER, image, "image/jpeg")
                                 tag.save()

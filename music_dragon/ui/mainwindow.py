@@ -121,6 +121,7 @@ class MainWindow(QMainWindow):
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
         self.ui.albumTracks.row_double_clicked.connect(self.on_track_double_clicked)
         self.ui.albumDownloadAllButton.clicked.connect(self.on_download_missing_album_tracks_clicked)
+        self.ui.albumDownloadAllVerifiedCheck.stateChanged.connect(self.on_download_missing_album_tracks_verified_check_changed)
         self.ui.albumOpenButton.clicked.connect(self.on_open_album_button_clicked)
 
         self.ui.albumLinkButton.clicked.connect(self.on_album_link_button_clicked)
@@ -1055,13 +1056,15 @@ class MainWindow(QMainWindow):
 
         tracks = release.tracks()
         # Download missing tracks button
+        verified_only = self.ui.albumDownloadAllVerifiedCheck.isChecked()
         missing_downloadable = 0
         verified = 0
         for track in tracks:
             if track.fetched_youtube_track and track.youtube_track_id:
                 if track.youtube_track_is_official:
                     verified += 1
-                if not track.is_locally_available() and not track.downloading:
+                if not track.is_locally_available() and not track.downloading and \
+                        (not verified_only or track.youtube_track_is_official):
                     missing_downloadable += 1
 
         self.ui.albumDownloadAllButton.setEnabled(missing_downloadable > 0)
@@ -1191,11 +1194,17 @@ class MainWindow(QMainWindow):
         self.ui.downloadsTabs.setTabText(DOWNLOADS_TABS_COMPLETED_INDEX, f"Completed ({finished_count})" if finished_count else "Completed")
 
     def on_download_missing_album_tracks_clicked(self):
-        debug("on_download_all_album_tracks_clicked")
+        verified_only = self.ui.albumDownloadAllVerifiedCheck.isChecked()
+        debug(f"on_download_missing_album_tracks_clicked (verified_only={verified_only})")
         rg = get_release_group(self.current_release_group_id)
         for track in rg.main_release().tracks():
             if not track.is_locally_available() and not track.downloading:
-                self.do_download_youtube_track(track.id)
+                if not verified_only or track.youtube_track_is_official:
+                    self.do_download_youtube_track(track.id)
+
+    def on_download_missing_album_tracks_verified_check_changed(self):
+        debug(f"on_download_missing_album_tracks_verified_check_changed")
+        self.update_album_download_widgets()
 
     def on_open_album_button_clicked(self):
         debug("on_open_album_button_clicked")

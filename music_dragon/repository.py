@@ -1298,6 +1298,7 @@ def download_youtube_track_manual(video_id: str,
                 return None
             # keep only square thumbs if there at least one
             debug("Choosing best yt thumbnail")
+            thumbs = [t for t in thumbs if "height" in t and "width" in t]
             at_least_one_squared = [t["width"] == t["height"] for t in thumbs].count(True) > 0
             filtered_thumbs =  [t for t in thumbs if t["width"] == t["height"]] if at_least_one_squared else thumbs
 

@@ -191,7 +191,7 @@
         <item>
          <widget class="QStackedWidget" name="pages">
           <property name="currentIndex">
-           <number>6</number>
+           <number>3</number>
           </property>
           <widget class="QWidget" name="searchPage">
            <layout class="QVBoxLayout" name="verticalLayout">
@@ -437,7 +437,7 @@ border-radius: 5px;
            </layout>
           </widget>
           <widget class="QWidget" name="albumPage">
-           <layout class="QVBoxLayout" name="verticalLayout_10">
+           <layout class="QVBoxLayout" name="verticalLayout_26">
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_3">
               <item>
@@ -704,33 +704,47 @@ border-radius: 5px;
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_2">
               <item>
-               <widget class="QPushButton" name="albumDownloadAllButton">
-                <property name="enabled">
-                 <bool>false</bool>
+               <layout class="QVBoxLayout" name="verticalLayout_10">
+                <property name="spacing">
+                 <number>0</number>
                 </property>
-                <property name="cursor">
-                 <cursorShape>PointingHandCursor</cursorShape>
-                </property>
-                <property name="styleSheet">
-                 <string notr="true">padding: 8px</string>
-                </property>
-                <property name="text">
-                 <string>Download missing songs</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../res.qrc">
-                  <normaloff>:/images/download.png</normaloff>:/images/download.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>26</width>
-                  <height>26</height>
-                 </size>
-                </property>
-                <property name="flat">
-                 <bool>false</bool>
-                </property>
-               </widget>
+                <item>
+                 <widget class="QPushButton" name="albumDownloadAllButton">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
+                  <property name="cursor">
+                   <cursorShape>PointingHandCursor</cursorShape>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true">padding: 8px</string>
+                  </property>
+                  <property name="text">
+                   <string>Download missing songs</string>
+                  </property>
+                  <property name="icon">
+                   <iconset resource="../res.qrc">
+                    <normaloff>:/images/download.png</normaloff>:/images/download.png</iconset>
+                  </property>
+                  <property name="iconSize">
+                   <size>
+                    <width>26</width>
+                    <height>26</height>
+                   </size>
+                  </property>
+                  <property name="flat">
+                   <bool>false</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="albumDownloadAllVerifiedCheck">
+                  <property name="text">
+                   <string>Download only verified</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
               <item>
                <spacer name="horizontalSpacer_2">
