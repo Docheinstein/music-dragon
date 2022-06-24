@@ -91,7 +91,7 @@ class LocalArtistAlbumsModel(ListWidgetModel):
                     albums[mp3.album] = mp3
 
         debug([mp3.title() for mp3 in albums.values()])
-        self.albums = list(albums.values())
+        self.albums = sorted(list(albums.values()), key=lambda a: a.year or 9999)
 
     def entries(self) -> List:
         return self.albums

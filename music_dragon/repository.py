@@ -196,6 +196,36 @@ class Release(Mergeable):
 
             if mb_release["medium-list"] and len(mb_release["medium-list"][0]["track-list"]) == mb_release["medium-list"][0]["track-count"]:
                 for mb_track in mb_release["medium-list"][0]["track-list"]:
+                    # expected
+                    # {
+                    #     "id": "896b4283-ff19-3b07-bb45-dced0f884a2f",
+                    #     "position": "11",
+                    #     "number": "11",
+                    #     "length": "217000",
+                    #     "recording": {
+                    #         "id": "81e4c357-3918-4c16-8a2a-80286759eec4",
+                    #         "title": "All Because of You",
+                    #         "length": "216236"
+                    #     },
+                    #     "track_or_recording_length": "217000"
+                    # },
+                    # found
+                    # {
+                    #     "id": "47793e9c-7c42-33e1-8bb9-47480b4e67d9",
+                    #     "number": "2",
+                    #     "title": "Shadow of the Moon",
+                    #     "length": "242466",
+                    #     "track_or_recording_length": "242466"
+                    # }
+                    if "recording" not in mb_track:
+                        mb_track["recording"] = {
+                            "id": mb_track["id"],
+                            "title": mb_track["title"],
+                            "length": mb_track["length"]
+                        }
+                    if "position" not in mb_track and "number" in mb_track:
+                        mb_track["position"] = mb_track["number"]
+
                     t = Track(mb_track, self.id)
                     if t.title not in track_names:
                         track_names[t.title] = 1
@@ -243,11 +273,15 @@ class Track(Mergeable):
         self.title_aliases = []
 
         if mb_track:
+            # print(f"MB_TRACK = {mb_track}")
+            # try:
             self.id = f'{mb_track["recording"]["id"]}@{release_id}'
             self.title = normalize_metadata(mb_track["recording"]["title"])
             self.length = int(mb_track["recording"].get("length", 0))
             self.track_number = int(mb_track["position"])
             self.release_id = release_id
+            # except:
+            #     print(f"WARN: invalid musicbrainz track: {mb_track}")
 
     def merge(self, other):
         # TODO: youtube_track_is_official is not handled well probably
