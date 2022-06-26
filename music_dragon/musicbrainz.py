@@ -414,7 +414,7 @@ class FetchArtistWorker(Worker):
             # includes=["aliases", "release-groups", "release-group-rels", "releases", "url-rels"],
             includes=["aliases", "release-groups", "release-group-rels", "url-rels"],
             # release_status=["official"],
-            release_type=["album"],
+            release_type=["album", "ep"],
         )["artist"]
         debug(
             "=== get_artist_by_id ==="

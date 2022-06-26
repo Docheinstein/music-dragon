@@ -695,69 +695,68 @@ class SearchYoutubeAlbumTracksWorker(Worker):
             debug(f"Closest artist found: {artist['artist']}")
 
             debug(f"YOUTUBE_MUSIC: get_artist(artist='{artist['browseId']}')")
-            artist_details = _yt.get_artist(artist["browseId"])
+            try:
+                artist_details = _yt.get_artist(artist["browseId"])
+                debug(
+                    "=== yt_get_artist ==="
+                    f"{j(artist_details)}"
+                    "======================"
+                )
 
-            debug(
-                "=== yt_get_artist ==="
-                f"{j(artist_details)}"
-                "======================"
-            )
+                if "albums" in artist_details:
+                    if "params" in artist_details["albums"]:  # must be fetched
+                        debug(f"YOUTUBE_MUSIC: get_artist_albums(artist='{artist['browseId']}')")
+                        artist_albums = _yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
+                        debug(
+                            "=== get_artist_albums ==="
+                            f"{j(artist_albums)}"
+                            "======================"
+                        )
+                    else:  # already there
+                        artist_albums = artist_details["albums"]["results"]
 
-            if "albums" in artist_details:
-                if "params" in artist_details["albums"]: # must be fetched
-                    debug(f"YOUTUBE_MUSIC: get_artist_albums(artist='{artist['browseId']}')")
-                    artist_albums = _yt.get_artist_albums(artist["browseId"], artist_details["albums"]["params"])
-                    debug(
-                        "=== get_artist_albums ==="
-                        f"{j(artist_albums)}"
-                        "======================"
-                    )
-                else: # already there
-                    artist_albums = artist_details["albums"]["results"]
+                    album = get_closest_album(album_query, artist_albums)
 
-                album = get_closest_album(album_query, artist_albums)
+                    if album:
+                        debug(f"Closest album found: {album['title']}")
 
-                if album:
-                    debug(f"Closest album found: {album['title']}")
+                        album_id = album["browseId"]
 
-                    album_id = album["browseId"]
+                        debug(f"YOUTUBE_MUSIC: get_album: '{album_id}'")
+                        album_details = _yt.get_album(album_id)
+                        debug(
+                            "=== get_album ==="
+                            f"{j(result)}"
+                            "======================"
+                        )
 
-                    debug(f"YOUTUBE_MUSIC: get_album: '{album_id}'")
-                    album_details = _yt.get_album(album_id)
-                    debug(
-                        "=== get_album ==="
-                        f"{j(result)}"
-                        "======================"
-                    )
+                        # Prefer playlist tracks against album tracks (more reliable)
+                        playlist_id = album_details.get("audioPlaylistId")
+                        if playlist_id:
+                            try:
+                                debug(f"YOUTUBE_MUSIC: get_playlist: '{playlist_id}'")
+                                result = ytmusicapi_get_playlist(_yt, playlist_id)
+                                debug(
+                                    "=== get_playlist ==="
+                                    f"{j(result)}"
+                                    "======================"
+                                )
+                                result["audioPlaylistId"] = playlist_id
+                            except Exception as e:
+                                # Fallback: use album tracks
+                                debug(f"Failed to retrieve playlist, trying with album. error: {e}")
+                                result = album_details
 
-                    # Prefer playlist tracks against album tracks (more reliable)
-                    playlist_id = album_details.get("audioPlaylistId")
-                    if playlist_id:
-                        try:
-                            debug(f"YOUTUBE_MUSIC: get_playlist: '{playlist_id}'")
-                            result = ytmusicapi_get_playlist(_yt, playlist_id)
-                            debug(
-                                "=== get_playlist ==="
-                                f"{j(result)}"
-                                "======================"
-                            )
-                            result["audioPlaylistId"] = playlist_id
-                        except Exception as e:
-                            # Fallback: use album tracks
-                            debug(f"Failed to retrieve playlist, trying with album. error: {e}")
-                            result = album_details
+                        for idx, yttrack in enumerate(result["tracks"]):
+                            # hack
+                            yttrack["track_number"] = idx + 1
 
-
-                    for idx, yttrack in enumerate(result["tracks"]):
-                        # hack
-                        yttrack["track_number"] = idx + 1
-
-                        yttrack["album"] = {
-                            "id": album['browseId'],
-                            "name": album["title"]
-                        }
-
-
+                            yttrack["album"] = {
+                                "id": album['browseId'],
+                                "name": album["title"]
+                            }
+            except:
+                print(f"WARN: failed to retrieve artist details for artist {artist['browseId']}")
 
             else:
                 print(f"WARN: no album close to '{album_query}' for artist '{artist_query}'")

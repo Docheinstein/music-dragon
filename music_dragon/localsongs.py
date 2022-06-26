@@ -98,7 +98,7 @@ class Mp3:
 
     def load_from_info(self, info: dict, load_image=True):
         self.size = info.get("size")
-        self.path = info.get("path")
+        self.path = Path(info.get("path"))
         self.length = info.get("length")
         self.artist = info.get("artist")
         self.album = info.get("album")
