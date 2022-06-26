@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from PyQt5.QtCore import QSettings, QThread
 
@@ -16,6 +16,15 @@ def initialize():
 # TODO: when the hierarchy of the preferences UI is well defined,
 #  set the hierarchy here to so that the INI file respect the UI
 # e.g. general/directory
+
+# Geometry
+def geometry_and_state() -> Tuple[bytes, bytes]:
+    return _preferences.value("geometry"), _preferences.value("state")
+
+def set_geometry_and_state(geom: bytes, state: bytes):
+    _preferences.setValue("geometry", geom)
+    _preferences.setValue("bytes", geom)
+
 
 # Directory
 

@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, Q
     QGridLayout, QListView
 
 from music_dragon import localsongs
+from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.ui.clickablelabel import ClickableLabel
@@ -178,9 +179,18 @@ class LocalAlbumsModel(QAbstractListModel):
         self.localalbums = []
 
     def reload(self):
+        def is_better(m1: Mp3, m2: Mp3):
+            if m1.year and not m2.year:
+                return True
+            if m1.image and not m2.image:
+                return True
+            if m1.year and m2.year and m1.year < m2.year:
+                return True
+            return False
+
         mp3s_by_albums = {}
         for mp3 in localsongs.mp3s:
-            if mp3.album and (mp3.album not in mp3s_by_albums or not mp3s_by_albums[mp3.album].image):
+            if mp3.album and (mp3.album not in mp3s_by_albums or is_better(mp3, mp3s_by_albums[mp3.album])):
                 mp3s_by_albums[mp3.album] = mp3
 
         self.localalbums = list(mp3s_by_albums.values())

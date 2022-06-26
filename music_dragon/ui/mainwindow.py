@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 from PyQt5.QtCore import QTimer
-from PyQt5.QtGui import QFont, QMouseEvent
+from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer
 from music_dragon.localsongs import Mp3
@@ -265,6 +265,17 @@ class MainWindow(QMainWindow):
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.on_play_timer_tick)
 
+        # Restore geometry
+        geometry, state = preferences.geometry_and_state()
+        if geometry:
+            self.restoreGeometry(geometry)
+        if state:
+            self.restoreState(state)
+
+    def closeEvent(self, ev: QCloseEvent) -> None:
+        debug("Closing window")
+        # Save geometry
+        preferences.set_geometry_and_state(self.saveGeometry(), self.saveState())
 
     def set_local_page(self):
         self.push_page(self.ui.localPage)

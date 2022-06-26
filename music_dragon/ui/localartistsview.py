@@ -5,6 +5,7 @@ from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QStyledItemDelegate, QListView
 
 from music_dragon import localsongs
+from music_dragon.localsongs import Mp3
 from music_dragon.ui import resources
 from music_dragon.utils import make_icon_from_data
 
@@ -197,9 +198,18 @@ class LocalArtistsModel(QAbstractListModel):
         self.localartists = []
 
     def reload(self):
+        def is_better(m1: Mp3, m2: Mp3):
+            if m1.year and not m2.year:
+                return True
+            if m1.image and not m2.image:
+                return True
+            if m1.year and m2.year and m1.year < m2.year:
+                return True
+            return False
+
         mp3s_by_artists = {}
         for mp3 in localsongs.mp3s:
-            if mp3.artist and (mp3.artist not in mp3s_by_artists or not mp3s_by_artists[mp3.artist].image):
+            if mp3.artist and (mp3.artist not in mp3s_by_artists or is_better(mp3, mp3s_by_artists[mp3.artist])):
                 mp3s_by_artists[mp3.artist] = mp3
 
         self.localartists = list(mp3s_by_artists.values())
