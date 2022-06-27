@@ -7,7 +7,7 @@ from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
-from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer
+from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer, cache
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.repository import Artist, ReleaseGroup, Release, Track, get_artist, \
@@ -169,6 +169,7 @@ class MainWindow(QMainWindow):
 
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
+        self.ui.actionRefresh.triggered.connect(self.on_action_refresh)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
 
         # Queued downloads
@@ -1333,8 +1334,7 @@ class MainWindow(QMainWindow):
         # self.ui.localSongs.invalidate()
         self.reload_local_songs_artists_albums()
 
-    def on_action_reload(self):
-        # Reload mp3s
+    def on_action_refresh(self):
         localsongs.clear_mp3s()
 
         self.reload_local_songs_artists_albums()
@@ -1345,6 +1345,10 @@ class MainWindow(QMainWindow):
                                         mp3_image_loaded_callback=self.on_mp3_image_loaded,
                                         mp3s_loaded_callback=self.on_mp3s_loaded,
                                         mp3s_images_loaded_callback=self.on_mp3s_images_loaded)
+
+    def on_action_reload(self):
+        cache.clear_localsongs()
+        self.on_action_refresh()
 
     def reload_local_songs_artists_albums(self):
         self.local_songs_model.beginResetModel()

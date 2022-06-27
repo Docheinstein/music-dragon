@@ -179,3 +179,8 @@ def put_localsongs(data: dict):
         json.dump(data, f)
     # write to memory
     _available_cache_files.add(path)
+
+def clear_localsongs():
+    p = Path(_cache_path, _LOCALSONGS_CACHE_FILENAME)
+    debug(f"CACHE: remove local songs: {_LOCALSONGS_CACHE_FILENAME}")
+    p.unlink(missing_ok=True)

@@ -17,7 +17,8 @@ def release_belongs_to_official_album(mb_release: dict):
 def release_group_is_official_album(mb_release_group: dict):
     return "primary-type" in mb_release_group and mb_release_group.get("primary-type") in ["Album", "EP"] \
            and ("secondary-type-list" not in mb_release_group or not mb_release_group["secondary-type-list"] or
-                (len(mb_release_group["secondary-type-list"]) == 1 and mb_release_group["secondary-type-list"][0] == "Soundtrack"))
+                (len(mb_release_group["secondary-type-list"]) == 1 and
+                 mb_release_group["secondary-type-list"][0] in ["Soundtrack"]))
 
 #
 # class MbTrack: # recording belonging to a release

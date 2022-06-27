@@ -1640,6 +1640,7 @@ border-radius: 5px;
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionRefresh"/>
     <addaction name="actionReload"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
@@ -1662,9 +1663,9 @@ border-radius: 5px;
     <string>Preferences</string>
    </property>
   </action>
-  <action name="actionReload">
+  <action name="actionRefresh">
    <property name="text">
-    <string>Reload</string>
+    <string>Refresh</string>
    </property>
    <property name="shortcut">
     <string>F5</string>
@@ -1673,6 +1674,14 @@ border-radius: 5px;
   <action name="actionYtMusicSetup">
    <property name="text">
     <string>YtMusic Setup</string>
+   </property>
+  </action>
+  <action name="actionReload">
+   <property name="text">
+    <string>Reload</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F5</string>
    </property>
   </action>
  </widget>
