@@ -1,11 +1,12 @@
 import enum
 import random
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union, Optional
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
+
 from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
@@ -24,7 +25,6 @@ from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelega
 from music_dragon.ui.preferenceswindow import PreferencesWindow
 from music_dragon.ui.searchresultswidget import SearchResultsModel
 from music_dragon.ui.ui_mainwindow import Ui_MainWindow
-from music_dragon.ui.youtubesigninwindow import YouTubeSignInWindow
 from music_dragon.utils import make_pixmap_from_data, open_url, open_folder, is_dark_mode, millis_to_long_string, \
     millis_to_short_string, rangify
 from music_dragon.ytcommons import youtube_playlist_id_to_youtube_url, youtube_url_to_playlist_id
@@ -35,29 +35,16 @@ SEARCH_DEBOUNCE_MS = 800
 DOWNLOADS_TABS_QUEUED_INDEX = 0
 DOWNLOADS_TABS_COMPLETED_INDEX = 1
 
-# class Mp3PlayInfo:
-#     def __init__(self):
-#         self.mp3 = None
-#
-# class TrackPlayInfo:
-#     def __init__(self):
-#         self.track = None
-
-
-class PlayingInfoSource(enum.Enum):
-    MODE_REMOTE_ALBUM_TRACK = 0
-    MODE_LOCAL_ALBUM_TRACK = 1
-    MODE_LOCAL_SONG = 2
-    MODE_RANDOM_LOCAL_ALBUM_SONG = 3
-    MODE_RANDOM_LOCAL_ARTIST_SONG = 4
 
 class PlayingInfo:
     def __init__(self):
-        self.source: Optional[PlayingInfoSource] = None
-        self.source_info = None
-        self.target_index: int = -1
-        self.target: Optional[Union[Mp3, Track]] = None
-        self.playing_target: Optional[Union[Mp3, Track]] = None
+        self.index = 0
+        self.queue: List[Union[Track, Mp3]] = []
+
+    def in_play(self) -> Optional[Union[Track, Mp3]]:
+        if 0 <= self.index < len(self.queue):
+            return self.queue[self.index]
+        return None
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -167,8 +154,6 @@ class MainWindow(QMainWindow):
         self.ui.localAlbumOpenRemoteButton.clicked.connect(self.on_local_album_open_remote_button_clicked)
         self.ui.localAlbumRandomPlayButton.clicked.connect(self.on_local_album_random_play_button_clicked)
 
-        self.random_local_album_songs = []
-
         # Local Artist
         self.current_local_artist_mp3_group_leader = None
 
@@ -182,13 +167,11 @@ class MainWindow(QMainWindow):
         self.ui.localArtistOpenRemoteButton.clicked.connect(self.on_local_artist_open_remote_button_clicked)
         self.ui.localArtistRandomPlayButton.clicked.connect(self.on_local_artist_random_play_button_clicked)
 
-        self.random_local_artist_songs = []
-
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
         self.ui.actionReload.triggered.connect(self.on_action_reload)
 
-        # Queued ownloads
+        # Queued downloads
         self.downloads_model = DownloadsModel()
         self.ui.queuedDownloads.set_model(self.downloads_model)
         self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_download_cancel_button_clicked)
@@ -241,6 +224,8 @@ class MainWindow(QMainWindow):
         self.ui.localArtistsButton.clicked.connect(self.on_local_artists_button_clicked)
         self.ui.localAlbumsButton.clicked.connect(self.on_local_albums_button_clicked)
         self.on_local_songs_button_clicked()
+
+        self.ui.localSongsRandomPlayButton.clicked.connect(self.on_local_songs_random_play_button_clicked)
 
         # Load local songs
         # TODO: preferences flag?
@@ -1244,12 +1229,23 @@ class MainWindow(QMainWindow):
         self.open_mp3_artist_remote(self.current_local_artist_mp3_group_leader)
 
     def on_local_album_random_play_button_clicked(self):
-        self.play_random_local_album_song(artist=self.current_local_album_mp3_group_leader.artist,
-                                          album=self.current_local_album_mp3_group_leader.album)
+        artist = self.current_local_album_mp3_group_leader.artist
+        album = self.current_local_album_mp3_group_leader.album
+        queue = [mp3 for mp3 in localsongs.mp3s if mp3.artist == artist and mp3.album == album]
+        random.shuffle(queue)
+        self.play(0, queue)
 
 
     def on_local_artist_random_play_button_clicked(self):
-        self.play_random_local_artist_song(artist=self.current_local_artist_mp3_group_leader.artist)
+        artist = self.current_local_artist_mp3_group_leader.artist
+        queue = [mp3 for mp3 in localsongs.mp3s if mp3.artist == artist]
+        random.shuffle(queue)
+        self.play(0, queue)
+
+    def on_local_songs_random_play_button_clicked(self):
+        queue = list(localsongs.mp3s)
+        random.shuffle(queue)
+        self.play(0, queue)
 
     def do_download_youtube_track(self, track_id):
         repository.download_youtube_track(track_id,
@@ -1428,7 +1424,7 @@ class MainWindow(QMainWindow):
         mp3 = self.local_songs_model.entry(row)
         debug(f"on_local_song_double_clicked: {mp3}")
         if mp3.path:
-            self.play_local_song(mp3, row, source=PlayingInfoSource.MODE_LOCAL_SONG)
+            self.play(row, list(self.local_songs_model.localsongs))
 
     def on_finished_download_double_clicked(self, row: int):
         debug("on_finished_download_double_clicked")
@@ -1466,8 +1462,6 @@ class MainWindow(QMainWindow):
         mp3_group_leader = self.local_artists_model.entry(row)
         self.open_mp3_artist(mp3_group_leader)
 
-        # self.on_local_artist_clicked()
-
     def on_local_album_clicked(self, row: int):
         debug("on_local_album_clicked")
         mp3_group_leader = self.local_albums_model.entry(row)
@@ -1478,21 +1472,33 @@ class MainWindow(QMainWindow):
         mp3_group_leader = self.local_albums_model.entry(row)
         self.open_mp3_artist(mp3_group_leader)
 
-
     def on_track_double_clicked(self, row: int):
         debug("on_track_double_clicked")
         track_id = self.album_tracks_model.entry(row)
-        self.play_track(track_id, row)
+        self.play(row, list(get_release(self.album_tracks_model.release_id).tracks()))
 
     def on_local_track_double_clicked(self, row: int):
         debug("on_local_track_double_clicked")
         mp3 = self.local_album_tracks_model.entry(row)
-        self.play_local_song(mp3, row,
-                             source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK,
-                             source_info={"artist": self.local_album_tracks_model.artist,
-                                          "album": self.local_album_tracks_model.album})
+        self.play(row, list(self.local_album_tracks_model.mp3s))
 
-    def play_local_song(self, mp3: Mp3, idx, source: PlayingInfoSource, source_info=None):
+    def play(self, index: int, queue=None):
+        if queue is not None:
+            self.playing.queue = queue
+
+        if index < 0 or index >= len(self.playing.queue):
+            debug("Nothing to play")
+            return
+
+        self.playing.index = index
+        song = self.playing.queue[index]
+
+        if isinstance(song, Mp3):
+            self.play_mp3(song)
+        elif isinstance(song, Track):
+            self.play_track(song)
+
+    def play_mp3(self, mp3: Mp3):
         self.ui.playContainer.setVisible(False)
 
         self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -1504,21 +1510,13 @@ class MainWindow(QMainWindow):
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
 
-        self.playing.source = source
-        self.playing.source_info = source_info
-        self.playing.target_index = idx
-        self.playing.target = mp3
-        self.playing.playing_target = mp3
         self.play_audio(str(mp3.path))
 
-    def play_track(self, track_id, idx):
-        track = get_track(track_id)
+    def play_track(self, track: Track):
         local_mp3, local_mp3_idx = track.get_local_ext()
         if local_mp3:
             # play locally if available
-            self.play_local_song(local_mp3, local_mp3_idx, source=PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK)
-            self.playing.target_index = idx
-            self.playing.target = track
+            self.play_mp3(local_mp3)
             return
 
         # play from url
@@ -1539,45 +1537,13 @@ class MainWindow(QMainWindow):
 
             audios = sorted([s for s in yttrack.streams if s["type"] == "audio"], key=lambda s: s["size"])
             if audios:
-                self.playing.source = PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK
-                self.playing.target_index = idx
-                self.playing.target = track
-                self.playing.playing_target = track
                 self.play_audio(audios[0]["url"])
 
-        repository.fetch_youtube_track_streams(track_id, track_streams_fetched)
+        repository.fetch_youtube_track_streams(track.id, track_streams_fetched)
 
-
-    def play_random_local_album_song(self, artist: str, album: str):
-        self.random_local_album_songs = [mp3 for mp3 in localsongs.mp3s if mp3.artist == artist and mp3.album == album]
-        random.shuffle(self.random_local_album_songs)
-
-        if not self.random_local_album_songs:
-            print("WARN: nothing to play")
-            return
-
-        self.play_local_song(self.random_local_album_songs[0], 0,
-                             source=PlayingInfoSource.MODE_RANDOM_LOCAL_ALBUM_SONG,
-                             source_info={"artist": self.local_album_tracks_model.artist,
-                                          "album": self.local_album_tracks_model.album})
-
-
-    def play_random_local_artist_song(self, artist: str):
-        self.random_local_artist_songs = [mp3 for mp3 in localsongs.mp3s if mp3.artist == artist]
-        random.shuffle(self.random_local_artist_songs)
-
-        if not self.random_local_artist_songs:
-            print("WARN: nothing to play")
-            return
-
-        self.play_local_song(self.random_local_artist_songs[0], 0,
-                             source=PlayingInfoSource.MODE_RANDOM_LOCAL_ARTIST_SONG,
-                             source_info={"artist": self.local_album_tracks_model.artist})
-
-
-    def play_audio(self, audio_url: str):
+    def play_audio(self, audio_url_or_path: str):
         audioplayer.set_time(0)
-        audioplayer.open_stream(audio_url)
+        audioplayer.open_stream(audio_url_or_path)
         audioplayer.play()
 
         self.ui.playContainer.setVisible(True)
@@ -1605,32 +1571,19 @@ class MainWindow(QMainWindow):
             print(f"WARN: unexpected audio player state: {audioplayer.get_state()}")
 
     def on_play_artist_clicked(self):
-        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
+        in_play = self.playing.in_play()
+        if isinstance(in_play, Mp3):
+            self.open_mp3_artist(in_play)
+        elif isinstance(in_play, Track):
             # TODO: more than an artist
-            self.open_artist(self.playing.target.release().release_group().artists()[0])
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
-            self.open_mp3_artist(self.playing.target)
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
-            self.open_mp3_artist(self.playing.target)
-
-        # if isinstance(self.playing, Track):
-        #     self.open_artist(self.playing.release().release_group().artists()[0])
-        # elif isinstance(self.playing, Mp3):
-        #     self.open_mp3_artist(self.playing)
+            self.open_artist(in_play.release().release_group().artists()[0])
 
     def on_play_album_clicked(self):
-        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
-            # TODO: more than an artist
-            self.open_release_group(self.playing.target.release().release_group())
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
-            self.open_mp3_release_group(self.playing.target)
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
-            self.open_mp3_release_group(self.playing.target)
-
-        # if isinstance(self.playing, Track):
-        #     self.open_release_group(self.playing.release().release_group())
-        # elif isinstance(self.playing, Mp3):
-        #     self.open_mp3_release_group(self.playing)
+        in_play = self.playing.in_play()
+        if isinstance(in_play, Mp3):
+            self.open_mp3_release_group(in_play)
+        elif isinstance(in_play, Track):
+            self.open_release_group(in_play.release().release_group())
 
     def on_play_timer_tick(self):
         self.update_play_progress()
@@ -1639,7 +1592,7 @@ class MainWindow(QMainWindow):
         if audioplayer.is_playing():
             t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
-            self.ui.playBar.setValue(int(100 * t / self.playing.playing_target.length), notify=False)
+            self.ui.playBar.setValue(int(100 * t / self.playing.in_play().length), notify=False)
         elif audioplayer.is_paused():
             self.playTimer.stop()
         elif audioplayer.is_ended():
@@ -1652,64 +1605,7 @@ class MainWindow(QMainWindow):
 
     def play_by_offset(self, delta):
         debug("play_next")
-        if self.playing.source == PlayingInfoSource.MODE_REMOTE_ALBUM_TRACK:
-            rg = self.playing.target.release().release_group()
-            main_release = rg.main_release()
-            next_idx = self.playing.target_index + delta
-            if 0 <= next_idx < main_release.track_count():
-                self.play_track(main_release.track_ids[next_idx], next_idx)
-            else:
-                print("Nothing else to play")
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_SONG:
-            next_idx = self.playing.target_index + delta
-            if 0 <= next_idx < len(self.local_songs_model.localsongs):
-                self.play_local_song(self.local_songs_model.localsongs[next_idx],
-                                     next_idx,
-                                     source=PlayingInfoSource.MODE_LOCAL_SONG)
-            else:
-                print("Nothing else to play")
-        elif self.playing.source == PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK:
-            next_idx = self.playing.target_index + delta
-            artist = self.playing.source_info["artist"]
-            album = self.playing.source_info["album"]
-            mp3s = []
-
-            if artist == self.local_album_tracks_model.artist and \
-                album == self.local_album_tracks_model.album:
-                mp3s = self.local_album_tracks_model.mp3s
-            else:
-                # TODO: better way
-                # rebuild
-                for mp3 in localsongs.mp3s:
-                    if mp3.artist == artist and mp3.album == album:
-                        mp3s.append(mp3)
-                mp3s = sorted(mp3s, key=lambda mp3: mp3.track_num or 9999)
-
-            if 0 <= next_idx < len(mp3s):
-                self.play_local_song(mp3s[next_idx],
-                                     next_idx,
-                                     source=PlayingInfoSource.MODE_LOCAL_ALBUM_TRACK,
-                                     source_info=self.playing.source_info)
-            else:
-                print("Nothing else to play")
-        elif self.playing.source == PlayingInfoSource.MODE_RANDOM_LOCAL_ALBUM_SONG:
-            next_idx = self.playing.target_index + delta
-            if 0 <= next_idx < len(self.random_local_album_songs):
-                self.play_local_song(self.random_local_album_songs[next_idx],
-                                     next_idx,
-                                     source=PlayingInfoSource.MODE_RANDOM_LOCAL_ALBUM_SONG,
-                                     source_info=self.playing.source_info)
-            else:
-                print("Nothing else to play")
-        elif self.playing.source == PlayingInfoSource.MODE_RANDOM_LOCAL_ARTIST_SONG:
-            next_idx = self.playing.target_index + delta
-            if 0 <= next_idx < len(self.random_local_artist_songs):
-                self.play_local_song(self.random_local_artist_songs[next_idx],
-                                     next_idx,
-                                     source=PlayingInfoSource.MODE_RANDOM_LOCAL_ARTIST_SONG,
-                                     source_info=self.playing.source_info)
-            else:
-                print("Nothing else to play")
+        self.play(self.playing.index + delta)
 
     def play_next(self):
         debug("play_next")
@@ -1722,7 +1618,7 @@ class MainWindow(QMainWindow):
     def on_play_bar_changed(self):
         debug(f"on_play_bar_changed, value = {self.ui.playBar.value()}")
         # t : length = value : 100
-        t = rangify(0, int(self.ui.playBar.value() * self.playing.playing_target.length / 100), self.playing.playing_target.length)
+        t = rangify(0, int(self.ui.playBar.value() * self.playing.in_play().length / 100), self.playing.in_play().length)
         audioplayer.set_time(t)
         self.update_play_progress()
 

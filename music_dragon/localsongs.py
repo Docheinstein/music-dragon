@@ -45,7 +45,7 @@ class Mp3:
     def title(self):
         if self.song:
             return self.song
-        print(f"WARN: not song attribute for mp3 {self.path}")
+        print(f"WARN: no song attribute for mp3 {self.path}")
         return self.path.stem
 
     def load_from_file(self, file: str, load_image=True):

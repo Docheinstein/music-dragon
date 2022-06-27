@@ -56,6 +56,7 @@ class Artist(Mergeable):
                     _add_release_group(release_group)
                     if release_group.id not in self.release_group_ids:
                         self.release_group_ids.append(release_group.id)
+                self.release_group_ids = sorted(self.release_group_ids, key=lambda rgid: f"{get_release_group(rgid).year() or 9999}@{get_release_group(rgid).title}")
 
     def merge(self, other):
         # handle flags apart
