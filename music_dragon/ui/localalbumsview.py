@@ -5,13 +5,12 @@ from PyQt5.QtGui import QPainter, QMouseEvent
 from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
     QGridLayout, QListView
 
-from music_dragon import localsongs
+from music_dragon import localsongs, UNKNOWN_ALBUM, UNKNOWN_ARTIST
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.ui.clickablelabel import ClickableLabel
 from music_dragon.utils import make_icon_from_data
-
 
 class LocalAlbumsItemRole:
     TITLE = Qt.DisplayRole
@@ -190,11 +189,13 @@ class LocalAlbumsModel(QAbstractListModel):
 
         mp3s_by_albums = {}
         for mp3 in localsongs.mp3s:
+            if not mp3.album and (UNKNOWN_ALBUM not in mp3s_by_albums or is_better(mp3, mp3s_by_albums[UNKNOWN_ALBUM])):
+                mp3s_by_albums[UNKNOWN_ALBUM] = mp3
             if mp3.album and (mp3.album not in mp3s_by_albums or is_better(mp3, mp3s_by_albums[mp3.album])):
                 mp3s_by_albums[mp3.album] = mp3
 
         self.localalbums = list(mp3s_by_albums.values())
-        self.localalbums = sorted(self.localalbums, key=lambda mp3: mp3.album.lower())
+        self.localalbums = sorted(self.localalbums, key=lambda mp3: (mp3.album or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
         return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
@@ -219,12 +220,12 @@ class LocalAlbumsModel(QAbstractListModel):
         if role == LocalAlbumsItemRole.TITLE:
             if mp3.album:
                 return mp3.album
-            return ""
+            return UNKNOWN_ALBUM
 
         if role == LocalAlbumsItemRole.ARTIST:
             if mp3.artist:
                 return mp3.artist
-            return ""
+            return UNKNOWN_ARTIST
 
         if role == LocalAlbumsItemRole.IMAGE:
             return mp3.image

@@ -4,11 +4,10 @@ from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListMod
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QStyledItemDelegate, QListView
 
-from music_dragon import localsongs
+from music_dragon import localsongs, UNKNOWN_ARTIST
 from music_dragon.localsongs import Mp3
 from music_dragon.ui import resources
 from music_dragon.utils import make_icon_from_data
-
 
 class LocalArtistsItemRole:
     NAME = Qt.DisplayRole
@@ -209,11 +208,14 @@ class LocalArtistsModel(QAbstractListModel):
 
         mp3s_by_artists = {}
         for mp3 in localsongs.mp3s:
+            if not mp3.artist and (UNKNOWN_ARTIST not in mp3s_by_artists or is_better(mp3, mp3s_by_artists[UNKNOWN_ARTIST])):
+                mp3s_by_artists[UNKNOWN_ARTIST] = mp3
             if mp3.artist and (mp3.artist not in mp3s_by_artists or is_better(mp3, mp3s_by_artists[mp3.artist])):
                 mp3s_by_artists[mp3.artist] = mp3
 
+
         self.localartists = list(mp3s_by_artists.values())
-        self.localartists = sorted(self.localartists, key=lambda mp3: mp3.artist.lower())
+        self.localartists = sorted(self.localartists, key=lambda mp3: (mp3.artist or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
 
     # def flags(self, index: QModelIndex) -> Qt.ItemFlags:
     #     return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
@@ -237,7 +239,7 @@ class LocalArtistsModel(QAbstractListModel):
         artist_name = mp3_group.artist
 
         if role == LocalArtistsItemRole.NAME:
-            return artist_name
+            return artist_name or UNKNOWN_ARTIST
 
         if role == LocalArtistsItemRole.IMAGE:
             return mp3_group.image

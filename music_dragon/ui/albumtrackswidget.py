@@ -22,14 +22,16 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
+            self.subtitle: Optional[QLabel] = None
             self.link_button: Optional[QPushButton] = None
             self.download_button: Optional[QPushButton] = None
             self.open_video_button: Optional[QPushButton] = None
             self.download_progress: Optional[QProgressBar] = None
 
-    def __init__(self, track_id: str):
+    def __init__(self, track_id: str, show_youtube_titles=False):
         super().__init__(entry=track_id)
 
+        self.show_youtube_title = show_youtube_titles
         self.track_id = track_id
         self.track: Track = get_track(self.track_id)
         if not self.track:
@@ -51,7 +53,15 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         # title
         self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        # subtitle
+        self.ui.subtitle = QLabel()
+        self.ui.subtitle.setVisible(True)
+        f = self.ui.subtitle.font()
+        f.setItalic(True)
+        f.setPointSize(f.pointSize() - 2)
+        self.ui.subtitle.setFont(f)
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         # download button
         self.ui.link_button = QPushButton()
@@ -107,6 +117,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         inner_layout = QGridLayout()
         inner_layout.setContentsMargins(8, 0, 0, 0)
         inner_layout.addWidget(self.ui.title, 0, 0)
+        inner_layout.addWidget(self.ui.subtitle, 0, 0, alignment=Qt.AlignBottom)
         inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
         layout.addLayout(inner_layout)
 
@@ -142,6 +153,9 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         download = ytdownloader.get_download(youtube_track.video_id) if youtube_track else None
 
         if youtube_track:
+            self.ui.subtitle.setText(youtube_track.video_title)
+            self.ui.subtitle.setVisible(True)
+
             self.ui.open_video_button.setVisible(True)
 
             if download and download["user_data"]["type"] == "official":
@@ -163,11 +177,16 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
                     # self.ui.open_video_button.setVisible(True)
                     # self.ui.open_video_button.setToolTip(f"Open")
         else:
+            self.ui.subtitle.setVisible(False)
             self.ui.download_progress.setVisible(False)
             self.ui.download_button.setVisible(False)
             self.ui.open_video_button.setVisible(False)
 
+        if self.ui.download_progress.isVisible():
+            self.ui.subtitle.setVisible(False)
 
+        if not self.show_youtube_title:
+            self.ui.subtitle.setVisible(False)
 
     def _on_link_button_clicked(self):
         debug(f"_on_link_button_clicked({self._on_link_button_clicked})")
@@ -201,9 +220,16 @@ class AlbumTracksWidget(ListWidgetModelView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.show_youtube_titles = False
+
+    def set_show_youtube_titles(self, show):
+        if show == self.show_youtube_titles:
+            return
+        self.show_youtube_titles = show
+        self.invalidate()
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
-        w = AlbumTracksItemWidget(entry)
+        w = AlbumTracksItemWidget(entry, self.show_youtube_titles)
         w.link_button_clicked.connect(self._on_link_button_clicked)
         w.download_button_clicked.connect(self._on_download_button_clicked)
         w.open_video_button_clicked.connect(self._on_open_video_button_clicked)
@@ -220,65 +246,3 @@ class AlbumTracksWidget(ListWidgetModelView):
     def _on_open_video_button_clicked(self, entry: str):
         row = self.model.index(entry)
         self.open_video_button_clicked.emit(row)
-
-    #
-    # def add_track(self, track: MbTrack):
-    #     self.tracks.append(track)
-    #
-    #     item = QListWidgetItem()
-    #     widget = AlbumTracksItemWidget(track)
-    #     widget.download_track_clicked.connect(self.on_download_track_clicked)
-    #     item.setSizeHint(widget.sizeHint())
-    #
-    #     self.addItem(item)
-    #     self.setItemWidget(item, widget)
-    #
-    # def set_cover(self, cover):
-    #     for idx, track in enumerate(self.tracks):
-    #         item = self.item(idx)
-    #         track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #         if cover:
-    #             track_widget.ui.cover.setPixmap(make_pixmap_from_data(cover))
-    #         else:
-    #             track_widget.ui.cover.setPixmap(QPixmap(resources.DEFAULT_COVER_PLACEHOLDER_IMAGE_PATH))
-    #
-    # def set_youtube_track(self, mbtrack: MbTrack, yttrack: YtTrack):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track.youtube_track = yttrack
-    #             track_widget.ui.download_button.setVisible(True)
-    #             track_widget.ui.download_button.setToolTip(f"Download {yttrack.video_title}  [{yttrack.video_id}]")
-    #
-    # def set_download_enabled(self, mbtrack: MbTrack, enabled):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_button.setVisible(enabled)
-    #
-    # def set_download_progress_visible(self, mbtrack: MbTrack, visibile):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_progress.setVisible(visibile)
-    #
-    # def set_download_progress(self, mbtrack: MbTrack, percentage: int):
-    #     for idx, track in enumerate(self.tracks):
-    #         if track.id == mbtrack.id:
-    #             item = self.item(idx)
-    #             track_widget: AlbumTracksItemWidget = self.itemWidget(item)
-    #
-    #             track_widget.ui.download_progress.setValue(percentage)
-    #
-    # def on_download_track_clicked(self, track: MbTrack):
-    #     self.download_track_clicked.emit(track)
-    #
-    # def on_item_clicked(self, item: QListWidgetItem):
-    #     debug(f"on_item_clicked at row {self.row(item)}")
-    #     self.row_clicked.emit(self.row(item))

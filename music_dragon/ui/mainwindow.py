@@ -7,7 +7,8 @@ from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
-from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer, cache
+from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer, cache, \
+    UNKNOWN_ARTIST, UNKNOWN_ALBUM
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.repository import Artist, ReleaseGroup, Release, Track, get_artist, \
@@ -127,6 +128,8 @@ class MainWindow(QMainWindow):
         sz.setRetainSizeWhenHidden(True)
         self.ui.albumLinkContainer.setSizePolicy(sz)
         self.ui.albumLinkContainer.setVisible(False)
+
+        self.ui.showYouTubeTitlesCheck.stateChanged.connect(self.on_show_album_tracks_youtube_titles_check_changed)
 
         # Artist
         self.current_artist_id = None
@@ -410,10 +413,10 @@ class MainWindow(QMainWindow):
         self.current_local_album_mp3_group_leader = mp3
 
         # title
-        self.ui.localAlbumTitle.setText(mp3.album or "")
+        self.ui.localAlbumTitle.setText(mp3.album or UNKNOWN_ALBUM)
 
         # artist
-        self.ui.localAlbumArtist.setText(mp3.artist or "")
+        self.ui.localAlbumArtist.setText(mp3.artist or UNKNOWN_ARTIST)
 
         # icon
         self.ui.localAlbumCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -444,7 +447,7 @@ class MainWindow(QMainWindow):
         self.ui.albumTitle.setText(mp3.album)
 
         # artist
-        self.ui.albumArtist.setText(mp3.artist or "")
+        self.ui.albumArtist.setText(mp3.artist or UNKNOWN_ARTIST)
 
         # icon
         self.ui.albumCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -545,7 +548,7 @@ class MainWindow(QMainWindow):
         self.current_local_artist_mp3_group_leader = mp3
 
         # title
-        self.ui.localArtistName.setText(mp3.artist or "")
+        self.ui.localArtistName.setText(mp3.artist or UNKNOWN_ARTIST)
 
         # icon
         self.ui.localArtistCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
@@ -1527,8 +1530,8 @@ class MainWindow(QMainWindow):
 
         self.ui.playCover.setPixmap(make_pixmap_from_data(mp3.image, default=resources.COVER_PLACEHOLDER_PIXMAP))
         self.ui.playTitle.setText(mp3.title())
-        self.ui.playArtist.setText(mp3.artist)
-        self.ui.playAlbum.setText(mp3.album)
+        self.ui.playArtist.setText(mp3.artist or UNKNOWN_ARTIST)
+        self.ui.playAlbum.setText(mp3.album or UNKNOWN_ALBUM)
 
         self.ui.playBar.setValue(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
@@ -1549,8 +1552,8 @@ class MainWindow(QMainWindow):
         rg = track.release().release_group()
         self.ui.playCover.setPixmap(make_pixmap_from_data(rg.preferred_front_cover(), default=resources.COVER_PLACEHOLDER_PIXMAP))
         self.ui.playTitle.setText(track.title)
-        self.ui.playArtist.setText(rg.artists_string())
-        self.ui.playAlbum.setText(rg.title)
+        self.ui.playArtist.setText(rg.artists_string() or UNKNOWN_ARTIST)
+        self.ui.playAlbum.setText(rg.title or UNKNOWN_ALBUM)
 
         self.ui.playBar.setValue(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
@@ -1676,3 +1679,7 @@ class MainWindow(QMainWindow):
         debug("on_album_link_cancel_button_clicked")
         self.ui.albumLinkButton.setVisible(True)
         self.ui.albumLinkContainer.setVisible(False)
+
+    def on_show_album_tracks_youtube_titles_check_changed(self):
+        debug("on_show_album_tracks_youtube_titles_check_changed")
+        self.ui.albumTracks.set_show_youtube_titles(self.ui.showYouTubeTitlesCheck.isChecked())

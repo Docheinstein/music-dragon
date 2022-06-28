@@ -4,7 +4,7 @@ from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton, QVBoxLayout, \
     QSpacerItem
 
-from music_dragon import ytdownloader
+from music_dragon import ytdownloader, UNKNOWN_ARTIST, UNKNOWN_ALBUM
 from music_dragon.log import debug
 from music_dragon.repository import get_track, get_youtube_track
 from music_dragon.ui import resources
@@ -155,19 +155,26 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.ui.artist.setVisible(True)
         self.ui.title.setText(title)
 
-        # artist
-        if artist:
-            self.ui.artist.setVisible(True)
-            self.ui.artist.setText(artist)
-        else:
-            self.ui.artist.setVisible(False)
+        # # artist
+        # if artist:
+        #     self.ui.artist.setVisible(True)
+        #     self.ui.artist.setText(artist)
+        # else:
+        #     self.ui.artist.setVisible(False)
+        #
+        # # album
+        # if artist:
+        #     self.ui.album.setVisible(True)
+        #     self.ui.album.setText(album)
+        # else:
+        #     self.ui.album.setVisible(False)
 
-        # album
-        if artist:
-            self.ui.album.setVisible(True)
-            self.ui.album.setText(album)
-        else:
-            self.ui.album.setVisible(False)
+        self.ui.artist.setVisible(True)
+        self.ui.artist.setText(artist or UNKNOWN_ARTIST)
+
+        self.ui.album.setVisible(True)
+        self.ui.album.setText(artist or UNKNOWN_ALBUM)
+
 
         # error
         if self.download:
