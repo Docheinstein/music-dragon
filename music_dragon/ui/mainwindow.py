@@ -1619,7 +1619,10 @@ class MainWindow(QMainWindow):
         if audioplayer.is_playing():
             t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
-            self.ui.playBar.setValue(int(100 * t / self.playing.in_play().length), notify=False)
+            try:
+                self.ui.playBar.setValue(int(100 * t / self.playing.in_play().length), notify=False)
+            except:
+                self.ui.playBar.setValue(0, notify=False)
         elif audioplayer.is_paused():
             self.playTimer.stop()
         elif audioplayer.is_ended():

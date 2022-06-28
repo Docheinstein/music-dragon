@@ -173,7 +173,7 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.ui.artist.setText(artist or UNKNOWN_ARTIST)
 
         self.ui.album.setVisible(True)
-        self.ui.album.setText(artist or UNKNOWN_ALBUM)
+        self.ui.album.setText(album or UNKNOWN_ALBUM)
 
 
         # error

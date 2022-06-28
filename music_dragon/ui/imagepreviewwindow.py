@@ -20,8 +20,11 @@ class ImagePreviewWindow(QDialog):
 
     def set_image(self, image: bytes):
         debug("Setting preview image")
-        self.image = image
-        self.ui.image.setPixmap(make_pixmap_from_data(image))
+        if image:
+            self.image = image
+            self.ui.image.setPixmap(make_pixmap_from_data(image))
+        else:
+            print("WARN: no image to show")
 
     def _on_save_button_clicked(self):
         directory_picker = QFileDialog()
