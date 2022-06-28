@@ -222,7 +222,7 @@ class Release(Mergeable):
                         mb_track["recording"] = {
                             "id": mb_track["id"],
                             "title": mb_track["title"],
-                            "length": mb_track["length"]
+                            "length": mb_track.get("length", 0)
                         }
                     if "position" not in mb_track and "number" in mb_track:
                         mb_track["position"] = mb_track["number"]
@@ -1024,6 +1024,10 @@ def _set_release_group_tracks(release_group_id, playlist_id, yttracks: List[YtTr
     releases = rg.releases()
     release_candidates = rg.releases()
 
+    if not release_candidates:
+        print("WARN: no releases")
+        return
+
     releases_track_count = [r.track_count() for r in release_candidates]
     yt_track_count = len(yttracks)
     track_count_modes = multimode(releases_track_count)
@@ -1503,6 +1507,16 @@ def download_youtube_playlist_manual(playlist_id: str,
     )
 
 
+def set_track_youtube_video_id(track_id: str, video_id: str):
+    debug(f"set_track_youtube_video_id(track_id={track_id}, video_id={video_id})")
+    track = get_track(track_id)
+    track.youtube_track_id = video_id
+    track.youtube_track_is_official = False
+    track.fetched_youtube_track = True
+    yttrack = YtTrack({})
+    yttrack.id = video_id
+    yttrack.video_id = video_id
+    _add_youtube_track(yttrack)
 
 def download_youtube_track(track_id: str,
                            queued_callback, started_callback, progress_callback,

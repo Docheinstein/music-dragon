@@ -19,12 +19,14 @@ X_PATH = f"{IMAGES_PATH}/x.png"
 OPEN_LINK_PATH = f"{IMAGES_PATH}/openlink.png"
 PLAY_PATH = f"{IMAGES_PATH}/play.png"
 PAUSE_PATH = f"{IMAGES_PATH}/pause.png"
+LINK_PATH = f"{IMAGES_PATH}/link.png"
 
 COVER_PLACEHOLDER_PIXMAP: Optional[QPixmap] = None
 PERSON_PLACEHOLDER_PIXMAP: Optional[QPixmap] = None
 DOWNLOAD_PIXMAP: Optional[QPixmap] = None
 X_PIXMAP: Optional[QPixmap] = None
 OPEN_LINK_PIXMAP: Optional[QPixmap] = None
+LINK_PIXMAP: Optional[QPixmap] = None
 
 COVER_PLACEHOLDER_ICON: Optional[QIcon] = None
 PERSON_PLACEHOLDER_ICON: Optional[QIcon] = None
@@ -33,6 +35,7 @@ X_ICON: Optional[QIcon] = None
 OPEN_LINK_ICON: Optional[QIcon] = None
 PLAY_ICON: Optional[QIcon] = None
 PAUSE_ICON: Optional[QIcon] = None
+LINK_ICON: Optional[QIcon] = None
 
 def initialize():
     global COVER_PLACEHOLDER_PIXMAP
@@ -40,6 +43,7 @@ def initialize():
     global DOWNLOAD_PIXMAP
     global OPEN_LINK_PIXMAP
     global X_PIXMAP
+    global LINK_PIXMAP
     global COVER_PLACEHOLDER_ICON
     global PERSON_PLACEHOLDER_ICON
     global DOWNLOAD_ICON
@@ -47,12 +51,14 @@ def initialize():
     global X_ICON
     global PLAY_ICON
     global PAUSE_ICON
+    global LINK_ICON
 
     COVER_PLACEHOLDER_PIXMAP = QPixmap(COVER_PLACEHOLDER_PATH)
     PERSON_PLACEHOLDER_PIXMAP = QPixmap(PERSON_PLACEHOLDER_PATH)
     DOWNLOAD_PIXMAP = QPixmap(DOWNLOAD_PATH)
     OPEN_LINK_PIXMAP = QPixmap(OPEN_LINK_PATH)
     X_PIXMAP = QPixmap(X_PATH)
+    LINK_PIXMAP = QPixmap(LINK_PATH)
 
     COVER_PLACEHOLDER_ICON = QIcon(COVER_PLACEHOLDER_PATH)
     PERSON_PLACEHOLDER_ICON = QIcon(COVER_PLACEHOLDER_PATH)
@@ -61,3 +67,4 @@ def initialize():
     X_ICON = QIcon(X_PATH)
     PLAY_ICON = QIcon(PLAY_PATH)
     PAUSE_ICON = QIcon(PAUSE_PATH)
+    LINK_ICON = QIcon(LINK_PATH)

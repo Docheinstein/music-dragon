@@ -581,22 +581,33 @@ def ytmusicapi_get_playlist(yt_: YTMusic, playlistId, limit=100):
 
 class YtTrack(Mergeable):
     def __init__(self, yt_track: dict):
-        self.id = yt_track.get("videoId") or yt_track.get("id")
-        self.video_id = self.id
-        self.video_title = normalize_metadata(yt_track.get("title"))
-        self.song = normalize_metadata(yt_track.get("track")) or self.video_title
-        self.album = {
-            "id": yt_track["album"]["id"],
-            "title": normalize_metadata(yt_track["album"]["name"])
-        } if "album" in yt_track and isinstance(yt_track["album"], dict) else normalize_metadata(yt_track.get("album"))
-        self.artists = [{
-            "id": a["id"],
-            "name": normalize_metadata(a["name"])
-        } for a in yt_track["artists"]] if "artists" in yt_track else [normalize_metadata(yt_track.get("artist"))]
-        self.track_number = yt_track.get("track_number")
-        self.year = yt_track.get("year")
+        self.id = None
+        self.video_id = None
+        self.video_title = None
+        self.song = None
+        self.album = None
+        self.artists = None
+        self.track_number = None
+        self.year = None
         self.streams = []
         self.streams_fetched = False
+
+        if yt_track:
+            self.id = yt_track.get("videoId") or yt_track.get("id")
+            self.video_id = self.id
+            self.video_title = normalize_metadata(yt_track.get("title"))
+            self.song = normalize_metadata(yt_track.get("track")) or self.video_title
+            self.album = {
+                "id": yt_track["album"]["id"],
+                "title": normalize_metadata(yt_track["album"]["name"])
+            } if "album" in yt_track and isinstance(yt_track["album"], dict) else normalize_metadata(yt_track.get("album"))
+            self.artists = [{
+                "id": a["id"],
+                "name": normalize_metadata(a["name"])
+            } for a in yt_track["artists"]] if "artists" in yt_track else [normalize_metadata(yt_track.get("artist"))]
+            self.track_number = yt_track.get("track_number")
+            self.year = yt_track.get("year")
+
 
     def merge(self, other):
         # handle flags apart

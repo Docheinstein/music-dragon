@@ -16,6 +16,7 @@ from music_dragon.ui import resources
 from music_dragon.ui.albumtrackswidget import AlbumTracksModel
 from music_dragon.ui.artistalbumswidget import ArtistAlbumsModel
 from music_dragon.ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
+from music_dragon.ui.editlinkwindow import EditLinkWindow
 from music_dragon.ui.imagepreviewwindow import ImagePreviewWindow
 from music_dragon.ui.localalbumsview import LocalAlbumsModel, LocalAlbumsItemDelegate
 from music_dragon.ui.localalbumtrackswidget import LocalAlbumTracksModel
@@ -108,6 +109,7 @@ class MainWindow(QMainWindow):
         self.ui.albumCoverNextButton.clicked.connect(self.on_album_cover_next_button_clicked)
         self.album_change_cover_empty_image_callback = None
 
+        self.ui.albumTracks.link_button_clicked.connect(self.on_track_link_button_clicked)
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
         self.ui.albumTracks.open_video_button_clicked.connect(self.on_track_open_video_button_clicked)
         self.ui.albumTracks.row_double_clicked.connect(self.on_track_double_clicked)
@@ -1028,6 +1030,24 @@ class MainWindow(QMainWindow):
         track = get_track(track_id)
         # self.ui.albumTracks.update_row(track_id) # would be more precise
         self.handle_youtube_tracks_update(track.release_id)
+
+
+    def on_track_link_button_clicked(self, row: int):
+        debug("on_track_link_button_clicked")
+        track_id = self.album_tracks_model.entry(row)
+        track = get_track(track_id)
+        video_id = get_youtube_track(track.youtube_track_id).video_id if track.youtube_track_id else None
+        edit_link_window = EditLinkWindow(ytcommons.youtube_video_id_to_youtube_url(video_id))
+        edit_link_window.exec()
+        if edit_link_window.link:
+            debug(f"New link set for track {track_id}: {edit_link_window.link}")
+            video_id = ytcommons.youtube_url_to_video_id(edit_link_window.link)
+            if video_id:
+                repository.set_track_youtube_video_id(track_id, video_id)
+            else:
+                print("WARN: invalid youtube URL")
+                QMessageBox.warning(self, "Invalid YouTube URL", f"Invalid YouTube URL")
+
 
 
     def on_track_download_button_clicked(self, row: int):

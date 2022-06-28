@@ -14,6 +14,7 @@ from music_dragon.utils import make_pixmap_from_data
 
 
 class AlbumTracksItemWidget(ListWidgetModelViewItem):
+    link_button_clicked = pyqtSignal(str)
     download_button_clicked = pyqtSignal(str)
     open_video_button_clicked = pyqtSignal(str)
 
@@ -21,6 +22,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
+            self.link_button: Optional[QPushButton] = None
             self.download_button: Optional[QPushButton] = None
             self.open_video_button: Optional[QPushButton] = None
             self.download_progress: Optional[QProgressBar] = None
@@ -50,6 +52,19 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.title = QLabel()
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+        # download button
+        self.ui.link_button = QPushButton()
+        # self.ui.link_button.setVisible(False)
+        self.ui.link_button.setIcon(resources.LINK_ICON)
+        self.ui.link_button.setFlat(True)
+        self.ui.link_button.setCursor(Qt.PointingHandCursor)
+        self.ui.link_button.setIconSize(QSize(24, 24))
+        self.ui.link_button.setToolTip(f"Set YouTube URL")
+        self.ui.link_button.clicked.connect(self._on_link_button_clicked)
+        # szp = self.ui.link_button.sizePolicy()
+        # szp.setRetainSizeWhenHidden(True)
+        # self.ui.link_button.setSizePolicy(szp)
 
         # download button
         self.ui.download_button = QPushButton()
@@ -96,6 +111,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         layout.addLayout(inner_layout)
 
 
+        layout.addWidget(self.ui.link_button)
         layout.addWidget(self.ui.open_video_button)
         layout.addWidget(self.ui.download_button)
 
@@ -153,6 +169,10 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
 
 
 
+    def _on_link_button_clicked(self):
+        debug(f"_on_link_button_clicked({self._on_link_button_clicked})")
+        self.link_button_clicked.emit(self.track_id)
+
     def _on_download_button_clicked(self):
         debug(f"on_download_button_clicked({self.track_id})")
         self.download_button_clicked.emit(self.track_id)
@@ -175,6 +195,7 @@ class AlbumTracksModel(ListWidgetModel):
         return release.track_count() if release else 0
 
 class AlbumTracksWidget(ListWidgetModelView):
+    link_button_clicked = pyqtSignal(int)
     download_button_clicked = pyqtSignal(int)
     open_video_button_clicked = pyqtSignal(int)
 
@@ -183,9 +204,14 @@ class AlbumTracksWidget(ListWidgetModelView):
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
         w = AlbumTracksItemWidget(entry)
+        w.link_button_clicked.connect(self._on_link_button_clicked)
         w.download_button_clicked.connect(self._on_download_button_clicked)
         w.open_video_button_clicked.connect(self._on_open_video_button_clicked)
         return w
+
+    def _on_link_button_clicked(self, entry: str):
+        row = self.model.index(entry)
+        self.link_button_clicked.emit(row)
 
     def _on_download_button_clicked(self, entry: str):
         row = self.model.index(entry)
