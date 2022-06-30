@@ -601,10 +601,27 @@ class YtTrack(Mergeable):
                 "id": yt_track["album"]["id"],
                 "title": normalize_metadata(yt_track["album"]["name"])
             } if "album" in yt_track and isinstance(yt_track["album"], dict) else normalize_metadata(yt_track.get("album"))
-            self.artists = [{
-                "id": a["id"],
-                "name": normalize_metadata(a["name"])
-            } for a in yt_track["artists"]] if "artists" in yt_track else [normalize_metadata(yt_track.get("artist"))]
+            if "artists" in yt_track:
+                artists = list({
+                    normalize_metadata(a["name"]):
+                    {"id": a["id"], "name": normalize_metadata(a["name"])} for a in yt_track["artists"]
+                }.values())
+            else:
+                artists = [normalize_metadata(yt_track.get("artist"))]
+
+            # Don't know why, but sometimes yt_downloader returns something like
+            # 'artist': 'Nobuo Uematsu, Nobuo Uematsu, Nobuo Uematsu'
+            # try to fix this
+            self.artists = []
+            for a in artists:
+                tokens = [s.strip() for s in a.split(",")]
+                n_tokens = len(tokens)
+                tokens = set(tokens)
+                if len(tokens) != n_tokens:
+                    a = ", ".join(tokens)
+                # else: keep the original string
+                self.artists.append(a)
+
             self.track_number = yt_track.get("track_number")
             self.year = yt_track.get("year")
 

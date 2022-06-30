@@ -1413,9 +1413,9 @@ def download_youtube_track_manual(video_id: str,
             error_callback=error_callback_wrapper,
             metadata=True,
             user_data={
-            "type": "manual",
-            "id": video_id
-        })
+                "type": "manual",
+                "id": video_id
+            })
 
     # def mb_release_group_result(artist_, album_, result):
     #     nonlocal mb_done, mb_result
