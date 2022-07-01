@@ -597,17 +597,10 @@ class YtTrack(Mergeable):
             self.video_id = self.id
             self.video_title = normalize_metadata(yt_track.get("title"))
             self.song = normalize_metadata(yt_track.get("track")) or self.video_title
-            self.album = {
-                "id": yt_track["album"]["id"],
-                "title": normalize_metadata(yt_track["album"]["name"])
-            } if "album" in yt_track and isinstance(yt_track["album"], dict) else normalize_metadata(yt_track.get("album"))
-            if "artists" in yt_track:
-                artists = list({
-                    normalize_metadata(a["name"]):
-                    {"id": a["id"], "name": normalize_metadata(a["name"])} for a in yt_track["artists"]
-                }.values())
-            else:
-                artists = [normalize_metadata(yt_track.get("artist"))]
+            self.album = normalize_metadata(yt_track["album"]["name"]) if "album" in yt_track and isinstance(yt_track["album"], dict) \
+                                            else normalize_metadata(yt_track.get("album"))
+            artists = [normalize_metadata(a["name"]) for a in yt_track["artists"]] if "artists" in yt_track \
+                else [normalize_metadata(yt_track.get("artist"))]
 
             # Don't know why, but sometimes yt_downloader returns something like
             # 'artist': 'Nobuo Uematsu, Nobuo Uematsu, Nobuo Uematsu'

@@ -131,6 +131,8 @@ class MainWindow(QMainWindow):
 
         self.ui.showYouTubeTitlesCheck.stateChanged.connect(self.on_show_album_tracks_youtube_titles_check_changed)
 
+        self.ui.albumOpenLocalButton.clicked.connect(self.on_album_open_local_button_clicked)
+
         # Artist
         self.current_artist_id = None
         self.artist_albums_model = ArtistAlbumsModel()
@@ -140,6 +142,8 @@ class MainWindow(QMainWindow):
         self.ui.artistCover.set_clickable(False)
         self.ui.artistCover.set_double_clickable(True)
         self.artist_cover_data = None
+
+        self.ui.artistOpenLocalButton.clicked.connect(self.on_artist_open_local_button_clicked)
 
         # Local Album
         self.current_local_album_mp3_group_leader = None
@@ -1686,3 +1690,21 @@ class MainWindow(QMainWindow):
     def on_show_album_tracks_youtube_titles_check_changed(self):
         debug("on_show_album_tracks_youtube_titles_check_changed")
         self.ui.albumTracks.set_show_youtube_titles(self.ui.showYouTubeTitlesCheck.isChecked())
+
+    def on_album_open_local_button_clicked(self):
+        debug("on_album_open_local_button_clicked")
+        album = get_release_group(self.current_release_group_id)
+        for mp3 in localsongs.mp3s:
+            if mp3.artist.lower() == album.artists_string().lower() and mp3.album.lower() == album.title.lower():
+                self.open_mp3_release_group(mp3)
+                return
+        print(f"WARN: album '{album.title}' not locally available")
+
+    def on_artist_open_local_button_clicked(self):
+        debug("on_artist_open_local_button_clicked")
+        artist = get_artist(self.current_artist_id)
+        for mp3 in localsongs.mp3s:
+            if mp3.artist.lower() == artist.name.lower():
+                self.open_mp3_artist(mp3)
+                return
+        print(f"WARN: artist '{artist.name}' not locally available")
