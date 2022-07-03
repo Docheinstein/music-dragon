@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+    QSortFilterProxyModel
 from PyQt5.QtGui import QPainter, QMouseEvent
 from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
     QGridLayout, QListView
@@ -10,6 +11,7 @@ from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.ui.clickablelabel import ClickableLabel
+from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
 
 class LocalAlbumsItemRole:
@@ -19,8 +21,8 @@ class LocalAlbumsItemRole:
 
 
 class LocalAlbumsItemWidget(QWidget):
-    artist_clicked = pyqtSignal(int)
-    album_clicked = pyqtSignal(int)
+    artist_clicked = pyqtSignal(QModelIndex)
+    album_clicked = pyqtSignal(QModelIndex)
 
     class Ui:
         def __init__(self):
@@ -28,10 +30,10 @@ class LocalAlbumsItemWidget(QWidget):
             self.title: Optional[QLabel] = None
             self.artist: Optional[QLabel] = None
 
-    def __init__(self, parent, row, title, artist, image):
+    def __init__(self, parent, index, title, artist, image):
         super().__init__(parent)
 
-        self.row = row
+        self.index = index
         self.title = title
         self.artist = artist
         self.image = image
@@ -94,7 +96,7 @@ class LocalAlbumsItemWidget(QWidget):
 
     def _on_artist_clicked(self):
         debug(f"_on_artist_clicked({self.artist})")
-        self.artist_clicked.emit(self.row)
+        self.artist_clicked.emit(self.index)
 
     def sizeHint(self) -> QSize:
         sz = super().sizeHint()
@@ -103,6 +105,11 @@ class LocalAlbumsItemWidget(QWidget):
 
 class LocalAlbumsItemDelegate(QStyledItemDelegate):
     artist_clicked = pyqtSignal(int)
+
+    def __init__(self, proxy: Optional[QSortFilterProxyModel] = None):
+        super().__init__()
+        self.proxy = proxy
+
 
     def paint(self, painter: QPainter, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
         ICON_TO_TEXT_SPACING = 9
@@ -154,7 +161,7 @@ class LocalAlbumsItemDelegate(QStyledItemDelegate):
         image: bytes = index.data(LocalAlbumsItemRole.IMAGE)
 
         debug(f"Create editor for row with (title={title}, artist={artist})")
-        editor = LocalAlbumsItemWidget(parent=parent, row=index.row(), title=title, artist=artist, image=image)
+        editor = LocalAlbumsItemWidget(parent=parent, index=index, title=title, artist=artist, image=image)
 
         editor.artist_clicked.connect(self._on_artist_clicked)
         editor.adjustSize()
@@ -167,10 +174,21 @@ class LocalAlbumsItemDelegate(QStyledItemDelegate):
         rect.setY(rect.y())
         editor.setGeometry(rect)
 
-    def _on_artist_clicked(self, row: int):
+    def _on_artist_clicked(self, index: QModelIndex):
+        index = self.proxy.mapToSource(index) if self.proxy else index
+        row = index.row()
         debug(f"_on_artist_clicked at row {row}")
         self.artist_clicked.emit(row)
 
+
+class LocalAlbumsProxyModel(QSortFilterProxyModel):
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        src = self.sourceModel()
+        index = src.index(source_row, 0, source_parent)
+        album = src.data(index, LocalAlbumsItemRole.TITLE)
+        artist = src.data(index, LocalAlbumsItemRole.ARTIST)
+        reg_exp = self.filterRegularExpression()
+        return reg_exp.match(album).hasMatch() or reg_exp.match(artist).hasMatch()
 
 class LocalAlbumsModel(QAbstractListModel):
     def __init__(self):
@@ -240,7 +258,7 @@ class LocalAlbumsModel(QAbstractListModel):
 
         self.dataChanged.emit(index, index, roles or [])
 
-class LocalAlbumsView(QListView):
+class LocalAlbumsView(ListProxyView):
     row_clicked = pyqtSignal(int)
     row_double_clicked = pyqtSignal(int)
 
@@ -264,7 +282,7 @@ class LocalAlbumsView(QListView):
         self.openPersistentEditor(self.edit_index)
 
     def _on_item_clicked(self, idx: QModelIndex):
-        self.row_clicked.emit(idx.row())
+        self.row_clicked.emit(self._source_index(idx).row())
 
     def _on_item_double_clicked(self, idx: QModelIndex):
-        self.row_double_clicked.emit(idx.row())
+        self.row_double_clicked.emit(self._source_index(idx).row())

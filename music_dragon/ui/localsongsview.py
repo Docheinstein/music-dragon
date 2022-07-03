@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+    QSortFilterProxyModel
 from PyQt5.QtGui import QPainter, QMouseEvent
 from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
     QGridLayout, QListView
@@ -9,6 +10,7 @@ from music_dragon import localsongs
 from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.ui.clickablelabel import ClickableLabel
+from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
 
 
@@ -20,8 +22,8 @@ class LocalSongsItemRole:
 
 
 class LocalSongsItemWidget(QWidget):
-    artist_clicked = pyqtSignal(int)
-    album_clicked = pyqtSignal(int)
+    artist_clicked = pyqtSignal(QModelIndex)
+    album_clicked = pyqtSignal(QModelIndex)
 
     class Ui:
         def __init__(self):
@@ -32,10 +34,10 @@ class LocalSongsItemWidget(QWidget):
             self.album: Optional[QLabel] = None
             self.subtitle_widget: Optional[QWidget] = None
 
-    def __init__(self, parent, row, artist, album, song, image):
+    def __init__(self, parent, index, artist, album, song, image):
         super().__init__(parent)
 
-        self.row = row
+        self.index = index
         self.artist = artist
         self.album = album
         self.song = song
@@ -142,11 +144,11 @@ class LocalSongsItemWidget(QWidget):
 
     def _on_artist_clicked(self):
         debug(f"_on_artist_clicked({self.artist})")
-        self.artist_clicked.emit(self.row)
+        self.artist_clicked.emit(self.index)
 
     def _on_album_clicked(self):
         debug(f"_on_album_clicked({self.album})")
-        self.album_clicked.emit(self.row)
+        self.album_clicked.emit(self.index)
 
     def sizeHint(self) -> QSize:
         sz = super().sizeHint()
@@ -156,6 +158,10 @@ class LocalSongsItemWidget(QWidget):
 class LocalSongsItemDelegate(QStyledItemDelegate):
     artist_clicked = pyqtSignal(int)
     album_clicked = pyqtSignal(int)
+
+    def __init__(self, proxy: Optional[QSortFilterProxyModel] = None):
+        super().__init__()
+        self.proxy = proxy
 
     def paint(self, painter: QPainter, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
         ICON_TO_TEXT_SPACING = 9
@@ -223,7 +229,7 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
         image: bytes = index.data(LocalSongsItemRole.IMAGE)
 
         debug(f"Create editor for row with (song={song}, artist={artist}, album={album})")
-        editor = LocalSongsItemWidget(parent=parent, row=index.row(), artist=artist, album=album, song=song, image=image)
+        editor = LocalSongsItemWidget(parent=parent, index=index, artist=artist, album=album, song=song, image=image)
 
         editor.artist_clicked.connect(self._on_artist_clicked)
         editor.album_clicked.connect(self._on_album_clicked)
@@ -237,14 +243,28 @@ class LocalSongsItemDelegate(QStyledItemDelegate):
         rect.setY(rect.y())
         editor.setGeometry(rect)
 
-    def _on_artist_clicked(self, row: int):
+    def _on_artist_clicked(self, index: QModelIndex):
+        index = self.proxy.mapToSource(index) if self.proxy else index
+        row = index.row()
         debug(f"_on_artist_clicked at row {row}")
         self.artist_clicked.emit(row)
 
-    def _on_album_clicked(self, row: int):
+    def _on_album_clicked(self, index: QModelIndex):
+        index = self.proxy.mapToSource(index) if self.proxy else index
+        row = index.row()
         debug(f"_on_album_clicked at row {row}")
         self.album_clicked.emit(row)
 
+
+class LocalSongsProxyModel(QSortFilterProxyModel):
+    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+        src = self.sourceModel()
+        index = src.index(source_row, 0, source_parent)
+        song = src.data(index, LocalSongsItemRole.SONG)
+        artist = src.data(index, LocalSongsItemRole.ARTIST)
+        album = src.data(index, LocalSongsItemRole.ALBUM)
+        reg_exp = self.filterRegularExpression()
+        return reg_exp.match(song).hasMatch() or reg_exp.match(artist).hasMatch() or reg_exp.match(album).hasMatch()
 
 class LocalSongsModel(QAbstractListModel):
     def __init__(self):
@@ -301,7 +321,7 @@ class LocalSongsModel(QAbstractListModel):
 
         self.dataChanged.emit(index, index, roles or [])
 
-class LocalSongsView(QListView):
+class LocalSongsView(ListProxyView):
     row_clicked = pyqtSignal(int)
     row_double_clicked = pyqtSignal(int)
 
@@ -325,7 +345,7 @@ class LocalSongsView(QListView):
         self.openPersistentEditor(self.edit_index)
 
     def _on_item_clicked(self, idx: QModelIndex):
-        self.row_clicked.emit(idx.row())
+        self.row_clicked.emit(self._source_index(idx).row())
 
     def _on_item_double_clicked(self, idx: QModelIndex):
-        self.row_double_clicked.emit(idx.row())
+        self.row_double_clicked.emit(self._source_index(idx).row())

@@ -1,9 +1,8 @@
-import enum
 import random
 from pathlib import Path
 from typing import List, Union, Optional
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QSortFilterProxyModel, QRegularExpression
 from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
@@ -19,11 +18,11 @@ from music_dragon.ui.artistalbumswidget import ArtistAlbumsModel
 from music_dragon.ui.downloadswidget import DownloadsModel, FinishedDownloadsModel
 from music_dragon.ui.editlinkwindow import EditLinkWindow
 from music_dragon.ui.imagepreviewwindow import ImagePreviewWindow
-from music_dragon.ui.localalbumsview import LocalAlbumsModel, LocalAlbumsItemDelegate
+from music_dragon.ui.localalbumsview import LocalAlbumsModel, LocalAlbumsItemDelegate, LocalAlbumsProxyModel
 from music_dragon.ui.localalbumtrackswidget import LocalAlbumTracksModel
 from music_dragon.ui.localartistalbumswidget import LocalArtistAlbumsModel
-from music_dragon.ui.localartistsview import LocalArtistsModel, LocalArtistsItemDelegate
-from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate
+from music_dragon.ui.localartistsview import LocalArtistsModel, LocalArtistsItemDelegate, LocalArtistsProxyModel
+from music_dragon.ui.localsongsview import LocalSongsModel, LocalSongsItemDelegate, LocalSongsProxyModel
 from music_dragon.ui.preferenceswindow import PreferencesWindow
 from music_dragon.ui.searchresultswidget import SearchResultsModel
 from music_dragon.ui.ui_mainwindow import Ui_MainWindow
@@ -204,31 +203,43 @@ class MainWindow(QMainWindow):
 
         # Local songs
         self.local_songs_model = LocalSongsModel()
-        self.local_songs_delegate = LocalSongsItemDelegate()
+        self.local_songs_proxy_model = LocalSongsProxyModel()
+        self.local_songs_proxy_model.setSourceModel(self.local_songs_model)
+        self.local_songs_proxy_model.setFilterCaseSensitivity(0)
+        self.local_songs_delegate = LocalSongsItemDelegate(self.local_songs_proxy_model)
         self.local_songs_delegate.artist_clicked.connect(self.on_local_song_artist_clicked)
         self.local_songs_delegate.album_clicked.connect(self.on_local_song_album_clicked)
         self.ui.localSongs.row_clicked.connect(self.on_local_song_clicked)
         self.ui.localSongs.row_double_clicked.connect(self.on_local_song_double_clicked)
         self.ui.localSongs.setSpacing(6)
-        self.ui.localSongs.setModel(self.local_songs_model)
+        self.ui.localSongs.setModel(self.local_songs_proxy_model)
         self.ui.localSongs.setItemDelegate(self.local_songs_delegate)
+        self.ui.localSongsFilter.textChanged.connect(self.on_local_songs_filter_changed)
 
         self.local_artists_model = LocalArtistsModel()
-        self.local_artists_delegate = LocalArtistsItemDelegate()
+        self.local_artists_proxy_model = LocalArtistsProxyModel()
+        self.local_artists_proxy_model.setSourceModel(self.local_artists_model)
+        self.local_artists_proxy_model.setFilterCaseSensitivity(0)
+        self.local_artists_delegate = LocalArtistsItemDelegate(self.local_artists_proxy_model)
         self.ui.localArtists.row_clicked.connect(self.on_local_artist_clicked)
         self.ui.localArtists.setSpacing(6)
-        self.ui.localArtists.setModel(self.local_artists_model)
+        self.ui.localArtists.setModel(self.local_artists_proxy_model)
         self.ui.localArtists.setItemDelegate(self.local_artists_delegate)
+        self.ui.localArtistsFilter.textChanged.connect(self.on_local_artists_filter_changed)
 
         self.local_albums_model = LocalAlbumsModel()
-        self.local_albums_delegate = LocalAlbumsItemDelegate()
+        self.local_albums_proxy_model = LocalAlbumsProxyModel()
+        self.local_albums_proxy_model.setSourceModel(self.local_albums_model)
+        self.local_albums_proxy_model.setFilterCaseSensitivity(0)
+        self.local_albums_delegate = LocalAlbumsItemDelegate(self.local_albums_proxy_model)
         self.local_albums_delegate.artist_clicked.connect(self.on_local_album_artist_clicked)
         # self.local_albums_delegate.album_clicked.connect(self.on_local_album_clicked)
         self.ui.localAlbums.row_clicked.connect(self.on_local_album_clicked)
         # self.ui.localAlbums.row_double_clicked.connect(self.on_local_song_double_clicked)
         self.ui.localAlbums.setSpacing(6)
-        self.ui.localAlbums.setModel(self.local_albums_model)
+        self.ui.localAlbums.setModel(self.local_albums_proxy_model)
         self.ui.localAlbums.setItemDelegate(self.local_albums_delegate)
+        self.ui.localAlbumsFilter.textChanged.connect(self.on_local_albums_filter_changed)
 
         self.ui.localSongsButton.clicked.connect(self.on_local_songs_button_clicked)
         self.ui.localArtistsButton.clicked.connect(self.on_local_artists_button_clicked)
@@ -236,6 +247,7 @@ class MainWindow(QMainWindow):
         self.on_local_songs_button_clicked()
 
         self.ui.localSongsRandomPlayButton.clicked.connect(self.on_local_songs_random_play_button_clicked)
+
 
         # Load local songs
         # TODO: preferences flag?
@@ -1708,3 +1720,20 @@ class MainWindow(QMainWindow):
                 self.open_mp3_artist(mp3)
                 return
         print(f"WARN: artist '{artist.name}' not locally available")
+
+    def on_local_songs_filter_changed(self):
+        filter_text = self.ui.localSongsFilter.text()
+        debug(f"on_local_songs_filter_changed({filter_text})")
+        self.local_songs_proxy_model.setFilterRegularExpression(QRegularExpression(filter_text, QRegularExpression.CaseInsensitiveOption))
+
+
+    def on_local_artists_filter_changed(self):
+        filter_text = self.ui.localArtistsFilter.text()
+        debug(f"on_local_artists_filter_changed({filter_text})")
+        self.local_artists_proxy_model.setFilterRegularExpression(QRegularExpression(filter_text, QRegularExpression.CaseInsensitiveOption))
+
+
+    def on_local_albums_filter_changed(self):
+        filter_text = self.ui.localAlbumsFilter.text()
+        debug(f"on_local_albums_filter_changed({filter_text})")
+        self.local_albums_proxy_model.setFilterRegularExpression(QRegularExpression(filter_text, QRegularExpression.CaseInsensitiveOption))

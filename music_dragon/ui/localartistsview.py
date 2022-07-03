@@ -1,12 +1,14 @@
-from typing import Any
+from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+    QSortFilterProxyModel
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QStyledItemDelegate, QListView
 
 from music_dragon import localsongs, UNKNOWN_ARTIST
 from music_dragon.localsongs import Mp3
 from music_dragon.ui import resources
+from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
 
 class LocalArtistsItemRole:
@@ -128,6 +130,10 @@ class LocalArtistsItemDelegate(QStyledItemDelegate):
     # clicked = pyqtSignal(int)
     # album_clicked = pyqtSignal(int)
 
+    def __init__(self, proxy: Optional[QSortFilterProxyModel] = None):
+        super().__init__()
+        self.proxy = proxy
+
     def paint(self, painter: QPainter, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
         ICON_TO_TEXT_SPACING = 9
 
@@ -190,6 +196,8 @@ class LocalArtistsItemDelegate(QStyledItemDelegate):
     #     debug(f"_on_album_clicked at row {row}")
     #     self.album_clicked.emit(row)
 
+class LocalArtistsProxyModel(QSortFilterProxyModel):
+    pass
 
 class LocalArtistsModel(QAbstractListModel):
     def __init__(self):
@@ -254,7 +262,7 @@ class LocalArtistsModel(QAbstractListModel):
 
         self.dataChanged.emit(index, index, roles or [])
 
-class LocalArtistsView(QListView):
+class LocalArtistsView(ListProxyView):
     row_clicked = pyqtSignal(int)
     # row_double_clicked = pyqtSignal(int)
 
@@ -278,7 +286,7 @@ class LocalArtistsView(QListView):
     #     self.openPersistentEditor(self.edit_index)
 
     def _on_item_clicked(self, idx: QModelIndex):
-        self.row_clicked.emit(idx.row())
+        self.row_clicked.emit(self._source_index(idx).row())
 
     # def _on_item_double_clicked(self, idx: QModelIndex):
     #     self.row_double_clicked.emit(idx.row())

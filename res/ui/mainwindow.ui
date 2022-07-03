@@ -191,7 +191,7 @@
         <item>
          <widget class="QStackedWidget" name="pages">
           <property name="currentIndex">
-           <number>4</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="searchPage">
            <layout class="QVBoxLayout" name="verticalLayout">
@@ -294,10 +294,17 @@ border-radius: 5px;
             <item>
              <widget class="QStackedWidget" name="localPages">
               <property name="currentIndex">
-               <number>0</number>
+               <number>2</number>
               </property>
               <widget class="QWidget" name="localSongsPage">
                <layout class="QVBoxLayout" name="verticalLayout_13">
+                <item>
+                 <widget class="QLineEdit" name="localSongsFilter">
+                  <property name="placeholderText">
+                   <string>Filter by song...</string>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="LocalSongsView" name="localSongs">
                   <property name="mouseTracking">
@@ -322,6 +329,13 @@ border-radius: 5px;
               <widget class="QWidget" name="localArtistsPage">
                <layout class="QVBoxLayout" name="verticalLayout_14">
                 <item>
+                 <widget class="QLineEdit" name="localArtistsFilter">
+                  <property name="placeholderText">
+                   <string>Filter by artist...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <widget class="LocalArtistsView" name="localArtists">
                   <property name="mouseTracking">
                    <bool>true</bool>
@@ -344,6 +358,13 @@ border-radius: 5px;
               </widget>
               <widget class="QWidget" name="localAlbumsPage">
                <layout class="QVBoxLayout" name="verticalLayout_15">
+                <item>
+                 <widget class="QLineEdit" name="localAlbumsFilter">
+                  <property name="placeholderText">
+                   <string>Filter by album</string>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="LocalAlbumsView" name="localAlbums">
                   <property name="mouseTracking">
