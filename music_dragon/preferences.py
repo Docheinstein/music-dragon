@@ -34,6 +34,14 @@ def directory() -> str:
 def set_directory(value: str):
     _preferences.setValue("directory", value)
 
+# Download directory
+
+def download_directory() -> str:
+    return _preferences.value("download_directory", str(app_music_path().absolute()))
+
+def set_download_directory(value: str):
+    _preferences.setValue("download_directory", value)
+
 # Cover Size
 
 def cover_size() -> int:

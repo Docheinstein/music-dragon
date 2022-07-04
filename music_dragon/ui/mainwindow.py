@@ -1707,7 +1707,7 @@ class MainWindow(QMainWindow):
         debug("on_album_open_local_button_clicked")
         album = get_release_group(self.current_release_group_id)
         for mp3 in localsongs.mp3s:
-            if mp3.artist.lower() == album.artists_string().lower() and mp3.album.lower() == album.title.lower():
+            if mp3.artist and mp3.artist.lower() == album.artists_string().lower() and mp3.album and mp3.album.lower() == album.title.lower():
                 self.open_mp3_release_group(mp3)
                 return
         print(f"WARN: album '{album.title}' not locally available")
@@ -1716,7 +1716,7 @@ class MainWindow(QMainWindow):
         debug("on_artist_open_local_button_clicked")
         artist = get_artist(self.current_artist_id)
         for mp3 in localsongs.mp3s:
-            if mp3.artist.lower() == artist.name.lower():
+            if mp3.artist and mp3.artist.lower() == artist.name.lower():
                 self.open_mp3_artist(mp3)
                 return
         print(f"WARN: artist '{artist.name}' not locally available")

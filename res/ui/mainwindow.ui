@@ -294,7 +294,7 @@ border-radius: 5px;
             <item>
              <widget class="QStackedWidget" name="localPages">
               <property name="currentIndex">
-               <number>2</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="localSongsPage">
                <layout class="QVBoxLayout" name="verticalLayout_13">
@@ -361,7 +361,7 @@ border-radius: 5px;
                 <item>
                  <widget class="QLineEdit" name="localAlbumsFilter">
                   <property name="placeholderText">
-                   <string>Filter by album</string>
+                   <string>Filter by album...</string>
                   </property>
                  </widget>
                 </item>

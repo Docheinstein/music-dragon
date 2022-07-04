@@ -822,7 +822,7 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.pages.setCurrentIndex(1)
-        self.localPages.setCurrentIndex(2)
+        self.localPages.setCurrentIndex(0)
         self.downloadsTabs.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -838,7 +838,7 @@ class Ui_MainWindow(object):
         self.localAlbumsButton.setText(_translate("MainWindow", "Albums"))
         self.localSongsFilter.setPlaceholderText(_translate("MainWindow", "Filter by song..."))
         self.localArtistsFilter.setPlaceholderText(_translate("MainWindow", "Filter by artist..."))
-        self.localAlbumsFilter.setPlaceholderText(_translate("MainWindow", "Filter by album"))
+        self.localAlbumsFilter.setPlaceholderText(_translate("MainWindow", "Filter by album..."))
         self.localSongCount.setText(_translate("MainWindow", "0 Songs"))
         self.manualDownloadURL.setPlaceholderText(_translate("MainWindow", "YouTube video or playlist URL..."))
         self.manualDownloadButton.setText(_translate("MainWindow", "Download"))
