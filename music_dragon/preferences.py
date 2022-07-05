@@ -2,7 +2,6 @@ from typing import Optional, Tuple
 
 from PyQt5.QtCore import QSettings, QThread
 
-from music_dragon.log import debug
 from music_dragon.utils import app_music_path
 
 _preferences: Optional[QSettings] = None
@@ -36,11 +35,11 @@ def set_directory(value: str):
 
 # Download directory
 
-def download_directory() -> str:
-    return _preferences.value("download_directory", str(app_music_path().absolute()))
+def manual_download_directory() -> str:
+    return _preferences.value("manual_download_directory", str(app_music_path().absolute()))
 
-def set_download_directory(value: str):
-    _preferences.setValue("download_directory", value)
+def set_manual_download_directory(value: str):
+    _preferences.setValue("manual_download_directory", value)
 
 # Cover Size
 
@@ -57,9 +56,19 @@ def set_cover_size(value: int):
 def output_format() -> str:
     return _preferences.value("output_format", "{artist}/{album}/{song}.{ext}")
 
-
 def set_output_format(value: str):
     _preferences.setValue("output_format", value)
+
+
+# Manual output format
+
+def manual_output_format() -> str:
+    return _preferences.value("manual_output_format", "{artist}/{album}/{song}.{ext}")
+
+
+def set_manual_output_format(value: str):
+    _preferences.setValue("manual_output_format", value)
+
 
 # Thread number
 
