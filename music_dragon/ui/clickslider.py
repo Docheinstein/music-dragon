@@ -1,6 +1,8 @@
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QSlider
 
+from music_dragon.log import debug
+
 
 class ClickSlider(QSlider):
 
@@ -11,12 +13,16 @@ class ClickSlider(QSlider):
         e.accept()
         x = e.pos().x()
         value = int((self.maximum() - self.minimum()) * x / self.width() + self.minimum())
-        self.setValue(value, notify=True)
+        self.set_value(value, notify=True)
 
-    def setValue(self, value: int, notify: bool=True):
+    def set_value(self, value: int, notify: bool=True):
+        debug(f"set_value({value})")
+        if self.value() == value:
+            return
         was_blocked = False
         if not notify:
             was_blocked = self.blockSignals(True)
-        super().setValue(value)
+        self.setValue(value)
         if not notify:
             self.blockSignals(was_blocked)
+

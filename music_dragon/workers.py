@@ -185,6 +185,9 @@ class WorkerScheduler(QObject):
         self.workers[worker.worker_id] = worker
         self._dispatch_job_while_possible()
 
+    def dispatch(self): # usually not needed since called by schedule
+        self._dispatch_job_while_possible()
+
     def _on_worker_started(self, worker_id):
         pass
 

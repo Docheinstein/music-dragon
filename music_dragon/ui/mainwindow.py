@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         self.ui.albumCoverPrevButton.clicked.connect(self.on_album_cover_prev_button_clicked)
         self.ui.albumCoverNextButton.clicked.connect(self.on_album_cover_next_button_clicked)
         self.album_change_cover_empty_image_callback = None
+        self.album_change_cover_initial_index = None
 
         self.ui.albumTracks.link_button_clicked.connect(self.on_track_link_button_clicked)
         self.ui.albumTracks.download_button_clicked.connect(self.on_track_download_button_clicked)
@@ -186,6 +187,7 @@ class MainWindow(QMainWindow):
         self.ui.queuedDownloads.cancel_button_clicked.connect(self.on_download_cancel_button_clicked)
         self.ui.queuedDownloads.artist_clicked.connect(self.on_download_artist_clicked)
         self.ui.queuedDownloads.album_clicked.connect(self.on_download_album_clicked)
+        self.ui.autoDownloadQueuedCheck.stateChanged.connect(self.on_auto_download_queued_check_changed)
 
         # Completed downloads
         self.finished_downloads_model = FinishedDownloadsModel()
@@ -885,14 +887,40 @@ class MainWindow(QMainWindow):
 
     def on_album_cover_prev_button_clicked(self):
         debug("on_album_cover_prev_button_clicked")
-        self.album_change_cover_empty_image_callback = self.on_album_cover_prev_button_clicked
-        self.handle_album_cover_change_request(direction="prev")
+        self.album_change_cover_empty_image_callback = self.set_album_cover_prev_prevent_loop
+        release_group = get_release_group(self.current_release_group_id)
+        self.album_change_cover_initial_index = release_group.preferred_front_cover_index
+        self.set_album_cover_prev()
 
 
     def on_album_cover_next_button_clicked(self):
         debug("on_album_cover_next_button_clicked")
-        self.album_change_cover_empty_image_callback = self.on_album_cover_next_button_clicked
+        self.album_change_cover_empty_image_callback = self.set_album_cover_next_prevent_loop
+        release_group = get_release_group(self.current_release_group_id)
+        self.album_change_cover_initial_index = release_group.preferred_front_cover_index
+        self.set_album_cover_next()
+
+
+    def set_album_cover_prev_prevent_loop(self, force=False):
+        release_group = get_release_group(self.current_release_group_id)
+        if not force and self.album_change_cover_initial_index == release_group.preferred_front_cover_index:
+            return
+        self.set_album_cover_prev()
+
+
+    def set_album_cover_next_prevent_loop(self, force=False):
+        release_group = get_release_group(self.current_release_group_id)
+        if not force and self.album_change_cover_initial_index == release_group.preferred_front_cover_index:
+            return
+        self.set_album_cover_next()
+
+    def set_album_cover_prev(self):
+        self.handle_album_cover_change_request(direction="prev")
+
+
+    def set_album_cover_next(self):
         self.handle_album_cover_change_request(direction="next")
+
 
     def handle_album_cover_change_request(self, direction):
         if direction == "next":
@@ -1549,7 +1577,7 @@ class MainWindow(QMainWindow):
         self.ui.playArtist.setText(mp3.artist or UNKNOWN_ARTIST)
         self.ui.playAlbum.setText(mp3.album or UNKNOWN_ALBUM)
 
-        self.ui.playBar.setValue(0, notify=False)
+        self.ui.playBar.set_value(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
 
@@ -1571,7 +1599,7 @@ class MainWindow(QMainWindow):
         self.ui.playArtist.setText(rg.artists_string() or UNKNOWN_ARTIST)
         self.ui.playAlbum.setText(rg.title or UNKNOWN_ALBUM)
 
-        self.ui.playBar.setValue(0, notify=False)
+        self.ui.playBar.set_value(0, notify=False)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(track.length))
 
@@ -1636,16 +1664,16 @@ class MainWindow(QMainWindow):
             t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
             try:
-                self.ui.playBar.setValue(int(100 * t / self.playing.in_play().length), notify=False)
+                self.ui.playBar.set_value(int(100 * t / self.playing.in_play().length), notify=False)
             except:
-                self.ui.playBar.setValue(0, notify=False)
+                self.ui.playBar.set_value(0, notify=False)
         elif audioplayer.is_paused():
             self.playTimer.stop()
         elif audioplayer.is_ended():
             self.playTimer.stop()
             self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
             self.ui.playCurrentTime.setText(millis_to_short_string(0))
-            self.ui.playBar.setValue(0, notify=False)
+            self.ui.playBar.set_value(0, notify=False)
             self.play_next()
 
 
@@ -1737,3 +1765,7 @@ class MainWindow(QMainWindow):
         filter_text = self.ui.localAlbumsFilter.text()
         debug(f"on_local_albums_filter_changed({filter_text})")
         self.local_albums_proxy_model.setFilterRegularExpression(QRegularExpression(filter_text, QRegularExpression.CaseInsensitiveOption))
+
+    def on_auto_download_queued_check_changed(self):
+        debug(f"on_auto_download_queued_check_changed={self.ui.autoDownloadQueuedCheck.isChecked()}")
+        ytdownloader.set_auto_download(self.ui.autoDownloadQueuedCheck.isChecked())

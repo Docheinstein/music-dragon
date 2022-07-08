@@ -21,11 +21,13 @@ YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 1
 
 YDL_DEFAULT_OPTS = {
     'format': 'bestaudio/best',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '320',
-    }],
+    'postprocessors': [
+        {
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '320',
+        }
+    ],
     'verbose': music_dragon.log.debug_enabled,
 }
 YDL_DEFAULT_PLAYLIST_OPTS = {
@@ -45,6 +47,8 @@ finished_downloads = {}
 
 email = None
 password = None
+
+auto_download = True
 
 def set_credentials(ytemail: str, ytpassword: str):
     if ytemail and ytpassword:
@@ -78,6 +82,12 @@ def finished_download_count():
 
 def get_finished_download(video_id: str):
     return finished_downloads.get(video_id)
+
+def set_auto_download(yes: bool):
+    global auto_download
+    auto_download = yes
+    if auto_download:
+        workers.worker_scheduler.dispatch()
 
 def ytdl_download(ytdl, url_list):
     """Download a given list of URLs."""
@@ -197,11 +207,13 @@ class TrackDownloaderWorker(Worker):
 
         ydl_opts = {
             'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '320',
-            }],
+            'postprocessors': [
+                {
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '320',
+                }
+            ],
             'logger': YoutubeDLLogger(),
             'progress_hooks': [progress_hook],
             'outtmpl': outtmpl,
@@ -305,7 +317,8 @@ class TrackDownloaderWorker(Worker):
         # as a queue, but since the jobs are scheduled as a stack (on purpose)#
         # we have to return True only if this worker is actually the earlier one
 
-        earlier_worker = None
+        if not auto_download:
+            return
         downloading_count = 0
         for w in workers.worker_scheduler.workers.values():
             if isinstance(w, TrackDownloaderWorker):

@@ -191,7 +191,7 @@
         <item>
          <widget class="QStackedWidget" name="pages">
           <property name="currentIndex">
-           <number>1</number>
+           <number>2</number>
           </property>
           <widget class="QWidget" name="searchPage">
            <layout class="QVBoxLayout" name="verticalLayout">
@@ -461,6 +461,16 @@ border-radius: 5px;
                </widget>
               </item>
              </layout>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="autoDownloadQueuedCheck">
+              <property name="text">
+               <string>Automatically download queued songs</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QTabWidget" name="downloadsTabs">

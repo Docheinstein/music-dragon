@@ -606,14 +606,19 @@ class YtTrack(Mergeable):
             # 'artist': 'Nobuo Uematsu, Nobuo Uematsu, Nobuo Uematsu'
             # try to fix this
             self.artists = []
-            for a in artists:
-                tokens = [s.strip() for s in a.split(",")]
-                n_tokens = len(tokens)
-                tokens = set(tokens)
-                if len(tokens) != n_tokens:
-                    a = ", ".join(tokens)
-                # else: keep the original string
-                self.artists.append(a)
+            try:
+                for a in artists:
+                    tokens = [s.strip() for s in a.split(",")]
+                    n_tokens = len(tokens)
+                    tokens = set(tokens)
+                    if len(tokens) != n_tokens:
+                        a = ", ".join(tokens)
+                    # else: keep the original string
+                    self.artists.append(a)
+            except Exception as e:
+                # TODO: AttributeError: 'NoneType' object has no attribute 'split'
+                print(f"WARN: exception: {e}")
+                self.artists = artists
 
             self.track_number = yt_track.get("track_number")
             self.year = yt_track.get("year")
