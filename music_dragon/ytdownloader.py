@@ -17,7 +17,7 @@ from music_dragon.utils import j, sanitize_filename
 from music_dragon.workers import Worker
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
-YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 1
+YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 2
 
 YDL_DEFAULT_OPTS = {
     'format': 'bestaudio/best',

@@ -1180,11 +1180,18 @@ class MainWindow(QMainWindow):
     def on_youtube_track_download_progress(self, down: dict, progress: float):
         debug(f"on_youtube_track_download_progress(video_id={down['video_id']}, progress={progress})")
         video_id = down["video_id"]
-        self.ui.queuedDownloads.update_row(video_id)
 
-        if down["user_data"]["type"] == "official":
-            track_id = down["user_data"]["id"]
-            self.ui.albumTracks.update_row(track_id)
+        # TODO: skipping the update in this way is a little bit superficial
+        # at least the stuff should be invalidated when reentering download/album/...
+        cur_page = self.pages_stack[-1]
+
+        if cur_page == self.ui.downloadsPage:
+            self.ui.queuedDownloads.update_row(video_id)
+
+        if cur_page == self.ui.albumPage:
+            if down["user_data"]["type"] == "official":
+                track_id = down["user_data"]["id"]
+                self.ui.albumTracks.update_row(track_id)
 
     def on_youtube_track_download_finished(self, down: dict):
         debug(f"on_youtube_track_download_finished(video_id={down['video_id']})")
