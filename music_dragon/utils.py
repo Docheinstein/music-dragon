@@ -104,13 +104,13 @@ def open_folder(directory: Union[Path, str]):
     print(f"INFO: opening {directory}")
     QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
-def app_config_path():
+def app_config_path() -> Path:
     return Path(QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation))
 
-def app_cache_path():
+def app_cache_path()-> Path:
     return Path(QStandardPaths.writableLocation(QStandardPaths.CacheLocation))
 
-def app_music_path():
+def app_music_path()-> Path:
     return Path(QStandardPaths.writableLocation(QStandardPaths.MusicLocation), "MusicDragon")
 
 def is_dark_mode():

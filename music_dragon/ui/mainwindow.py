@@ -6,7 +6,7 @@ from PyQt5.QtCore import QTimer, QSortFilterProxyModel, QRegularExpression
 from PyQt5.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QLabel, QMessageBox
 
-from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer, cache, \
+from music_dragon import localsongs, repository, workers, ytcommons, ytdownloader, preferences, audioplayer, cache, favourites, \
     UNKNOWN_ARTIST, UNKNOWN_ALBUM
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
@@ -163,18 +163,25 @@ class MainWindow(QMainWindow):
         self.ui.localAlbumOpenRemoteButton.clicked.connect(self.on_local_album_open_remote_button_clicked)
         self.ui.localAlbumRandomPlayButton.clicked.connect(self.on_local_album_random_play_button_clicked)
 
+        self.ui.localAlbumFavouriteButton.clicked.connect(self.on_local_album_favourite_button_clicked)
+
         # Local Artist
         self.current_local_artist_mp3_group_leader = None
 
         self.local_artist_albums_model = LocalArtistAlbumsModel()
         self.ui.localArtistAlbums.set_model(self.local_artist_albums_model)
         self.ui.localArtistAlbums.row_clicked.connect(self.on_local_artist_album_clicked)
+        self.ui.localArtistAlbums.favourite_button_clicked.connect(self.on_local_artist_favourite_album_button_clicked)
+
         self.ui.localArtistCover.double_clicked.connect(self.on_local_artist_image_double_clicked)
+
         self.ui.localArtistCover.set_clickable(False)
         self.ui.localArtistCover.set_double_clickable(True)
 
         self.ui.localArtistOpenRemoteButton.clicked.connect(self.on_local_artist_open_remote_button_clicked)
         self.ui.localArtistRandomPlayButton.clicked.connect(self.on_local_artist_random_play_button_clicked)
+
+        self.ui.localArtistFavouriteButton.clicked.connect(self.on_local_artist_favourite_button_clicked)
 
         # Menu
         self.ui.actionPreferences.triggered.connect(self.on_action_preferences)
@@ -223,6 +230,7 @@ class MainWindow(QMainWindow):
         self.local_artists_proxy_model.setSourceModel(self.local_artists_model)
         self.local_artists_proxy_model.setFilterCaseSensitivity(0)
         self.local_artists_delegate = LocalArtistsItemDelegate(self.local_artists_proxy_model)
+        self.local_artists_delegate.favourite_clicked.connect(self.on_local_artists_favourite_clicked)
         self.ui.localArtists.row_clicked.connect(self.on_local_artist_clicked)
         self.ui.localArtists.setSpacing(6)
         self.ui.localArtists.setModel(self.local_artists_proxy_model)
@@ -235,6 +243,7 @@ class MainWindow(QMainWindow):
         self.local_albums_proxy_model.setFilterCaseSensitivity(0)
         self.local_albums_delegate = LocalAlbumsItemDelegate(self.local_albums_proxy_model)
         self.local_albums_delegate.artist_clicked.connect(self.on_local_album_artist_clicked)
+        self.local_albums_delegate.favourite_clicked.connect(self.on_local_albums_favourite_clicked)
         # self.local_albums_delegate.album_clicked.connect(self.on_local_album_clicked)
         self.ui.localAlbums.row_clicked.connect(self.on_local_album_clicked)
         # self.ui.localAlbums.row_double_clicked.connect(self.on_local_song_double_clicked)
@@ -452,6 +461,12 @@ class MainWindow(QMainWindow):
         # switch page
         self.set_local_album_page()
 
+        # favourite
+        self.ui.localAlbumFavouriteButton.setIcon(
+            resources.FAVOURITE_ICON
+            if favourites.is_favourite(artist=mp3.artist, album=mp3.album) else
+            resources.UNFAVOURITE_ICON)
+
     def open_mp3_release_group_remote(self, mp3: Mp3):
         # already fetched: open directly
         if mp3.fetched_release_group and mp3.release_group_id:
@@ -579,6 +594,11 @@ class MainWindow(QMainWindow):
         # switch page
         self.set_local_artist_page()
 
+        # favourite
+        self.ui.localArtistFavouriteButton.setIcon(
+            resources.FAVOURITE_ICON
+            if favourites.is_favourite(artist=mp3.artist) else
+            resources.UNFAVOURITE_ICON)
 
     def open_mp3_artist_remote(self, mp3: Mp3):
         # already fetched: open directly
@@ -1310,12 +1330,35 @@ class MainWindow(QMainWindow):
         random.shuffle(queue)
         self.play(0, queue)
 
+    def on_local_album_favourite_button_clicked(self):
+        artist = self.current_local_album_mp3_group_leader.artist
+        album = self.current_local_album_mp3_group_leader.album
+        is_favourite = favourites.is_favourite(artist=artist, album=album)
+        next_is_favourite = not is_favourite
+
+        favourites.set_favourite(artist=artist, album=album, song=None, favourite=next_is_favourite)
+
+        if next_is_favourite:
+            self.ui.localAlbumFavouriteButton.setIcon(resources.FAVOURITE_ICON)
+        else:
+            self.ui.localAlbumFavouriteButton.setIcon(resources.UNFAVOURITE_ICON)
 
     def on_local_artist_random_play_button_clicked(self):
         artist = self.current_local_artist_mp3_group_leader.artist
         queue = [mp3 for mp3 in localsongs.mp3s if mp3.artist == artist]
         random.shuffle(queue)
         self.play(0, queue)
+
+    def on_local_artist_favourite_button_clicked(self):
+        artist = self.current_local_artist_mp3_group_leader.artist
+        is_favourite = favourites.is_favourite(artist=artist)
+        next_is_favourite = not is_favourite
+
+        favourites.set_favourite(artist=artist, album=None, song=None, favourite=next_is_favourite)
+        if next_is_favourite:
+            self.ui.localArtistFavouriteButton.setIcon(resources.FAVOURITE_ICON)
+        else:
+            self.ui.localArtistFavouriteButton.setIcon(resources.UNFAVOURITE_ICON)
 
     def on_local_songs_random_play_button_clicked(self):
         queue = list(localsongs.mp3s)
@@ -1776,3 +1819,40 @@ class MainWindow(QMainWindow):
     def on_auto_download_queued_check_changed(self):
         debug(f"on_auto_download_queued_check_changed={self.ui.autoDownloadQueuedCheck.isChecked()}")
         ytdownloader.set_auto_download(self.ui.autoDownloadQueuedCheck.isChecked())
+
+    def on_local_artists_favourite_clicked(self, row: int):
+        mp3 = self.local_artists_model.entry(row)
+        artist = mp3.artist
+        debug(f"on_local_artists_favourite_clicked(artist={artist})")
+
+        is_favourite = favourites.is_favourite(artist=artist)
+        next_is_favourite = not is_favourite
+
+        favourites.set_favourite(artist=artist, album=None, song=None, favourite=next_is_favourite)
+
+    def on_local_albums_favourite_clicked(self, row: int):
+        mp3 = self.local_albums_model.entry(row)
+        artist = mp3.artist
+        album = mp3.album
+        debug(f"on_local_albums_favourite_clicked(artist={artist})")
+
+        is_favourite = favourites.is_favourite(artist=artist, album=album)
+        next_is_favourite = not is_favourite
+
+        favourites.set_favourite(artist=artist, album=album, song=None, favourite=next_is_favourite)
+
+    def on_local_artist_favourite_album_button_clicked(self, row: int):
+        artist = self.local_artist_albums_model.artist
+        album = self.local_artist_albums_model.entry(row).album
+
+        debug(f"on_local_albums_favourite_clicked(artist={artist}, album={album})")
+
+        is_favourite = favourites.is_favourite(artist=artist, album=album)
+        next_is_favourite = not is_favourite
+
+        favourites.set_favourite(artist=artist, album=album, song=None, favourite=next_is_favourite)
+
+        self.ui.localArtistAlbums.update_row(self.local_artist_albums_model.entry(row))
+
+
+

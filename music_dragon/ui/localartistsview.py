@@ -1,12 +1,14 @@
 from typing import Any, Optional
 
 from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
-    QSortFilterProxyModel
-from PyQt5.QtGui import QPainter
-from PyQt5.QtWidgets import QStyledItemDelegate, QListView
+    QSortFilterProxyModel, QRectF
+from PyQt5.QtGui import QPainter, QMouseEvent
+from PyQt5.QtWidgets import QStyledItemDelegate, QListView, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, \
+    QSpacerItem, QGridLayout, QPushButton
 
-from music_dragon import localsongs, UNKNOWN_ARTIST
+from music_dragon import localsongs, favourites, UNKNOWN_ARTIST
 from music_dragon.localsongs import Mp3
+from music_dragon.log import debug
 from music_dragon.ui import resources
 from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
@@ -15,120 +17,76 @@ class LocalArtistsItemRole:
     NAME = Qt.DisplayRole
     IMAGE = Qt.DecorationRole
 
-#
-# class LocalArtistsItemWidget(QWidget):
-#     artist_clicked = pyqtSignal(int)
-#     album_clicked = pyqtSignal(int)
-#
-#     class Ui:
-#         def __init__(self):
-#             self.cover: Optional[QLabel] = None
-#             self.title: Optional[QLabel] = None
-#             self.artist: Optional[QLabel] = None
-#             self.album: Optional[QLabel] = None
-#
-#     def __init__(self, parent, row, name, image):
-#         super().__init__(parent)
-#
-#         self.row = row
-#         self.name = name
-#         self.image = image
-#
-#         self.ui = LocalArtistsItemWidget.Ui()
-#         self.setup()
-#         self.setAutoFillBackground(True)
-#         self.invalidate()
-#
-#
-#     def setup(self):
-#         # title
-#         self.ui.title = QLabel()
-#         self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-#
-#         # artist
-#         self.ui.artist = ClickableLabel()
-#         self.ui.artist.set_underline_on_hover(True)
-#         f = self.ui.artist.font()
-#         f.setPointSize(10)
-#         self.ui.artist.setFont(f)
-#         self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-#         self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-#         self.ui.artist.set_underline_on_hover(True)
-#         self.ui.artist.clicked.connect(self._on_artist_clicked)
-#
-#         # -
-#         dash = QLabel(" - ")
-#         f = dash.font()
-#         f.setPointSize(10)
-#         dash.setFont(f)
-#         dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-#         dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-#
-#         # album
-#         self.ui.album = ClickableLabel()
-#         self.ui.album.set_underline_on_hover(True)
-#         f = self.ui.album.font()
-#         f.setPointSize(10)
-#         self.ui.album.setFont(f)
-#         self.ui.album.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-#         self.ui.album.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-#         self.ui.album.clicked.connect(self._on_album_clicked)
-#
-#         # build
-#         outer_layout = QHBoxLayout()
-#         outer_layout.setSpacing(4)
-#         # outer_layout.addWidget(self.ui.cover)
-#         outer_layout.setContentsMargins(0, 0, 0, 0)
-#
-#         content_layout = QVBoxLayout()
-#         content_layout.setSpacing(0)
-#
-#         subtitle_layout = QHBoxLayout()
-#         subtitle_layout.setSpacing(0)
-#         subtitle_layout.addWidget(self.ui.artist)
-#         subtitle_layout.addWidget(dash)
-#         subtitle_layout.addWidget(self.ui.album)
-#         subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-#         subtitle_layout.setContentsMargins(0, 0, 0, 0)
-#
-#         content_layout.addWidget(self.ui.title)
-#         content_layout.addLayout(subtitle_layout)
-#
-#         grid_layout = QGridLayout()
-#         grid_layout.setContentsMargins(8, 0, 0, 0)
-#
-#         grid_layout.addLayout(content_layout, 0, 0)
-#
-#         outer_layout.addLayout(grid_layout)
-#
-#         self.setLayout(outer_layout)
-#
-#     def invalidate(self):
-#         # title
-#         self.ui.title.setText(self.song)
-#
-#         # artist
-#         self.ui.artist.setText(self.artist)
-#
-#         # album
-#         self.ui.album.setText(self.album)
-#
-#     def _on_artist_clicked(self):
-#         debug(f"_on_artist_clicked({self.artist})")
-#         self.artist_clicked.emit(self.row)
-#
-#     def _on_album_clicked(self):
-#         debug(f"_on_album_clicked({self.album})")
-#         self.album_clicked.emit(self.row)
-#
-#     def sizeHint(self) -> QSize:
-#         sz = super().sizeHint()
-#         return QSize(sz.width(), 48)
 
+class LocalArtistsItemWidget(QWidget):
+    favourite_clicked = pyqtSignal(QModelIndex)
+
+    class Ui:
+        def __init__(self):
+            self.cover: Optional[QLabel] = None
+            self.name: Optional[QLabel] = None
+            self.fav: Optional[QPushButton] = None
+
+    def __init__(self, parent, index, row, name, image):
+        super().__init__(parent)
+
+        self.index = index
+        self.row = row
+        self.name = name
+        self.image = image
+
+        self.ui = LocalArtistsItemWidget.Ui()
+        self.setup()
+        self.setAutoFillBackground(True)
+        self.invalidate()
+
+
+    def setup(self):
+        # artist
+        self.ui.name = QLabel()
+        f = self.ui.name.font()
+        self.ui.name.setFont(f)
+        self.ui.name.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.ui.name.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+
+        # fav
+        self.ui.fav = QPushButton()
+        self.ui.fav.setIcon(resources.UNFAVOURITE_ICON)
+        self.ui.fav.setIconSize(QSize(24, 24))
+        self.ui.fav.setFlat(True)
+        self.ui.fav.clicked.connect(self._on_fav_clicked)
+
+        # build
+        layout = QHBoxLayout()
+        layout.setSpacing(4)
+        layout.setContentsMargins(8, 0, 0, 0)
+        layout.addWidget(self.ui.name)
+        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addWidget(self.ui.fav)
+
+        self.setLayout(layout)
+
+    def invalidate(self):
+        # artist
+        self.ui.name.setText(self.name)
+
+        # fav
+        self.ui.fav.setIcon(resources.FAVOURITE_ICON
+                            if favourites.is_favourite(artist=self.name)
+                            else resources.UNFAVOURITE_ICON)
+
+
+    def sizeHint(self) -> QSize:
+        sz = super().sizeHint()
+        return QSize(sz.width(), 48)
+
+    def _on_fav_clicked(self):
+        debug(f"_on_fav_clicked({self.name})")
+        self.favourite_clicked.emit(self.index)
+        self.invalidate()
 
 class LocalArtistsItemDelegate(QStyledItemDelegate):
-    # clicked = pyqtSignal(int)
-    # album_clicked = pyqtSignal(int)
+    favourite_clicked = pyqtSignal(int)
 
     def __init__(self, proxy: Optional[QSortFilterProxyModel] = None):
         super().__init__()
@@ -148,7 +106,7 @@ class LocalArtistsItemDelegate(QStyledItemDelegate):
         w = main_rect.width()
         h = main_rect.height()
 
-        # # Icon
+        # Icon
         icon = make_icon_from_data(image, default=resources.PERSON_PLACEHOLDER_ICON)
         icon_size = QSize(48, 48)
         icon_rect = QRect(x, y, icon_size.width(), icon_size.height())
@@ -161,40 +119,42 @@ class LocalArtistsItemDelegate(QStyledItemDelegate):
             title_position = QPoint(icon_rect.right() + ICON_TO_TEXT_SPACING, title_y)
             painter.drawText(title_position, name)
 
+        # Fav
+        source = QRectF(0, 0, 48, 48)
+        target = QRectF(w - 24, y + h / 2 - 12, 24, 24)
+        painter.drawPixmap(target, resources.FAVOURITE_PIXMAP
+                            if favourites.is_favourite(artist=name)
+                            else resources.UNFAVOURITE_PIXMAP, source)
+
         painter.restore()
 
     def sizeHint(self, option: 'QStyleOptionViewItem', index: QModelIndex) -> QSize:
         sz = super(LocalArtistsItemDelegate, self).sizeHint(option, index)
         return QSize(sz.width(), 48)
-    #
-    # def createEditor(self, parent: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> QWidget:
-    #     song: str = index.data(LocalArtistsItemRole.SONG)
-    #     artist: str = index.data(LocalArtistsItemRole.ARTIST)
-    #     album: str = index.data(LocalArtistsItemRole.ALBUM)
-    #     image: bytes = index.data(LocalArtistsItemRole.IMAGE)
-    #
-    #     debug(f"Create editor for row with (song={song}, artist={artist}, album={album})")
-    #     editor = LocalArtistsItemWidget(parent=parent, row=index.row(), artist=artist, album=album, song=song, image=image)
-    #
-    #     editor.artist_clicked.connect(self._on_artist_clicked)
-    #     editor.album_clicked.connect(self._on_album_clicked)
-    #     editor.adjustSize()
-    #     return editor
 
-    # def updateEditorGeometry(self, editor: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
-    #     # debug("updateEditorGeometry")
-    #     rect = option.rect
-    #     rect.setX(rect.x() + 48)
-    #     rect.setY(rect.y())
-    #     editor.setGeometry(rect)
+    def createEditor(self, parent: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> QWidget:
+        name: str = index.data(LocalArtistsItemRole.NAME)
+        image: bytes = index.data(LocalArtistsItemRole.IMAGE)
 
-    # def _on_artist_clicked(self, row: int):
-    #     debug(f"_on_artist_clicked at row {row}")
-    #     self.artist_clicked.emit(row)
-    #
-    # def _on_album_clicked(self, row: int):
-    #     debug(f"_on_album_clicked at row {row}")
-    #     self.album_clicked.emit(row)
+        debug(f"Create editor for row with (artist={name})")
+        editor = LocalArtistsItemWidget(parent=parent, index=index, row=index.row(), name=name, image=image)
+
+        editor.favourite_clicked.connect(self._on_favourite_clicked)
+        editor.adjustSize()
+        return editor
+
+    def updateEditorGeometry(self, editor: QWidget, option: 'QStyleOptionViewItem', index: QModelIndex) -> None:
+        # debug("updateEditorGeometry")
+        rect = option.rect
+        rect.setX(rect.x() + 48)
+        rect.setY(rect.y())
+        editor.setGeometry(rect)
+
+    def _on_favourite_clicked(self, index: QModelIndex):
+        index = self.proxy.mapToSource(index) if self.proxy else index
+        row = index.row()
+        debug(f"_on_favourite_clicked at row {row}")
+        self.favourite_clicked.emit(row)
 
 class LocalArtistsProxyModel(QSortFilterProxyModel):
     pass
@@ -223,7 +183,7 @@ class LocalArtistsModel(QAbstractListModel):
 
 
         self.localartists = list(mp3s_by_artists.values())
-        self.localartists = sorted(self.localartists, key=lambda mp3: (mp3.artist or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
+        self.localartists = sorted(self.localartists, key=lambda mp3: (mp3.artist or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower()) # TODO: better way
 
     # def flags(self, index: QModelIndex) -> Qt.ItemFlags:
     #     return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
@@ -273,17 +233,17 @@ class LocalArtistsView(ListProxyView):
         self.clicked.connect(self._on_item_clicked)
         # self.doubleClicked.connect(self._on_item_double_clicked)
 
-    # def mouseMoveEvent(self, e: QMouseEvent) -> None:
-    #     # debug("mouseMoveEvent")
-    #     index = self.indexAt(e.pos())
-    #     if self.edit_index == index:
-    #         return
-    #
-    #     if self.edit_index and self.edit_index != index:
-    #         self.closePersistentEditor(self.edit_index)
-    #
-    #     self.edit_index = index
-    #     self.openPersistentEditor(self.edit_index)
+    def mouseMoveEvent(self, e: QMouseEvent) -> None:
+        # debug("mouseMoveEvent")
+        index = self.indexAt(e.pos())
+        if self.edit_index == index:
+            return
+
+        if self.edit_index and self.edit_index != index:
+            self.closePersistentEditor(self.edit_index)
+
+        self.edit_index = index
+        self.openPersistentEditor(self.edit_index)
 
     def _on_item_clicked(self, idx: QModelIndex):
         self.row_clicked.emit(self._source_index(idx).row())

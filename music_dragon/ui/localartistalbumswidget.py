@@ -1,23 +1,25 @@
 from typing import List, Optional
 
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QPushButton
 
-from music_dragon import localsongs
+from music_dragon import localsongs, favourites
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.ui import resources
-from music_dragon.repository import get_release_group, get_artist
 from music_dragon.ui.listwidgetmodelview import ListWidgetModelView, ListWidgetModelViewItem, ListWidgetModel
 from music_dragon.utils import make_pixmap_from_data
 
 
 class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
+    favourite_button_clicked = pyqtSignal(Mp3)
+
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.subtitle: Optional[QLabel] = None
+            self.fav: Optional[QPushButton] = None
 
     def __init__(self, album_group_leader: Mp3):
         super().__init__(entry=album_group_leader)
@@ -47,6 +49,13 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         font.setPointSize(10)
         self.ui.subtitle.setFont(font)
 
+        # fav
+        self.ui.fav = QPushButton()
+        self.ui.fav.setIcon(resources.UNFAVOURITE_ICON)
+        self.ui.fav.setIconSize(QSize(24, 24))
+        self.ui.fav.setFlat(True)
+        self.ui.fav.clicked.connect(self._on_fav_clicked)
+
         # build
         self.ui.layout = QHBoxLayout()
         self.ui.layout.setSpacing(12)
@@ -57,6 +66,7 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
         self.ui.inner_layout.addWidget(self.ui.title)
         self.ui.inner_layout.addWidget(self.ui.subtitle)
         self.ui.layout.addLayout(self.ui.inner_layout)
+        self.ui.layout.addWidget(self.ui.fav)
 
         self.setLayout(self.ui.layout)
 
@@ -69,6 +79,15 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
 
         # subtitle
         self.ui.subtitle.setText(str(self.album_group_leader.year) if self.album_group_leader.year else "")
+
+        # fav
+        self.ui.fav.setIcon(resources.FAVOURITE_ICON
+                            if favourites.is_favourite(artist=self.album_group_leader.artist, album=self.album_group_leader.album)
+                            else resources.UNFAVOURITE_ICON)
+
+    def _on_fav_clicked(self):
+        debug(f"_on_fav_clicked({self.album_group_leader.album})")
+        self.favourite_button_clicked.emit(self.album_group_leader)
 
 class LocalArtistAlbumsModel(ListWidgetModel):
     def __init__(self):
@@ -97,8 +116,16 @@ class LocalArtistAlbumsModel(ListWidgetModel):
         return self.albums
 
 class LocalArtistAlbumsWidget(ListWidgetModelView):
+    favourite_button_clicked = pyqtSignal(int)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
-        return LocalArtistAlbumsItemWidget(entry)
+        w = LocalArtistAlbumsItemWidget(entry)
+        w.favourite_button_clicked.connect(self._on_favourite_button_clicked)
+        return w
+
+    def _on_favourite_button_clicked(self, entry: Mp3):
+        row = self.model.index(entry)
+        self.favourite_button_clicked.emit(row)

@@ -1,12 +1,12 @@
 from typing import Any, Optional
 
 from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
-    QSortFilterProxyModel
+    QSortFilterProxyModel, QRectF
 from PyQt5.QtGui import QPainter, QMouseEvent
 from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
-    QGridLayout, QListView
+    QGridLayout, QListView, QPushButton
 
-from music_dragon import localsongs, UNKNOWN_ALBUM, UNKNOWN_ARTIST
+from music_dragon import localsongs, favourites, UNKNOWN_ALBUM, UNKNOWN_ARTIST
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
 from music_dragon.ui import resources
@@ -23,12 +23,14 @@ class LocalAlbumsItemRole:
 class LocalAlbumsItemWidget(QWidget):
     artist_clicked = pyqtSignal(QModelIndex)
     album_clicked = pyqtSignal(QModelIndex)
+    favourite_clicked = pyqtSignal(QModelIndex)
 
     class Ui:
         def __init__(self):
             self.cover: Optional[QLabel] = None
             self.title: Optional[QLabel] = None
             self.artist: Optional[QLabel] = None
+            self.fav: Optional[QPushButton] = None
 
     def __init__(self, parent, index, title, artist, image):
         super().__init__(parent)
@@ -60,6 +62,13 @@ class LocalAlbumsItemWidget(QWidget):
         self.ui.artist.set_underline_on_hover(True)
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
+        # fav
+        self.ui.fav = QPushButton()
+        self.ui.fav.setIcon(resources.UNFAVOURITE_ICON)
+        self.ui.fav.setIconSize(QSize(24, 24))
+        self.ui.fav.setFlat(True)
+        self.ui.fav.clicked.connect(self._on_fav_clicked)
+
         # build
         outer_layout = QHBoxLayout()
         outer_layout.setSpacing(4)
@@ -84,6 +93,7 @@ class LocalAlbumsItemWidget(QWidget):
         grid_layout.addLayout(content_layout, 0, 0)
 
         outer_layout.addLayout(grid_layout)
+        outer_layout.addWidget(self.ui.fav)
 
         self.setLayout(outer_layout)
 
@@ -94,9 +104,19 @@ class LocalAlbumsItemWidget(QWidget):
         # artist
         self.ui.artist.setText(self.artist)
 
+        # fav
+        self.ui.fav.setIcon(resources.FAVOURITE_ICON
+                            if favourites.is_favourite(artist=self.artist, album=self.title)
+                            else resources.UNFAVOURITE_ICON)
+
     def _on_artist_clicked(self):
         debug(f"_on_artist_clicked({self.artist})")
         self.artist_clicked.emit(self.index)
+
+    def _on_fav_clicked(self):
+        debug(f"_on_fav_clicked({self.artist}, {self.title})")
+        self.favourite_clicked.emit(self.index)
+        self.invalidate()
 
     def sizeHint(self) -> QSize:
         sz = super().sizeHint()
@@ -105,6 +125,7 @@ class LocalAlbumsItemWidget(QWidget):
 
 class LocalAlbumsItemDelegate(QStyledItemDelegate):
     artist_clicked = pyqtSignal(int)
+    favourite_clicked = pyqtSignal(int)
 
     def __init__(self, proxy: Optional[QSortFilterProxyModel] = None):
         super().__init__()
@@ -149,6 +170,13 @@ class LocalAlbumsItemDelegate(QStyledItemDelegate):
             artist_position = QPoint(icon_rect.right() + ICON_TO_TEXT_SPACING, subtitle_y)
             painter.drawText(artist_position, artist)
 
+        # Fav
+        source = QRectF(0, 0, 48, 48)
+        target = QRectF(w - 24, y + h / 2 - 12, 24, 24)
+        painter.drawPixmap(target, resources.FAVOURITE_PIXMAP
+                            if favourites.is_favourite(artist=artist, album=title)
+                            else resources.UNFAVOURITE_PIXMAP, source)
+
         painter.restore()
 
     def sizeHint(self, option: 'QStyleOptionViewItem', index: QModelIndex) -> QSize:
@@ -164,6 +192,7 @@ class LocalAlbumsItemDelegate(QStyledItemDelegate):
         editor = LocalAlbumsItemWidget(parent=parent, index=index, title=title, artist=artist, image=image)
 
         editor.artist_clicked.connect(self._on_artist_clicked)
+        editor.favourite_clicked.connect(self._on_favourite_clicked)
         editor.adjustSize()
         return editor
 
@@ -180,6 +209,11 @@ class LocalAlbumsItemDelegate(QStyledItemDelegate):
         debug(f"_on_artist_clicked at row {row}")
         self.artist_clicked.emit(row)
 
+    def _on_favourite_clicked(self, index: QModelIndex):
+        index = self.proxy.mapToSource(index) if self.proxy else index
+        row = index.row()
+        debug(f"_on_favourite_clicked at row {row}")
+        self.favourite_clicked.emit(row)
 
 class LocalAlbumsProxyModel(QSortFilterProxyModel):
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:

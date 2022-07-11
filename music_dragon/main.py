@@ -7,10 +7,9 @@ from PyQt5.QtWidgets import QApplication
 
 import music_dragon.ui.res_rc
 
-from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz, APP_DISPLAY_NAME, \
+from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz, favourites, APP_DISPLAY_NAME, \
     APP_ORGANIZATION_NAME
 from music_dragon.log import debug
-from music_dragon.musicbrainz import fetch_artist
 from music_dragon.ui.mainwindow import MainWindow
 from music_dragon.ui import resources
 
@@ -40,6 +39,8 @@ def main():
     debug(f"Cache location: {utils.app_cache_path()}")
 
     preferences.initialize()
+    favourites.initialize()
+    favourites.load_favourites()
     resources.initialize()
     workers.initialize(max_num_threads=preferences.thread_number())
     ytmusic.initialize()
