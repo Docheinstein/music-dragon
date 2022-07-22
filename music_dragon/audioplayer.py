@@ -44,4 +44,8 @@ def set_time(t: int):
     debug(f"Setting time = {t}")
     return media_player.set_time(t)
 
+def set_volume(value: int):
+    debug(f"Setting volume = {value}")
+    return media_player.audio_set_volume(value) == 0
+
 

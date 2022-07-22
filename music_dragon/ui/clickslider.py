@@ -1,24 +1,50 @@
+from PyQt5 import QtCore
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QSlider
 
-from music_dragon.log import debug
-
 
 class ClickSlider(QSlider):
-
     def __init__(self, parent):
         super().__init__(parent)
+        self.pressing = False
+        self.moving = False
+        # self.setTracking(False)
 
-    def mouseReleaseEvent(self, e: QMouseEvent):
-        e.accept()
-        x = e.pos().x()
-        value = int((self.maximum() - self.minimum()) * x / self.width() + self.minimum())
-        self.set_value(value, notify=True)
+    def mousePressEvent(self, e: QMouseEvent) -> None:
+        print("mousePressEvent")
+        self.pressing = True
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e: QMouseEvent) -> None:
+        print("mouseReleaseEvent")
+        self.pressing = False
+
+        if not self.moving:
+            e.accept()
+            if self.orientation() == QtCore.Qt.Horizontal:
+                x = e.pos().x()
+                value = int(self.minimum() + (x / self.width()) * (self.maximum() - self.minimum()))
+            else:
+                y = e.pos().y()
+                value = int(self.minimum() + (1 - (y / self.height())) * (self.maximum() - self.minimum()))
+            self.set_value(value, notify=True)
+        else:
+            super().mouseReleaseEvent(e)
+
+        self.moving = False
+
+    def mouseMoveEvent(self, e: QMouseEvent) -> None:
+        print("mouseMoveEvent")
+        super().mouseMoveEvent(e)
+        self.moving = True
+
 
     def set_value(self, value: int, notify: bool=True):
-        debug(f"set_value({value})")
+        if self.pressing:
+            return
         if self.value() == value:
             return
+        print(f"set_value={value}")
         was_blocked = False
         if not notify:
             was_blocked = self.blockSignals(True)

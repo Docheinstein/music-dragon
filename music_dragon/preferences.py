@@ -22,7 +22,7 @@ def geometry_and_state() -> Tuple[bytes, bytes]:
 
 def set_geometry_and_state(geom: bytes, state: bytes):
     _preferences.setValue("geometry", geom)
-    _preferences.setValue("bytes", geom)
+    _preferences.setValue("state", geom)
 
 
 # Directory
@@ -135,3 +135,11 @@ def set_youtube_password(value: str):
 
 def get_youtube_password():
     return _preferences.value("youtube_password")
+
+# General
+def set_preference(key: str, value):
+    _preferences.setValue(key, value)
+
+def get_preference(key: str):
+    v = _preferences.value(key)
+    return int(v) if v is not None else None

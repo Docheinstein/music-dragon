@@ -279,6 +279,11 @@ class MainWindow(QMainWindow):
         self.ui.prevSongButton.clicked.connect(self.on_prev_song_button_clicked)
         self.ui.nextSongButton.clicked.connect(self.on_next_song_button_clicked)
 
+        self.ui.playVolume.valueChanged.connect(self.on_play_volume_changed)
+        volume = preferences.get_preference("volume")
+        if volume is not None:
+            self.ui.playVolume.set_value(volume)
+
         self.playing = PlayingInfo()
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self.on_play_timer_tick)
@@ -1714,7 +1719,8 @@ class MainWindow(QMainWindow):
             t = audioplayer.get_time()
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
             try:
-                self.ui.playBar.set_value(int(100 * t / self.playing.in_play().length), notify=False)
+                playbar_value = int(100 * t / self.playing.in_play().length)
+                self.ui.playBar.set_value(playbar_value, notify=False)
             except:
                 self.ui.playBar.set_value(0, notify=False)
         elif audioplayer.is_paused():
@@ -1740,11 +1746,15 @@ class MainWindow(QMainWindow):
         self.play_by_offset(-1)
 
     def on_play_bar_changed(self):
-        debug(f"on_play_bar_changed, value = {self.ui.playBar.value()}")
         # t : length = value : 100
         t = rangify(0, int(self.ui.playBar.value() * self.playing.in_play().length / 100), self.playing.in_play().length)
         audioplayer.set_time(t)
         self.update_play_progress()
+
+    def on_play_volume_changed(self):
+        volume = self.ui.playVolume.value()
+        audioplayer.set_volume(volume)
+        preferences.set_preference("volume", volume)
 
     def on_prev_song_button_clicked(self):
         self.play_prev()

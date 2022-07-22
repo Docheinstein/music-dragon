@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/">
+    <file>images/volume.png</file>
     <file>images/unfavourite.png</file>
     <file>images/favourite.png</file>
     <file>images/openlocal.png</file>
