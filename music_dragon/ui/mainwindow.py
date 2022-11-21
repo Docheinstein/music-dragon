@@ -275,11 +275,11 @@ class MainWindow(QMainWindow):
         self.ui.playAlbum.set_underline_on_hover(True)
         self.ui.playAlbum.clicked.connect(self.on_play_album_clicked)
         self.ui.playContainer.setVisible(False)
-        self.ui.playBar.valueChanged.connect(self.on_play_bar_changed)
+        self.ui.playBar.valueChangedManually.connect(self.on_play_bar_changed)
         self.ui.prevSongButton.clicked.connect(self.on_prev_song_button_clicked)
         self.ui.nextSongButton.clicked.connect(self.on_next_song_button_clicked)
 
-        self.ui.playVolume.valueChanged.connect(self.on_play_volume_changed)
+        self.ui.playVolume.valueChangedManually.connect(self.on_play_volume_changed)
         volume = preferences.get_preference("volume")
         if volume is not None:
             self.ui.playVolume.set_value(volume)
@@ -1632,7 +1632,7 @@ class MainWindow(QMainWindow):
         self.ui.playArtist.setText(mp3.artist or UNKNOWN_ARTIST)
         self.ui.playAlbum.setText(mp3.album or UNKNOWN_ALBUM)
 
-        self.ui.playBar.set_value(0, notify=False)
+        self.ui.playBar.set_value(0)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(mp3.length))
 
@@ -1654,7 +1654,7 @@ class MainWindow(QMainWindow):
         self.ui.playArtist.setText(rg.artists_string() or UNKNOWN_ARTIST)
         self.ui.playAlbum.setText(rg.title or UNKNOWN_ALBUM)
 
-        self.ui.playBar.set_value(0, notify=False)
+        self.ui.playBar.set_value(0)
         self.ui.playCurrentTime.setText(millis_to_short_string(0))
         self.ui.playMaxTime.setText(millis_to_short_string(track.length))
 
@@ -1720,16 +1720,16 @@ class MainWindow(QMainWindow):
             self.ui.playCurrentTime.setText(millis_to_short_string(t))
             try:
                 playbar_value = int(100 * t / self.playing.in_play().length)
-                self.ui.playBar.set_value(playbar_value, notify=False)
+                self.ui.playBar.set_value(playbar_value)
             except:
-                self.ui.playBar.set_value(0, notify=False)
+                self.ui.playBar.set_value(0)
         elif audioplayer.is_paused():
             self.playTimer.stop()
         elif audioplayer.is_ended():
             self.playTimer.stop()
             self.ui.playPauseButton.setIcon(resources.PLAY_ICON)
             self.ui.playCurrentTime.setText(millis_to_short_string(0))
-            self.ui.playBar.set_value(0, notify=False)
+            self.ui.playBar.set_value(0)
             self.play_next()
 
 

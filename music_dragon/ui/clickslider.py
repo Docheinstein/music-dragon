@@ -1,54 +1,40 @@
 from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtWidgets import QSlider
 
 
 class ClickSlider(QSlider):
+    valueChangedManually = pyqtSignal(int)
+
     def __init__(self, parent):
         super().__init__(parent)
         self.pressing = False
         self.moving = False
-        # self.setTracking(False)
 
     def mousePressEvent(self, e: QMouseEvent) -> None:
-        print("mousePressEvent")
         self.pressing = True
         super().mousePressEvent(e)
 
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
-        print("mouseReleaseEvent")
         self.pressing = False
 
-        if not self.moving:
-            e.accept()
-            if self.orientation() == QtCore.Qt.Horizontal:
-                x = e.pos().x()
-                value = int(self.minimum() + (x / self.width()) * (self.maximum() - self.minimum()))
-            else:
-                y = e.pos().y()
-                value = int(self.minimum() + (1 - (y / self.height())) * (self.maximum() - self.minimum()))
-            self.set_value(value, notify=True)
+        if self.orientation() == QtCore.Qt.Horizontal:
+            x = e.pos().x()
+            value = int(self.minimum() + (x / self.width()) * (self.maximum() - self.minimum()))
         else:
-            super().mouseReleaseEvent(e)
+            y = e.pos().y()
+            value = int(self.minimum() + (1 - (y / self.height())) * (self.maximum() - self.minimum()))
 
-        self.moving = False
+        self.set_value(value, notify=True)
 
-    def mouseMoveEvent(self, e: QMouseEvent) -> None:
-        print("mouseMoveEvent")
-        super().mouseMoveEvent(e)
-        self.moving = True
+        super().mouseReleaseEvent(e)
 
-
-    def set_value(self, value: int, notify: bool=True):
+    def set_value(self, value: int, notify: bool = False):
         if self.pressing:
             return
         if self.value() == value:
             return
-        print(f"set_value={value}")
-        was_blocked = False
-        if not notify:
-            was_blocked = self.blockSignals(True)
         self.setValue(value)
-        if not notify:
-            self.blockSignals(was_blocked)
-
+        if notify:
+            self.valueChangedManually.emit(value)

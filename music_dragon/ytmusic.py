@@ -1,3 +1,4 @@
+import sys
 import unicodedata
 from typing import Optional, List, Dict
 
@@ -14,8 +15,11 @@ _yt: Optional[YTMusic] = None
 
 def initialize():
     global _yt
-    _yt = YTMusic()
-
+    try:
+        _yt = YTMusic()
+    except Exception as e:
+        print(f"ERROR: failed to initialize YTMusic: {e}", file=sys.stderr)
+        _yt = None
 # Hack ytmusicapi.get_playist since fails if no header is there
 
 DUMMY_HEADER = {
