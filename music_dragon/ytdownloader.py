@@ -91,7 +91,7 @@ def set_auto_download(yes: bool):
 
 def ytdl_download(ytdl, url_list):
     """Download a given list of URLs."""
-    outtmpl = ytdl.outtmpl_dict['default']
+    outtmpl = ytdl.params['outtmpl']['default']
     if (len(url_list) > 1
             and outtmpl != '-'
             and '%' not in outtmpl
@@ -99,23 +99,12 @@ def ytdl_download(ytdl, url_list):
         raise yt_dlp.SameFileError(outtmpl)
 
     res = None
-
     for url in url_list:
-        try:
-            res = ytdl.extract_info(
-                url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
-        except yt_dlp.utils.UnavailableVideoError as e:
-            ytdl.report_error(e)
-        except yt_dlp.DownloadCancelled as e:
-            ytdl.to_screen(f'[info] {e}')
-            if not ytdl.params.get('break_per_url'):
-                raise
-        else:
-            if ytdl.params.get('dump_single_json', False):
-                ytdl.post_extract(res)
-                ytdl.to_stdout(json.dumps(ytdl.sanitize_info(res)))
+        res = ytdl.extract_info(
+            url, force_generic_extractor=ytdl.params.get('force_generic_extractor', False))
 
     res["_filename"] = ytdl.prepare_filename(res) # as performed internally
+
     return res
 
 class CancelException(Exception):
