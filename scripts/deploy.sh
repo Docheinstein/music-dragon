@@ -10,4 +10,4 @@ fi
 
 echo "Deploying $LAST"
 
-python -m twine upload --repository-url https://upload.pypi.org/legacy/ "$LAST"
+python -m twine upload "$LAST"

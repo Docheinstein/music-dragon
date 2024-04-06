@@ -2,4 +2,5 @@
 
 echo "=========== BUILD =========="
 
-python -m build
+
+python setup.py sdist
