@@ -1661,7 +1661,7 @@ class MainWindow(QMainWindow):
         def track_streams_fetched(_1, _2):
             yttrack = get_youtube_track(track.youtube_track_id)
 
-            audios = sorted([s for s in yttrack.streams if s["type"] == "audio"], key=lambda s: s["size"])
+            audios = sorted([s for s in yttrack.streams if s["type"] == "audio" and s["size"]], key=lambda s: s["size"])
             if audios:
                 self.play_audio(audios[0]["url"])
 
