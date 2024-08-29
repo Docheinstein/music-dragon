@@ -15,6 +15,7 @@ from music_dragon import preferences, workers, ytcommons
 from music_dragon.log import debug
 from music_dragon.utils import j, sanitize_filename
 from music_dragon.workers import Worker
+import re
 
 MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 2
@@ -162,7 +163,16 @@ class TrackDownloaderWorker(Worker):
                 debug("YOUTUBE_DL update: downloading")
 
                 if "_percent_str" in hook_info:
-                    self.progress.emit(self.video_id, float(hook_info["_percent_str"].strip("%")))
+                    percent_raw_str = hook_info["_percent_str"].strip()
+
+                    # Eventually sanitize percentage (might be in the format '\x1b[0;94m  0.1%\x1b[0m')
+                    m = re.match("\x1b.*m(.*)\x1b.*m", percent_raw_str)
+                    if m:
+                        percent_str = m.group(1).strip()
+                    else:
+                        percent_str = percent_raw_str
+
+                    self.progress.emit(self.video_id, float(percent_str.strip("%")))
 
             if hook_info["status"] == "finished":
                 debug("YOUTUBE_DL update: finished")
