@@ -194,6 +194,7 @@ class TrackDownloaderWorker(Worker):
             outtmpl = outtmpl.replace("{artist}", sanitize_filename(self.artist) or "Unknown Artist")
             outtmpl = outtmpl.replace("{album}", sanitize_filename(self.album) or "Unknown Album")
             outtmpl = outtmpl.replace("{song}", sanitize_filename(self.song) or "Unknown Song")
+            outtmpl = outtmpl.replace("{track_num}", str(self.track_num) or "")
 
         outtmpl = outtmpl.replace("{ext}", "%(ext)s")
 
