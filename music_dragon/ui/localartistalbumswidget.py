@@ -94,6 +94,21 @@ class LocalArtistAlbumsModel(ListWidgetModel):
         super().__init__()
         self.artist: Optional[str] = None
         self.albums = []
+        self.sort_mode = 'date'  # 'date' or 'duration'
+
+    def set_sort_mode(self, mode: str):
+        self.sort_mode = mode
+        self._apply_sort()
+
+    def _album_duration(self, mp3: Mp3) -> int:
+        return sum(m.length or 0 for m in localsongs.mp3s
+                   if m.album == mp3.album and m.artist == mp3.artist)
+
+    def _apply_sort(self):
+        if self.sort_mode == 'date':
+            self.albums = sorted(self.albums, key=lambda a: a.year or 9999)
+        elif self.sort_mode == 'duration':
+            self.albums = sorted(self.albums, key=self._album_duration, reverse=True)
 
     def set(self, mp3: Mp3):
         def is_better(m1: Mp3, m2: Mp3):
@@ -110,7 +125,8 @@ class LocalArtistAlbumsModel(ListWidgetModel):
                     albums[mp3.album] = mp3
 
         debug([mp3.title() for mp3 in albums.values()])
-        self.albums = sorted(list(albums.values()), key=lambda a: a.year or 9999)
+        self.albums = list(albums.values())
+        self._apply_sort()
 
     def entries(self) -> List:
         return self.albums

@@ -27,16 +27,28 @@ Supports Linux and Windows (experimental).
 
 #### Linux
 
+Install system dependencies:
 ```
-pip install music-dragon
+sudo apt install ffmpeg vlc
+curl -fsSL https://deno.land/install.sh | sh
+```
+
+Then install the package:
+```
+pip install git+https://github.com/Nukifla/music-dragon
 ```
 
 #### Windows
 
+Install system dependencies:
+* [ffmpeg](https://ffmpeg.org/download.html)
+* [Deno](https://deno.com)
+* [VLC](https://www.videolan.org/vlc/)
+
 Using pip:
 
 ```
-pip install music-dragon
+pip install git+https://github.com/Nukifla/music-dragon
 ```
 
 Otherwise:

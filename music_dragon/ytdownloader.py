@@ -1,6 +1,8 @@
 import json
 import os.path
+import random
 import sys
+import time
 from pathlib import Path
 
 import eyed3
@@ -21,7 +23,7 @@ MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 2
 
 YDL_DEFAULT_OPTS = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio*/best',
     'postprocessors': [
         {
             'key': 'FFmpegExtractAudio',
@@ -30,17 +32,18 @@ YDL_DEFAULT_OPTS = {
         }
     ],
     'verbose': music_dragon.log.debug_enabled,
+    'remote_components': ['ejs:github'],
 }
 YDL_DEFAULT_PLAYLIST_OPTS = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio*/best',
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
         'preferredquality': '320',
     }],
     'verbose': music_dragon.log.debug_enabled,
-    'ignoreerrors': True
-
+    'ignoreerrors': True,
+    'remote_components': ['ejs:github'],
 }
 
 downloads = {}
@@ -71,6 +74,54 @@ def sign_out():
 
 def is_signed_in():
     return True if (email and password) else False
+
+def _find_zen_profile() -> str:
+    """Find the Zen browser's active profile directory (supports native and Flatpak installs)."""
+    import configparser
+    candidates = [
+        Path.home() / ".zen",
+        Path.home() / ".var" / "app" / "app.zen_browser.zen" / ".zen",
+    ]
+    for zen_dir in candidates:
+        profiles_ini = zen_dir / "profiles.ini"
+        if not profiles_ini.exists():
+            continue
+        cfg = configparser.ConfigParser()
+        cfg.read(profiles_ini)
+        # Prefer the Install section's Default (last-used profile)
+        for section in cfg.sections():
+            if section.startswith("Install"):
+                rel_path = cfg.get(section, "Default", fallback=None)
+                if rel_path:
+                    return str(zen_dir / rel_path)
+        # Fall back to first section with Default=1
+        for section in cfg.sections():
+            if cfg.get(section, "Default", fallback="0") == "1":
+                path = cfg.get(section, "Path", fallback=None)
+                if path:
+                    is_rel = cfg.get(section, "IsRelative", fallback="1") == "1"
+                    return str(zen_dir / path) if is_rel else path
+    return None
+
+
+def apply_auth(ydl_opts: dict):
+    """Apply YouTube authentication to yt-dlp options (browser cookies take priority)."""
+    from music_dragon import preferences as _prefs
+    browser = _prefs.get_youtube_cookies_browser()
+    if browser == 'zen':
+        profile = _find_zen_profile()
+        if profile:
+            debug(f"Using YouTube cookies from Zen browser (profile: {profile})")
+            ydl_opts["cookiesfrombrowser"] = ('firefox', profile)
+        else:
+            print("WARN: Zen browser profile not found; skipping cookie auth")
+    elif browser:
+        debug(f"Using YouTube cookies from browser: {browser}")
+        ydl_opts["cookiesfrombrowser"] = (browser,)
+    elif is_signed_in():
+        debug("Using YouTube email/password credentials")
+        ydl_opts["username"] = email
+        ydl_opts["password"] = password
 
 def download_count():
     return len(downloads)
@@ -206,7 +257,7 @@ class TrackDownloaderWorker(Worker):
         # debug(f"Destination [real]: '{output}'")
 
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio*/best',
             'postprocessors': [
                 {
                     'key': 'FFmpegExtractAudio',
@@ -219,14 +270,22 @@ class TrackDownloaderWorker(Worker):
             'outtmpl': outtmpl,
             'cachedir': False,
             'verbose': music_dragon.log.debug_enabled,
+            'remote_components': ['ejs:github'],
         }
 
-        if is_signed_in():
-            debug("Adding youtube credentials")
-            ydl_opts["username"] = email
-            ydl_opts["password"] = password
+        apply_auth(ydl_opts)
 
-        # TODO: download speed up?
+        rate_limit_kb = preferences.rate_limit()
+        if rate_limit_kb > 0:
+            ydl_opts['ratelimit'] = rate_limit_kb * 1024
+            debug(f"Rate limit: {rate_limit_kb} KB/s")
+
+        sleep_min = preferences.min_sleep_interval()
+        sleep_max = max(preferences.max_sleep_interval(), sleep_min)
+        if sleep_min > 0:
+            sleep_secs = random.uniform(sleep_min, sleep_max)
+            debug(f"Sleeping {sleep_secs:.1f}s before download (anti-ban)")
+            time.sleep(sleep_secs)
 
         last_error = None
         for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QDialog, QFileDialog
+from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from music_dragon import cache, preferences, ytdownloader
 from music_dragon.log import debug
@@ -21,6 +21,15 @@ class PreferencesWindow(QDialog):
         1200: 2,
         None: 3
     }
+    COOKIES_BROWSER_VALUES = ['', 'chrome', 'firefox', 'brave', 'edge', 'chromium', 'opera', 'zen']
+
+    # (max_simultaneous_downloads, min_sleep_s, max_sleep_s, rate_limit_kb)
+    DOWNLOAD_PRESETS = [
+        None,            # Custom — no change
+        (4, 0,  0,   0), # Fast
+        (2, 2,  5,   0), # Balanced
+        (1, 5, 15, 500), # Safe (anti-ban)
+    ]
 
     def __init__(self):
         super().__init__()
@@ -41,15 +50,18 @@ class PreferencesWindow(QDialog):
         self.ui.cacheClearButton.clicked.connect(self.on_clear_cache_button_clicked)
         self.update_cache_size()
 
+        # Download presets
+        self.ui.downloadPreset.currentIndexChanged.connect(self.on_download_preset_changed)
+
+        # YouTube cookies test
+        self.ui.youtubeCookiesTestButton.clicked.connect(self.on_test_youtube_cookies_clicked)
+
         # OK / CANCEL
         self.accepted.connect(self.on_accepted)
         self.rejected.connect(self.on_rejected)
 
         # Actually load settings
         self.load_settings()
-
-        # HACK
-        self.ui.tabWidget.removeTab(3)
 
     def on_accepted(self):
         debug("Saving preferences")
@@ -66,12 +78,16 @@ class PreferencesWindow(QDialog):
         self.ui.manualOutputFormat.setText(preferences.manual_output_format())
         self.ui.threadNumber.setValue(preferences.thread_number())
         self.ui.maxSimultaneousDownloads.setValue(preferences.max_simultaneous_downloads())
+        self.ui.minSleepInterval.setValue(preferences.min_sleep_interval())
+        self.ui.maxSleepInterval.setValue(preferences.max_sleep_interval())
+        self.ui.rateLimit.setValue(preferences.rate_limit())
         self.ui.cacheImagesCheck.setChecked(preferences.is_images_cache_enabled())
         self.ui.cacheRequestsBox.setChecked(preferences.is_requests_cache_enabled())
         self.ui.cacheLocalSongs.setChecked(preferences.is_localsongs_cache_enabled())
         self.ui.cache.setText(str(app_cache_path().absolute()))
-        self.ui.youtubeEmail.setText(preferences.get_youtube_email())
-        self.ui.youtubePassword.setText(preferences.get_youtube_password())
+        browser = preferences.get_youtube_cookies_browser() or ''
+        idx = self.COOKIES_BROWSER_VALUES.index(browser) if browser in self.COOKIES_BROWSER_VALUES else 0
+        self.ui.youtubeCookiesBrowser.setCurrentIndex(idx)
 
     def save_settings(self):
         preferences.set_directory(self.ui.directory.text())
@@ -81,18 +97,19 @@ class PreferencesWindow(QDialog):
         preferences.set_manual_output_format(self.ui.manualOutputFormat.text())
         preferences.set_thread_number(self.ui.threadNumber.value())
         preferences.set_max_simultaneous_downloads(self.ui.maxSimultaneousDownloads.value())
+        preferences.set_min_sleep_interval(self.ui.minSleepInterval.value())
+        preferences.set_max_sleep_interval(self.ui.maxSleepInterval.value())
+        preferences.set_rate_limit(self.ui.rateLimit.value())
 
         preferences.set_images_cache_enabled(self.ui.cacheImagesCheck.isChecked())
         preferences.set_requests_cache_enabled(self.ui.cacheRequestsBox.isChecked())
         preferences.set_localsongs_cache_enabled(self.ui.cacheLocalSongs.isChecked())
-        preferences.set_youtube_email(self.ui.youtubeEmail.text())
-        preferences.set_youtube_password(self.ui.youtubePassword.text())
+        browser_value = self.COOKIES_BROWSER_VALUES[self.ui.youtubeCookiesBrowser.currentIndex()]
+        preferences.set_youtube_cookies_browser(browser_value)
 
         cache.enable_images_cache(preferences.is_images_cache_enabled())
         cache.enable_requests_cache(preferences.is_requests_cache_enabled())
         cache.enable_localsongs_cache(preferences.is_localsongs_cache_enabled())
-
-        ytdownloader.set_credentials(preferences.get_youtube_email(), preferences.get_youtube_password())
 
     def on_directory_clicked(self):
         directory_str = self.ui.directory.text()
@@ -152,3 +169,51 @@ class PreferencesWindow(QDialog):
 
     def update_cache_size(self):
         self.ui.cacheSize.setText(f"Size: {int(cache.cache_size() / 2**20)}MB")
+
+    def on_download_preset_changed(self, index: int):
+        preset = self.DOWNLOAD_PRESETS[index]
+        if preset is None:
+            return
+        max_sim, min_sleep, max_sleep, rate_kb = preset
+        self.ui.maxSimultaneousDownloads.setValue(max_sim)
+        self.ui.minSleepInterval.setValue(min_sleep)
+        self.ui.maxSleepInterval.setValue(max_sleep)
+        self.ui.rateLimit.setValue(rate_kb)
+
+    def on_test_youtube_cookies_clicked(self):
+        idx = self.ui.youtubeCookiesBrowser.currentIndex()
+        browser_value = self.COOKIES_BROWSER_VALUES[idx]
+        if not browser_value:
+            QMessageBox.information(self, "Test cookies", "No browser selected.")
+            return
+
+        try:
+            import yt_dlp.cookies as yt_cookies
+
+            if browser_value == 'zen':
+                profile = ytdownloader._find_zen_profile()
+                if not profile:
+                    QMessageBox.warning(self, "Test cookies", "Zen browser profile not found.\n\nMake sure Zen is installed (native or Flatpak).")
+                    return
+                browser_label = f"Zen (profile: {profile})"
+                jar = yt_cookies.extract_cookies_from_browser('firefox', profile)
+            else:
+                browser_label = browser_value.capitalize()
+                jar = yt_cookies.extract_cookies_from_browser(browser_value)
+            yt_count = sum(1 for c in jar if 'youtube.com' in c.domain or 'google.com' in c.domain)
+            total_count = sum(1 for _ in jar)
+
+            if yt_count > 0:
+                QMessageBox.information(
+                    self, "Test cookies",
+                    f"✓ {browser_label}: found {yt_count} YouTube/Google cookies ({total_count} total).\n\n"
+                    "Cookies look good! Downloads should use your YouTube Premium account."
+                )
+            else:
+                QMessageBox.warning(
+                    self, "Test cookies",
+                    f"{browser_label}: no YouTube/Google cookies found ({total_count} total cookies).\n\n"
+                    "Make sure you are logged into YouTube in this browser."
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Test cookies", f"Failed to read cookies from {browser_value}:\n\n{e}")

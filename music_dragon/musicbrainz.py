@@ -340,7 +340,7 @@ class FetchReleaseGroupCoverWorker(Worker):
             image = mb.get_release_group_image_front(self.release_group_id, size=self.size)
             debug(f"MUSICBRAINZ: get_release_group_image_front: '{self.release_group_id}' retrieved")
             self.result.emit(self.release_group_id, image)
-        except mb.ResponseError:
+        except (mb.ResponseError, mb.AuthenticationError):
             print(f"WARN: no image for release group '{self.release_group_id}'")
             self.result.emit(self.release_group_id, bytes())
 
@@ -498,7 +498,7 @@ class FetchReleaseCoverWorker(Worker):
             image = mb.get_image(self.release_id, "front", size=self.size)
             debug(f"MUSICBRAINZ: get_image: '{self.release_id}' retrieved")
             self.result.emit(self.release_id, image)
-        except mb.ResponseError:
+        except (mb.ResponseError, mb.AuthenticationError):
             print(f"WARN: no image for release '{self.release_id}'")
             self.result.emit(self.release_id, bytes())
 

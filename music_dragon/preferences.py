@@ -90,6 +90,31 @@ def max_simultaneous_downloads() -> int:
 def set_max_simultaneous_downloads(value: int):
     _preferences.setValue("max_simultaneous_downloads", value)
 
+# Sleep interval between downloads (anti-ban)
+
+def min_sleep_interval() -> int:
+    x = _preferences.value("min_sleep_interval", "0")
+    return int(x) if x is not None else 0
+
+def set_min_sleep_interval(value: int):
+    _preferences.setValue("min_sleep_interval", value)
+
+def max_sleep_interval() -> int:
+    x = _preferences.value("max_sleep_interval", "0")
+    return int(x) if x is not None else 0
+
+def set_max_sleep_interval(value: int):
+    _preferences.setValue("max_sleep_interval", value)
+
+# Download rate limit (bytes/sec, 0 = unlimited)
+
+def rate_limit() -> int:
+    x = _preferences.value("rate_limit", "0")
+    return int(x) if x is not None else 0
+
+def set_rate_limit(value: int):
+    _preferences.setValue("rate_limit", value)
+
 # Cache
 
 def is_images_cache_enabled() -> bool:
@@ -135,6 +160,16 @@ def set_youtube_password(value: str):
 
 def get_youtube_password():
     return _preferences.value("youtube_password")
+
+
+# YouTube cookies browser (for Premium quality)
+
+def get_youtube_cookies_browser() -> str:
+    return _preferences.value("youtube_cookies_browser", "")
+
+
+def set_youtube_cookies_browser(value: str):
+    _preferences.setValue("youtube_cookies_browser", value)
 
 # General
 def set_preference(key: str, value):

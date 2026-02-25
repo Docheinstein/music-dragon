@@ -228,6 +228,14 @@ class LocalAlbumsModel(QAbstractListModel):
     def __init__(self):
         super().__init__()
         self.localalbums = []
+        self.sort_mode = 'name'  # 'name', 'date', or 'duration'
+
+    def set_sort_mode(self, mode: str):
+        self.sort_mode = mode
+
+    def _album_duration(self, mp3: Mp3) -> int:
+        return sum(m.length or 0 for m in localsongs.mp3s
+                   if m.album == mp3.album and m.artist == mp3.artist)
 
     def reload(self):
         def is_better(m1: Mp3, m2: Mp3):
@@ -247,7 +255,12 @@ class LocalAlbumsModel(QAbstractListModel):
                 mp3s_by_albums[mp3.album] = mp3
 
         self.localalbums = list(mp3s_by_albums.values())
-        self.localalbums = sorted(self.localalbums, key=lambda mp3: (mp3.album or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
+        if self.sort_mode == 'name':
+            self.localalbums = sorted(self.localalbums, key=lambda mp3: (mp3.album or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
+        elif self.sort_mode == 'date':
+            self.localalbums = sorted(self.localalbums, key=lambda mp3: mp3.year or 9999)
+        elif self.sort_mode == 'duration':
+            self.localalbums = sorted(self.localalbums, key=self._album_duration, reverse=True)
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
         return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable

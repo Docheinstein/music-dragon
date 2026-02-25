@@ -92,10 +92,24 @@ class ArtistAlbumsModel(ListWidgetModel):
     def __init__(self):
         super().__init__()
         self.artist_id: Optional[str] = None
+        self.sort_mode = 'date'  # 'date' or 'duration'
+
+    def set_sort_mode(self, mode: str):
+        self.sort_mode = mode
 
     def entries(self) -> List:
         artist = get_artist(self.artist_id)
-        return artist.release_group_ids if artist else []
+        if not artist:
+            return []
+        ids = list(artist.release_group_ids)  # already sorted by date in repository
+        if self.sort_mode == 'duration':
+            def rg_duration(rgid):
+                rg = get_release_group(rgid)
+                if rg and rg.main_release():
+                    return rg.main_release().length()
+                return 0
+            ids = sorted(ids, key=rg_duration, reverse=True)
+        return ids
 
     def entry_count(self) -> int:
         artist = get_artist(self.artist_id)
@@ -107,3 +121,12 @@ class ArtistAlbumsWidget(ListWidgetModelView):
 
     def make_item_widget(self, entry) -> ListWidgetModelViewItem:
         return ArtistAlbumsItemWidget(entry)
+
+    def set_filter(self, text: str):
+        text = text.lower()
+        for i in range(self.count()):
+            item = self.item(i)
+            widget = self.itemWidget(item)
+            if widget and hasattr(widget, 'release_group') and widget.release_group:
+                visible = not text or text in widget.release_group.title.lower()
+                item.setHidden(not visible)
