@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 from typing import List, Union, Optional
 from PyQt6.QtCore import Qt
-from PyQt6.QtCore import QTimer, QSortFilterProxyModel, QRegularExpression
+from PyQt6.QtCore import QTimer, QRegularExpression
 from PyQt6.QtGui import QFont, QMouseEvent, QCloseEvent
 from PyQt6.QtWidgets import QMainWindow, QLabel, QMessageBox
 
@@ -205,10 +205,6 @@ class MainWindow(QMainWindow):
 
         # Manual download
         self.ui.manualDownloadButton.clicked.connect(self.on_manual_download_button_clicked)
-        # self.downloader = YtDownloader()
-        # self.downloader.track_download_started.connect(self.on_track_download_started)
-        # self.downloader.track_download_progress.connect(self.on_track_download_progress)
-        # self.downloader.track_download_finished.connect(self.on_track_download_finished)
 
         # Local songs
         self.local_songs_model = LocalSongsModel()

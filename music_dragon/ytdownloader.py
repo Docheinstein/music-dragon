@@ -1,4 +1,3 @@
-import json
 import os.path
 import sys
 from pathlib import Path
@@ -193,7 +192,6 @@ class TrackDownloaderWorker(Worker):
         outtmpl = os.path.join(self.output_directory, outtmpl)
 
         debug(f"Destination template: '{outtmpl}'")
-        # debug(f"Destination [real]: '{output}'")
 
         ydl_opts = make_ytdl_options()
         ydl_opts['logger'] = YoutubeDLLogger()

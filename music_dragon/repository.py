@@ -1,4 +1,3 @@
-import json
 from difflib import get_close_matches
 from statistics import mean, multimode
 from typing import List, Dict, Optional, Union, Tuple
@@ -9,8 +8,7 @@ import requests
 from music_dragon import cache, localsongs, musicbrainz, preferences, wiki, workers, ytdownloader, ytmusic
 from music_dragon.localsongs import Mp3
 from music_dragon.log import debug
-from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata, j, crc32
-from music_dragon.workers import Worker
+from music_dragon.utils import Mergeable, min_index, stable_hash, normalize_metadata, crc32
 from music_dragon.ytmusic import YtTrack
 
 _artists: Dict[str, 'Artist'] = {}
@@ -18,8 +16,6 @@ _release_groups: Dict[str, 'ReleaseGroup'] = {}
 _releases: Dict[str, 'Release'] = {}
 _tracks: Dict[str, 'Track'] = {}
 _youtube_tracks: Dict[str, 'YtTrack'] = {}
-
-# _track_id_by_video_id: Dict[str, str] = {}
 
 RELEASE_GROUP_IMAGES_RELEASE_GROUP_COVER_INDEX = 0
 RELEASE_GROUP_IMAGES_RELEASES_FIRST_INDEX = 1
@@ -95,8 +91,6 @@ class ReleaseGroup(Mergeable):
             self.title = normalize_metadata(mb_release_group["title"])
             self.date = mb_release_group.get("first-release-date", "")
             if "artist-credit" in mb_release_group:
-                # debug(f"mb_release_group['artist-credit'] len is {len(mb_release_group['artist-credit'])}")
-                # debug(f"self.artist_ids before is {self.artist_ids}")
                 for artist_credit in mb_release_group["artist-credit"]:
                     if not isinstance(artist_credit, dict):
                         continue
@@ -108,8 +102,6 @@ class ReleaseGroup(Mergeable):
                         self.artist_ids.append(artist.id)
                     else:
                         debug("WARN: duplicate artist id")
-
-                # debug(f"self.artist_ids after is {self.artist_ids}")
 
             if "release-list" in mb_release_group:
                 self.release_ids = [{
@@ -274,15 +266,11 @@ class Track(Mergeable):
         self.title_aliases = []
 
         if mb_track:
-            # print(f"MB_TRACK = {mb_track}")
-            # try:
             self.id = f'{mb_track["recording"]["id"]}@{release_id}'
             self.title = normalize_metadata(mb_track["recording"]["title"])
             self.length = int(mb_track["recording"].get("length", 0))
             self.track_number = int(mb_track["position"])
             self.release_id = release_id
-            # except:
-            #     print(f"WARN: invalid musicbrainz track: {mb_track}")
 
     def merge(self, other):
         # TODO: youtube_track_is_official is not handled well probably

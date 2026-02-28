@@ -32,7 +32,6 @@ def set_favourite(artist: str, album: Optional[str], song: Optional[str], favour
 
 def is_favourite(artist: str, album: str=None, song: str=None) -> bool:
     yes = _compute_favourite_string(artist, album, song) in favourites
-    # debug(f"is_favourite(artist={artist},album={album},song={song})={yes}")
     return yes
 
 def load_favourites():
