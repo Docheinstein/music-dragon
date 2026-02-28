@@ -1,7 +1,7 @@
 from typing import Sequence
 
 import requests
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from wikidata.client import Client as WikidataClient
 from wikidata.commonsmedia import File as WikidataFile
 from wikidata.entity import EntityId

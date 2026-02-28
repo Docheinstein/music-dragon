@@ -1,6 +1,6 @@
-from PyQt5.QtCore import pyqtSignal, QEvent, Qt
-from PyQt5.QtGui import QMouseEvent, QCursor
-from PyQt5.QtWidgets import QLabel
+from PyQt6.QtCore import pyqtSignal, QEvent, Qt
+from PyQt6.QtGui import QMouseEvent, QCursor
+from PyQt6.QtWidgets import QLabel
 
 
 class ClickableLabel(QLabel):
@@ -31,9 +31,9 @@ class ClickableLabel(QLabel):
             self.underline_on_hover = False
 
         if self.clickable:
-            self.setCursor(QCursor(Qt.PointingHandCursor))
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         else:
-            self.setCursor(QCursor(Qt.ArrowCursor))
+            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
 
         if not self.underline_on_hover:
             f = self.font()

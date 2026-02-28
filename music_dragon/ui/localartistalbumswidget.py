@@ -1,7 +1,7 @@
 from typing import List, Optional
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QPushButton
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QPushButton
 
 from music_dragon import localsongs, favourites
 from music_dragon.localsongs import Mp3
@@ -32,19 +32,19 @@ class LocalArtistAlbumsItemWidget(ListWidgetModelViewItem):
     def setup(self):
         # cover
         self.ui.cover = QLabel()
-        self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.ui.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
         # subtitle
         self.ui.subtitle = QLabel()
-        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.ui.subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         font = self.ui.subtitle.font()
         font.setPointSize(10)
         self.ui.subtitle.setFont(font)

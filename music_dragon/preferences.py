@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from PyQt5.QtCore import QSettings, QThread
+from PyQt6.QtCore import QSettings, QThread
 
 from music_dragon.utils import app_music_path
 

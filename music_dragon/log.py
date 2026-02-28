@@ -1,5 +1,5 @@
-from PyQt5.QtCore import QThread
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtCore import QThread
+from PyQt6.QtWidgets import QApplication
 
 from music_dragon.utils import current_execution_millis
 

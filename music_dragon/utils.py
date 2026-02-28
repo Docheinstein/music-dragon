@@ -7,8 +7,8 @@ import zlib
 from pathlib import Path
 from typing import Sequence, Optional, Union
 
-from PyQt5.QtCore import QUrl, QStandardPaths
-from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette
+from PyQt6.QtCore import QUrl, QStandardPaths
+from PyQt6.QtGui import QPixmap, QIcon, QDesktopServices, QPalette
 
 application_start_time: Optional[int] = None
 
@@ -105,16 +105,16 @@ def open_folder(directory: Union[Path, str]):
     QDesktopServices.openUrl(QUrl.fromLocalFile(directory))
 
 def app_config_path() -> Path:
-    return Path(QStandardPaths.writableLocation(QStandardPaths.AppConfigLocation))
+    return Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation))
 
 def app_cache_path()-> Path:
-    return Path(QStandardPaths.writableLocation(QStandardPaths.CacheLocation))
+    return Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.CacheLocation))
 
 def app_music_path()-> Path:
-    return Path(QStandardPaths.writableLocation(QStandardPaths.MusicLocation), "MusicDragon")
+    return Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.MusicLocation), "MusicDragon")
 
 def is_dark_mode():
-    return QPalette().color(QPalette.Window).value() < 128
+    return QPalette().color(QPalette.ColorRole.Window).value() < 128
 
 def get_folder_size(directory: Union[Path, str]) -> int: #KB
     total_size = 0

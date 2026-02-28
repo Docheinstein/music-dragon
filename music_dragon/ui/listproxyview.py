@@ -1,5 +1,5 @@
-from PyQt5.QtCore import QModelIndex, QSortFilterProxyModel
-from PyQt5.QtWidgets import QListView
+from PyQt6.QtCore import QModelIndex, QSortFilterProxyModel
+from PyQt6.QtWidgets import QListView
 
 
 class ListProxyView(QListView):

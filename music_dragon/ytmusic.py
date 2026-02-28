@@ -3,7 +3,7 @@ import unicodedata
 from typing import Optional, List, Dict
 
 import Levenshtein as levenshtein
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from ytmusicapi import YTMusic
 
 from music_dragon import workers

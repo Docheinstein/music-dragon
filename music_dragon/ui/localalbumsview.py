@@ -1,9 +1,9 @@
 from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
     QSortFilterProxyModel, QRectF
-from PyQt5.QtGui import QPainter, QMouseEvent
-from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
+from PyQt6.QtGui import QPainter, QMouseEvent
+from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
     QGridLayout, QListView, QPushButton
 
 from music_dragon import localsongs, favourites, UNKNOWN_ALBUM, UNKNOWN_ARTIST
@@ -15,9 +15,9 @@ from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
 
 class LocalAlbumsItemRole:
-    TITLE = Qt.DisplayRole
-    IMAGE = Qt.DecorationRole
-    ARTIST = Qt.UserRole
+    TITLE = Qt.ItemDataRole.DisplayRole
+    IMAGE = Qt.ItemDataRole.DecorationRole
+    ARTIST = Qt.ItemDataRole.UserRole
 
 
 class LocalAlbumsItemWidget(QWidget):
@@ -49,7 +49,7 @@ class LocalAlbumsItemWidget(QWidget):
     def setup(self):
         # title
         self.ui.title = QLabel()
-        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
         # artist
         self.ui.artist = ClickableLabel()
@@ -57,8 +57,8 @@ class LocalAlbumsItemWidget(QWidget):
         f = self.ui.artist.font()
         f.setPointSize(10)
         self.ui.artist.setFont(f)
-        self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.artist.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.artist.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.artist.set_underline_on_hover(True)
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
@@ -81,7 +81,7 @@ class LocalAlbumsItemWidget(QWidget):
         subtitle_layout = QHBoxLayout()
         subtitle_layout.setSpacing(0)
         subtitle_layout.addWidget(self.ui.artist)
-        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         subtitle_layout.setContentsMargins(0, 0, 0, 0)
 
         content_layout.addWidget(self.ui.title)
@@ -249,8 +249,8 @@ class LocalAlbumsModel(QAbstractListModel):
         self.localalbums = list(mp3s_by_albums.values())
         self.localalbums = sorted(self.localalbums, key=lambda mp3: (mp3.album or "ZZZZZZZZZZZZZZZZZZZZZZZ").lower())
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
-        return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         return len(self.localalbums)

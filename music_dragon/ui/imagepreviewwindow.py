@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
+from PyQt6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from music_dragon.log import debug
 from music_dragon.ui.ui_imagepreviewwindow import Ui_ImagePreviewWindow

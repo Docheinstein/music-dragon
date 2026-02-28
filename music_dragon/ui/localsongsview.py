@@ -1,9 +1,9 @@
 from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
     QSortFilterProxyModel
-from PyQt5.QtGui import QPainter, QMouseEvent
-from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
+from PyQt6.QtGui import QPainter, QMouseEvent
+from PyQt6.QtWidgets import QStyledItemDelegate, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QSpacerItem, \
     QGridLayout, QListView
 
 from music_dragon import localsongs
@@ -15,10 +15,10 @@ from music_dragon.utils import make_icon_from_data
 
 
 class LocalSongsItemRole:
-    SONG = Qt.DisplayRole
-    IMAGE = Qt.DecorationRole
-    ARTIST = Qt.UserRole
-    ALBUM = Qt.UserRole + 1
+    SONG = Qt.ItemDataRole.DisplayRole
+    IMAGE = Qt.ItemDataRole.DecorationRole
+    ARTIST = Qt.ItemDataRole.UserRole
+    ALBUM = Qt.ItemDataRole.UserRole + 1
 
 
 class LocalSongsItemWidget(QWidget):
@@ -52,7 +52,7 @@ class LocalSongsItemWidget(QWidget):
     def setup(self):
         # title
         self.ui.title = QLabel()
-        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
         # artist
         self.ui.artist = ClickableLabel()
@@ -60,8 +60,8 @@ class LocalSongsItemWidget(QWidget):
         f = self.ui.artist.font()
         f.setPointSize(10)
         self.ui.artist.setFont(f)
-        self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.artist.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.artist.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.artist.set_underline_on_hover(True)
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
@@ -70,8 +70,8 @@ class LocalSongsItemWidget(QWidget):
         f = self.ui.dash.font()
         f.setPointSize(10)
         self.ui.dash.setFont(f)
-        self.ui.dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.dash.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.dash.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         # album
         self.ui.album = ClickableLabel()
@@ -79,8 +79,8 @@ class LocalSongsItemWidget(QWidget):
         f = self.ui.album.font()
         f.setPointSize(10)
         self.ui.album.setFont(f)
-        self.ui.album.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.album.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.album.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.album.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.album.clicked.connect(self._on_album_clicked)
 
         # build
@@ -98,7 +98,7 @@ class LocalSongsItemWidget(QWidget):
         subtitle_layout.addWidget(self.ui.artist)
         subtitle_layout.addWidget(self.ui.dash)
         subtitle_layout.addWidget(self.ui.album)
-        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         subtitle_layout.setContentsMargins(0, 0, 0, 0)
         self.ui.subtitle_widget.setLayout(subtitle_layout)
 
@@ -134,13 +134,13 @@ class LocalSongsItemWidget(QWidget):
 
         if self.artist or self.album:
             self.ui.subtitle_widget.setVisible(True)
-            self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+            self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
             if self.artist and self.album:
                 self.ui.dash.setVisible(True)
         else:
             self.ui.subtitle_widget.setVisible(False)
             self.ui.dash.setVisible(False)
-            self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
     def _on_artist_clicked(self):
         debug(f"_on_artist_clicked({self.artist})")
@@ -275,8 +275,8 @@ class LocalSongsModel(QAbstractListModel):
         self.localsongs = [mp3 for mp3 in localsongs.mp3s]
         self.localsongs = sorted(self.localsongs, key=lambda mp3: mp3.title().lower())
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
-        return super().flags(index) | Qt.ItemIsEditable | Qt.ItemIsSelectable
+    def flags(self, index: QModelIndex):
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable | Qt.ItemFlag.ItemIsSelectable
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         return len(self.localsongs)

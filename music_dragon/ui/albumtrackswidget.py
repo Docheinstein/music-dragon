@@ -1,7 +1,7 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QPushButton, \
     QProgressBar
 
 
@@ -46,13 +46,13 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
     def setup(self):
         # cover
         self.ui.cover = QLabel()
-        self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.ui.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.ui.cover.setMaximumSize(QSize(48, 48))
         self.ui.cover.setScaledContents(True)
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         # subtitle
         self.ui.subtitle = QLabel()
@@ -61,14 +61,14 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         f.setItalic(True)
         f.setPointSize(f.pointSize() - 2)
         self.ui.subtitle.setFont(f)
-        self.ui.subtitle.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         # download button
         self.ui.link_button = QPushButton()
         # self.ui.link_button.setVisible(False)
         self.ui.link_button.setIcon(resources.LINK_ICON)
         self.ui.link_button.setFlat(True)
-        self.ui.link_button.setCursor(Qt.PointingHandCursor)
+        self.ui.link_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ui.link_button.setIconSize(QSize(24, 24))
         self.ui.link_button.setToolTip(f"Set YouTube URL")
         self.ui.link_button.clicked.connect(self._on_link_button_clicked)
@@ -81,7 +81,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.download_button.setVisible(False)
         self.ui.download_button.setIcon(resources.DOWNLOAD_ICON)
         self.ui.download_button.setFlat(True)
-        self.ui.download_button.setCursor(Qt.PointingHandCursor)
+        self.ui.download_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ui.download_button.setIconSize(QSize(24, 24))
         self.ui.download_button.setToolTip(f"Download song from YouTube")
         self.ui.download_button.clicked.connect(self._on_download_button_clicked)
@@ -94,7 +94,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.open_video_button.setVisible(False)
         self.ui.open_video_button.setIcon(resources.OPEN_LINK_ICON)
         self.ui.open_video_button.setFlat(True)
-        self.ui.open_video_button.setCursor(Qt.PointingHandCursor)
+        self.ui.open_video_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ui.open_video_button.setIconSize(QSize(24, 24))
         self.ui.open_video_button.setToolTip(f"Open song in YouTube")
         self.ui.open_video_button.clicked.connect(self._on_open_video_button_clicked)
@@ -105,7 +105,7 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         self.ui.download_progress.setTextVisible(False)
         self.ui.download_progress.setMinimum(0)
         self.ui.download_progress.setMaximum(100)
-        self.ui.download_progress.setOrientation(Qt.Horizontal)
+        self.ui.download_progress.setOrientation(Qt.Orientation.Horizontal)
         self.ui.download_progress.setValue(0)
         self.ui.download_progress.setVisible(False)
 
@@ -117,8 +117,8 @@ class AlbumTracksItemWidget(ListWidgetModelViewItem):
         inner_layout = QGridLayout()
         inner_layout.setContentsMargins(8, 0, 0, 0)
         inner_layout.addWidget(self.ui.title, 0, 0)
-        inner_layout.addWidget(self.ui.subtitle, 0, 0, alignment=Qt.AlignBottom)
-        inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
+        inner_layout.addWidget(self.ui.subtitle, 0, 0, alignment=Qt.AlignmentFlag.AlignBottom)
+        inner_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addLayout(inner_layout)
 
 

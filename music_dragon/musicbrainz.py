@@ -1,5 +1,5 @@
 import musicbrainzngs as mb
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 
 from music_dragon import workers, APP_DISPLAY_NAME, APP_VERSION
 from music_dragon.log import debug

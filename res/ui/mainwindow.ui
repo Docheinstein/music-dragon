@@ -122,7 +122,7 @@
          <item>
           <spacer name="verticalSpacer_2">
            <property name="orientation">
-            <enum>Qt::Vertical</enum>
+            <enum>Qt::Orientation::Vertical</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
@@ -176,7 +176,7 @@
           <item>
            <spacer name="horizontalSpacer_3">
             <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+             <enum>Qt::Orientation::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -250,7 +250,7 @@ border-radius: 5px;
                   <string>Songs</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignCenter</set>
+                  <set>Qt::AlignmentFlag::AlignCenter</set>
                  </property>
                 </widget>
                </item>
@@ -267,7 +267,7 @@ border-radius: 5px;
                   <string>Artists</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignCenter</set>
+                  <set>Qt::AlignmentFlag::AlignCenter</set>
                  </property>
                 </widget>
                </item>
@@ -284,7 +284,7 @@ border-radius: 5px;
                   <string>Albums</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignCenter</set>
+                  <set>Qt::AlignmentFlag::AlignCenter</set>
                  </property>
                 </widget>
                </item>
@@ -401,14 +401,14 @@ border-radius: 5px;
                  <string>0 Songs</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                </widget>
               </item>
               <item>
                <spacer name="horizontalSpacer_10">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -587,7 +587,7 @@ border-radius: 5px;
                      <string>1/2</string>
                     </property>
                     <property name="alignment">
-                     <set>Qt::AlignCenter</set>
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -639,7 +639,6 @@ border-radius: 5px;
                     <property name="font">
                      <font>
                       <pointsize>18</pointsize>
-                      <weight>75</weight>
                       <bold>true</bold>
                      </font>
                     </property>
@@ -647,7 +646,7 @@ border-radius: 5px;
                      <string>Fear of the Dark</string>
                     </property>
                     <property name="alignment">
-                     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                     <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -677,7 +676,7 @@ border-radius: 5px;
                   <item>
                    <spacer name="horizontalSpacer_11">
                     <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
+                     <enum>Qt::Orientation::Horizontal</enum>
                     </property>
                     <property name="sizeHint" stdset="0">
                      <size>
@@ -706,7 +705,7 @@ border-radius: 5px;
                    <string>Iron Maiden</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                   </property>
                  </widget>
                 </item>
@@ -851,7 +850,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_2">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -871,7 +870,7 @@ border-radius: 5px;
                      <string/>
                     </property>
                     <property name="alignment">
-                     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                     <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -962,7 +961,6 @@ border-radius: 5px;
                 <property name="font">
                  <font>
                   <pointsize>18</pointsize>
-                  <weight>75</weight>
                   <bold>true</bold>
                  </font>
                 </property>
@@ -970,7 +968,7 @@ border-radius: 5px;
                  <string>Iron Maiden</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                </widget>
               </item>
@@ -1000,7 +998,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_4">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1080,7 +1078,6 @@ border-radius: 5px;
                     <property name="font">
                      <font>
                       <pointsize>18</pointsize>
-                      <weight>75</weight>
                       <bold>true</bold>
                      </font>
                     </property>
@@ -1088,7 +1085,7 @@ border-radius: 5px;
                      <string>Fear of the Dark</string>
                     </property>
                     <property name="alignment">
-                     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                     <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                     </property>
                    </widget>
                   </item>
@@ -1118,7 +1115,7 @@ border-radius: 5px;
                   <item>
                    <spacer name="horizontalSpacer_8">
                     <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
+                     <enum>Qt::Orientation::Horizontal</enum>
                     </property>
                     <property name="sizeHint" stdset="0">
                      <size>
@@ -1147,7 +1144,7 @@ border-radius: 5px;
                    <string>Iron Maiden</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                   </property>
                  </widget>
                 </item>
@@ -1166,7 +1163,7 @@ border-radius: 5px;
                 <item>
                  <spacer name="horizontalSpacer">
                   <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+                   <enum>Qt::Orientation::Horizontal</enum>
                   </property>
                   <property name="sizeHint" stdset="0">
                    <size>
@@ -1205,7 +1202,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_12">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1288,7 +1285,6 @@ border-radius: 5px;
                 <property name="font">
                  <font>
                   <pointsize>18</pointsize>
-                  <weight>75</weight>
                   <bold>true</bold>
                  </font>
                 </property>
@@ -1296,7 +1292,7 @@ border-radius: 5px;
                  <string>Iron Maiden</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                 <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
                 </property>
                </widget>
               </item>
@@ -1326,7 +1322,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_9">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1363,7 +1359,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_13">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1484,7 +1480,6 @@ border-radius: 5px;
                <widget class="QLabel" name="playTitle">
                 <property name="font">
                  <font>
-                  <weight>75</weight>
                   <bold>true</bold>
                  </font>
                 </property>
@@ -1495,7 +1490,7 @@ border-radius: 5px;
                  <string>Be Quick or Be Dead</string>
                 </property>
                 <property name="alignment">
-                 <set>Qt::AlignBottom|Qt::AlignLeading|Qt::AlignLeft</set>
+                 <set>Qt::AlignmentFlag::AlignBottom|Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft</set>
                 </property>
                </widget>
               </item>
@@ -1519,7 +1514,7 @@ border-radius: 5px;
                    <string>Iron Maiden</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                   </property>
                  </widget>
                 </item>
@@ -1538,7 +1533,7 @@ border-radius: 5px;
                    <string> - </string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                   </property>
                  </widget>
                 </item>
@@ -1556,7 +1551,7 @@ border-radius: 5px;
                    <string>Fear of the Dark</string>
                   </property>
                   <property name="alignment">
-                   <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                   <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                   </property>
                  </widget>
                 </item>
@@ -1572,10 +1567,10 @@ border-radius: 5px;
        <item>
         <spacer name="horizontalSpacer_7">
          <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+          <enum>Qt::Orientation::Horizontal</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Minimum</enum>
+          <enum>QSizePolicy::Policy::Minimum</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -1610,7 +1605,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_5">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1728,7 +1723,7 @@ border-radius: 5px;
               <item>
                <spacer name="horizontalSpacer_6">
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -1764,7 +1759,7 @@ border-radius: 5px;
                  <number>0</number>
                 </property>
                 <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
+                 <enum>Qt::Orientation::Horizontal</enum>
                 </property>
                </widget>
               </item>
@@ -1788,10 +1783,10 @@ border-radius: 5px;
        <item>
         <spacer name="horizontalSpacer_14">
          <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+          <enum>Qt::Orientation::Horizontal</enum>
          </property>
          <property name="sizeType">
-          <enum>QSizePolicy::Maximum</enum>
+          <enum>QSizePolicy::Policy::Maximum</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -1834,7 +1829,7 @@ border-radius: 5px;
              <number>100</number>
             </property>
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Orientation::Vertical</enum>
             </property>
            </widget>
           </item>
@@ -1871,7 +1866,7 @@ border-radius: 5px;
      <x>0</x>
      <y>0</y>
      <width>1152</width>
-     <height>34</height>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

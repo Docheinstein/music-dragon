@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QDialog, QFileDialog
+from PyQt6.QtWidgets import QDialog, QFileDialog
 
 from music_dragon import cache, preferences, ytdownloader
 from music_dragon.log import debug
@@ -106,7 +106,7 @@ class PreferencesWindow(QDialog):
     def on_browse_directory_button_clicked(self):
         debug("Opening download directory picker")
         directory_picker = QFileDialog()
-        directory_picker.setFileMode(QFileDialog.Directory)
+        directory_picker.setFileMode(QFileDialog.FileMode.Directory)
         if directory_picker.exec():
             results = directory_picker.selectedFiles()
             if not results:
@@ -131,7 +131,7 @@ class PreferencesWindow(QDialog):
     def on_browse_manual_download_directory_button_clicked(self):
         debug("Opening download directory picker")
         directory_picker = QFileDialog()
-        directory_picker.setFileMode(QFileDialog.Directory)
+        directory_picker.setFileMode(QFileDialog.FileMode.Directory)
         if directory_picker.exec():
             results = directory_picker.selectedFiles()
             if not results:

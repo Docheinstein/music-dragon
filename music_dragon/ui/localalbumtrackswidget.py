@@ -1,7 +1,7 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout
 
 
 from music_dragon import ytdownloader, localsongs
@@ -29,13 +29,13 @@ class LocalAlbumTracksItemWidget(ListWidgetModelViewItem):
     def setup(self):
         # cover
         self.ui.cover = QLabel()
-        self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.ui.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.ui.title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
 
         # build

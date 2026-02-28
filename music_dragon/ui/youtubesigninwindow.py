@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog
+from PyQt6.QtWidgets import QDialog
 
 from music_dragon import ytdownloader, preferences
 from music_dragon.log import debug

@@ -1,9 +1,9 @@
 from typing import Any, Optional
 
-from PyQt5.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
+from PyQt6.QtCore import Qt, QSize, QRect, QPoint, QModelIndex, QAbstractListModel, QVariant, pyqtSignal, \
     QSortFilterProxyModel, QRectF
-from PyQt5.QtGui import QPainter, QMouseEvent
-from PyQt5.QtWidgets import QStyledItemDelegate, QListView, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, \
+from PyQt6.QtGui import QPainter, QMouseEvent
+from PyQt6.QtWidgets import QStyledItemDelegate, QListView, QWidget, QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, \
     QSpacerItem, QGridLayout, QPushButton
 
 from music_dragon import localsongs, favourites, UNKNOWN_ARTIST
@@ -14,8 +14,8 @@ from music_dragon.ui.listproxyview import ListProxyView
 from music_dragon.utils import make_icon_from_data
 
 class LocalArtistsItemRole:
-    NAME = Qt.DisplayRole
-    IMAGE = Qt.DecorationRole
+    NAME = Qt.ItemDataRole.DisplayRole
+    IMAGE = Qt.ItemDataRole.DecorationRole
 
 
 class LocalArtistsItemWidget(QWidget):
@@ -46,8 +46,8 @@ class LocalArtistsItemWidget(QWidget):
         self.ui.name = QLabel()
         f = self.ui.name.font()
         self.ui.name.setFont(f)
-        self.ui.name.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        self.ui.name.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.name.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.ui.name.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         # fav
         self.ui.fav = QPushButton()
@@ -61,7 +61,7 @@ class LocalArtistsItemWidget(QWidget):
         layout.setSpacing(4)
         layout.setContentsMargins(8, 0, 0, 0)
         layout.addWidget(self.ui.name)
-        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         layout.addWidget(self.ui.fav)
 
         self.setLayout(layout)

@@ -36,7 +36,7 @@ setup(
         "ytmusicapi",
         "python-vlc",
         "eyed3",
-        "PyQt5",
+        "PyQt6",
         "wikidata",
         "requests",
         "levenshtein",

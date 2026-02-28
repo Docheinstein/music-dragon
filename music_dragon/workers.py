@@ -1,6 +1,6 @@
 from typing import Optional, List, Callable, Union
 
-from PyQt5.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
+from PyQt6.QtCore import QObject, QThread, pyqtSlot, pyqtSignal, QMetaObject, Qt
 
 from music_dragon.log import debug
 from music_dragon.utils import current_execution_millis
@@ -107,7 +107,7 @@ class Thread(QThread):
         self.tag = tag
         self.workers = {}
 
-    def start(self, priority=QThread.InheritPriority) -> None:
+    def start(self, priority=QThread.Priority.InheritPriority) -> None:
         super().start(priority)
         debug(f"Started {self}")
 
@@ -118,7 +118,7 @@ class Thread(QThread):
         w.started.connect(self._on_worker_started)
         w.canceled.connect(self._on_worker_canceled)
         w.finished.connect(self._on_worker_finished)
-        QMetaObject.invokeMethod(w, "exec", Qt.QueuedConnection)
+        QMetaObject.invokeMethod(w, "exec", Qt.ConnectionType.QueuedConnection)
 
 
     def active_workers(self):

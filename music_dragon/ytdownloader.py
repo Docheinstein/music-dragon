@@ -5,7 +5,7 @@ from pathlib import Path
 
 import eyed3
 import yt_dlp
-from PyQt5.QtCore import pyqtSignal, pyqtSlot
+from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from eyed3.core import AudioFile
 from eyed3.id3 import Tag
 from yt_dlp import YoutubeDL

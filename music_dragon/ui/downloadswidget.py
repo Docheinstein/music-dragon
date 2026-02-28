@@ -1,7 +1,7 @@
 from typing import List, Optional
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton, QVBoxLayout, \
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QGridLayout, QProgressBar, QPushButton, QVBoxLayout, \
     QSpacerItem
 
 from music_dragon import ytdownloader, UNKNOWN_ARTIST, UNKNOWN_ALBUM
@@ -40,13 +40,13 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
     def setup(self):
         # cover
         self.ui.cover = QLabel()
-        self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.ui.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
 
         # title
         self.ui.title = QLabel()
-        self.ui.title.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
 
         # artist
         self.ui.artist = ClickableLabel()
@@ -54,8 +54,8 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         f = self.ui.artist.font()
         f.setPointSize(10)
         self.ui.artist.setFont(f)
-        self.ui.artist.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.artist.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.artist.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.artist.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.artist.clicked.connect(self._on_artist_clicked)
 
         # -
@@ -63,8 +63,8 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         f = dash.font()
         f.setPointSize(10)
         dash.setFont(f)
-        dash.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        dash.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        dash.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        dash.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         # album
         self.ui.album = ClickableLabel()
@@ -72,8 +72,8 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         f = self.ui.album.font()
         f.setPointSize(10)
         self.ui.album.setFont(f)
-        self.ui.album.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.album.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.album.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.album.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.album.clicked.connect(self._on_album_clicked)
 
         # download progress
@@ -82,13 +82,13 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.ui.download_progress.setTextVisible(False)
         self.ui.download_progress.setMinimum(0)
         self.ui.download_progress.setMaximum(100)
-        self.ui.download_progress.setOrientation(Qt.Horizontal)
+        self.ui.download_progress.setOrientation(Qt.Orientation.Horizontal)
         self.ui.download_progress.setValue(0)
 
         # download errors
         self.ui.download_error = QLabel()
         self.ui.download_error.setStyleSheet("QLabel { color: red; }")
-        self.ui.download_error.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.ui.download_error.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         self.ui.download_error.setVisible(False)
 
         # cancel button
@@ -96,7 +96,7 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         self.ui.cancel_button.setVisible(False)
         self.ui.cancel_button.setIcon(resources.X_ICON)
         self.ui.cancel_button.setFlat(True)
-        self.ui.cancel_button.setCursor(Qt.PointingHandCursor)
+        self.ui.cancel_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ui.cancel_button.setIconSize(QSize(24, 24))
         self.ui.cancel_button.clicked.connect(self._on_cancel_button_clicked)
 
@@ -112,7 +112,7 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         subtitle_layout.addWidget(self.ui.artist)
         subtitle_layout.addWidget(dash)
         subtitle_layout.addWidget(self.ui.album)
-        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
         content_layout.addWidget(self.ui.title)
         content_layout.addLayout(subtitle_layout)
@@ -121,8 +121,8 @@ class DownloadsItemWidget(ListWidgetModelViewItem):
         grid_layout.setContentsMargins(8, 0, 0, 0)
 
         grid_layout.addLayout(content_layout, 0, 0)
-        grid_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignBottom)
-        grid_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignBottom)
+        grid_layout.addWidget(self.ui.download_progress, 0, 0, alignment=Qt.AlignmentFlag.AlignBottom)
+        grid_layout.addWidget(self.ui.download_error, 0, 0, alignment=Qt.AlignmentFlag.AlignBottom)
 
         outer_layout.addLayout(grid_layout)
         outer_layout.addWidget(self.ui.cancel_button)

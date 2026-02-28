@@ -1,8 +1,8 @@
 from typing import Optional, List
 
-from PyQt5.QtCore import QSize, Qt, pyqtSignal
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QListWidgetItem, QSpacerItem
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QHBoxLayout, QVBoxLayout, QListWidgetItem, QSpacerItem
 
 from music_dragon.ui import resources
 from music_dragon.repository import get_entity, Track
@@ -40,7 +40,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
     def setup(self):
         # cover
         self.ui.cover = QLabel()
-        self.ui.cover.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.ui.cover.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.ui.cover.setMaximumSize(QSize(64, 64))
         self.ui.cover.setScaledContents(True)
 
@@ -53,8 +53,8 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         # subtitle
         self.ui.subtitle = ClickableLabel()
-        self.ui.subtitle.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
-        self.ui.subtitle.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.ui.subtitle.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+        self.ui.subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.ui.subtitle.clicked.connect(self._on_subtitle_first_clicked)
         self.ui.subtitle.set_underline_on_hover(True)
 
@@ -64,8 +64,8 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         f = self.ui.subtitle_first.font()
         f.setPointSize(10)
         self.ui.subtitle_first.setFont(f)
-        self.ui.subtitle_first.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.subtitle_first.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.subtitle_first.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.subtitle_first.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.subtitle_first.clicked.connect(self._on_subtitle_first_clicked)
 
         # -
@@ -73,8 +73,8 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         f = self.ui.subtitle_sep.font()
         f.setPointSize(10)
         self.ui.subtitle_sep.setFont(f)
-        self.ui.subtitle_sep.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.subtitle_sep.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.subtitle_sep.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.subtitle_sep.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         # subtitle second
         self.ui.subtitle_second = ClickableLabel()
@@ -82,8 +82,8 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         f = self.ui.subtitle_second.font()
         f.setPointSize(10)
         self.ui.subtitle_second.setFont(f)
-        self.ui.subtitle_second.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.ui.subtitle_second.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        self.ui.subtitle_second.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.ui.subtitle_second.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ui.subtitle_second.clicked.connect(self._on_subtitle_second_clicked)
 
         # build
@@ -97,7 +97,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
         subtitle_layout.addWidget(self.ui.subtitle_first)
         subtitle_layout.addWidget(self.ui.subtitle_sep)
         subtitle_layout.addWidget(self.ui.subtitle_second)
-        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        subtitle_layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
         inner_layout.setSpacing(0)
         inner_layout.addWidget(self.ui.title)
@@ -105,7 +105,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         layout.addLayout(inner_layout)
 
-        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
 
         self.setLayout(layout)
 
@@ -167,7 +167,7 @@ class SearchResultsItemWidget(ListWidgetModelViewItem):
 
         # title
         self.ui.title.setText(title)
-        self.ui.title.setAlignment((Qt.AlignLeft | Qt.AlignBottom) if (subtitle_first or subtitle_second) else (Qt.AlignLeft | Qt.AlignVCenter))
+        self.ui.title.setAlignment((Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom) if (subtitle_first or subtitle_second) else (Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter))
 
         # subtitle
         if subtitle_first:

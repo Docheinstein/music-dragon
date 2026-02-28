@@ -1,6 +1,6 @@
 from typing import Optional
 
-from PyQt5.QtGui import QIcon, QPixmap, QImage
+from PyQt6.QtGui import QIcon, QPixmap, QImage
 
 LOCALLY_AVAILABLE_STYLESHEET = "border: 3px solid #32CD32;"
 LOCALLY_PARTIALLY_AVAILABLE_STYLESHEET = "border: 3px solid orange;"

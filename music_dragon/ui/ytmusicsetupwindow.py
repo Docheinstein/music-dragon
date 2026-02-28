@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QMessageBox
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QMessageBox
 
 from music_dragon import ytmusic
 from music_dragon.log import debug

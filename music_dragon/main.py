@@ -1,9 +1,8 @@
 import argparse
-import logging
 import sys
 
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication
 
 import music_dragon.ui.res_rc
 
@@ -49,31 +48,11 @@ def main():
                      requests=preferences.is_requests_cache_enabled(),
                      localsongs=preferences.is_localsongs_cache_enabled())
 
-    # import ytdownloader
-    # def cb(_1, _2, _3):
-    #     pass
-    # ytdownloader.fetch_playlist_info("OLAK5uy_lpSnEyKbjOu3VsxiS7TIpYNZuyXziuy_M", cb, {})
-    # def cb(_1, _2):
-    #     pass
-
-    # ytmusic.fetch_album_or_playlist_info("OLAK5uy_lpSnEyKbjOu3VsxiS7TIpYNZuyXziuy_M", cb)
-    # ytmusic.fetch_album_or_playlist_info("PLCfCU1Ok5NVslWB4mi0MtVsvpjILpFy-p", cb)
-
-    # import logging
-    # logging.basicConfig(level=logging.DEBUG)
-
-
-    # from utils import j
-    # def cb(_1, res):
-        # print(j(res))
-    #
-    # fetch_artist("aeee5fe5-38f5-41bc-8ab8-9f9aa23e4f68", cb)
-
     window = MainWindow()
     window.show()
 
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':

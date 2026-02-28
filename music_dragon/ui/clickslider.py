@@ -1,7 +1,7 @@
-from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QMouseEvent
-from PyQt5.QtWidgets import QSlider
+from PyQt6 import QtCore
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QSlider
 
 
 class ClickSlider(QSlider):
@@ -19,7 +19,7 @@ class ClickSlider(QSlider):
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
         self.pressing = False
 
-        if self.orientation() == QtCore.Qt.Horizontal:
+        if self.orientation() == QtCore.Qt.Orientation.Horizontal:
             x = e.pos().x()
             value = int(self.minimum() + (x / self.width()) * (self.maximum() - self.minimum()))
         else:

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 import eyed3
-from PyQt5.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from eyed3.core import AudioFile
 
 from music_dragon import workers
