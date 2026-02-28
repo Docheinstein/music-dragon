@@ -33,6 +33,7 @@ setup(
     install_requires=[
         "musicbrainzngs",
         "yt_dlp",
+        "yt_dlp-ejs",
         "ytmusicapi",
         "python-vlc",
         "eyed3",

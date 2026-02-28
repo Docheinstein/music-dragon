@@ -7,11 +7,13 @@ from PyQt6.QtWidgets import QApplication
 import music_dragon.ui.res_rc
 
 from music_dragon import utils, workers, ytmusic, preferences, cache, musicbrainz, favourites, APP_DISPLAY_NAME, \
-    APP_ORGANIZATION_NAME
+    APP_ORGANIZATION_NAME, APP_VERSION
 from music_dragon.log import debug
 from music_dragon.ui.mainwindow import MainWindow
 from music_dragon.ui import resources
 
+from yt_dlp.version import __version__ as yt_dlp_version
+from yt_dlp_ejs._version import __version__  as yt_dlp_ejs_version
 
 def main():
     utils.initialize_execution_time()
@@ -33,6 +35,11 @@ def main():
     app.setWindowIcon(QIcon(":/images/logo.png"))
     app.setOrganizationName(APP_ORGANIZATION_NAME)
     app.setApplicationName(APP_DISPLAY_NAME)
+
+
+    debug(f"{APP_DISPLAY_NAME} version: {APP_VERSION}")
+    debug(f"yt-dlp version: {yt_dlp_version}")
+    debug(f"yt-dlp-ejs version: {yt_dlp_ejs_version}")
 
     debug(f"Config location: {utils.app_config_path()}")
     debug(f"Cache location: {utils.app_cache_path()}")
