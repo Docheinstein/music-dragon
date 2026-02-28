@@ -541,7 +541,6 @@ def ytmusicapi_get_playlist(yt_: YTMusic, playlistId, limit=100):
     else:
         header = response['header']['musicEditablePlaylistDetailHeaderRenderer']
         playlist['privacy'] = header['editHeader']['musicPlaylistEditHeaderRenderer']['privacy']
-        # print(header)
         header = header['header']['musicDetailHeaderRenderer']
 
     playlist['title'] = nav(header, TITLE_TEXT)

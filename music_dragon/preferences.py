@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 from PyQt6.QtCore import QSettings, QThread
 
+from music_dragon.log import debug
 from music_dragon.utils import app_music_path
 
 _preferences: Optional[QSettings] = None
@@ -9,7 +10,7 @@ _preferences: Optional[QSettings] = None
 def initialize():
     global _preferences
     _preferences = QSettings("Docheinstein", "MusicDragon")
-    print(f"Preferences path: {_preferences.fileName()}")
+    debug(f"Preferences path: {_preferences.fileName()}")
 
 
 # TODO: when the hierarchy of the preferences UI is well defined,

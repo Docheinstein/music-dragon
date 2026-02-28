@@ -74,3 +74,24 @@ Ensure that `pyside6-rcc` are `pyuic6` part of your PATH.
 
 Usually they are provided as part of the `PyQt6` and `PySide6` packages (install them with `pip`).
 
+### Build/Install/Deploy
+
+To build a package:
+```
+scripts/build.sh
+```
+
+Install (latest packaged version) locally:
+```
+scripts/install.sh
+```
+
+Uninstall locally:
+```
+scripts/uninstall.sh
+```
+
+Deploy (latest packaged version) to PyPi:
+```
+scripts/deploy.sh
+```

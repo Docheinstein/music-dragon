@@ -180,7 +180,6 @@ class Release(Mergeable):
         if mb_release:
             self.id = mb_release["id"]
             self.title = normalize_metadata(mb_release["title"]) # should match the release group title
-            # print(j(mb_release))
             if mb_release["medium-list"] and "format" in mb_release["medium-list"][0]:
                 self.format = mb_release["medium-list"][0]["format"]
             self.release_group_id = mb_release["release-group"]["id"]
