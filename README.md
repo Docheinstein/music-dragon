@@ -1,20 +1,20 @@
 # Music Dragon
 
-Desktop application written in Python3 + PyQt5 with a spotify-likish interface that can be used to 
+Desktop application written in Python3 + PyQt6 with a spotify-likish interface that can be used to 
 search artists, albums and songs and automatically download and tag those with one click.
 
 Supports Linux and Windows (experimental).
 
 ### Features
 - Search artists, albums or songs (`musicbrainz`)
-- Automatically download single songs or entire albums from youtube with a single click (`youtube_dl`)
-- Manually download any song or playlist from youtube by pasting its URL
+- Automatically download single songs or entire albums from YouTube with a single click (`youtube_dl`)
+- Manually download any song or playlist from YouTube by pasting its URL
 - Automatically fetch images of songs and albums
-- Automatically tag downloaded songs using musicbrainz and youtube metadata, with a configurable tagging pattern
+- Automatically tag downloaded songs using musicbrainz and YouTube metadata, with a configurable tagging pattern
 - Show and manage local songs
 - Automatically recognize whether songs and albums have already been downloaded
   (the border of the song/album's cover changes accordingly)
-- Play songs, either locally or directly from youtube stream
+- Play songs, either locally or directly from YouTube stream
 
 ### What it looks like
 
@@ -58,3 +58,18 @@ music-dragon
 * Allow manual tagging of local songs (`eyed3`)
 * Solve some known bugs
 * Refactor
+* Prevent progress bar of downloads to jump back and forth
+
+## Development
+
+### Status
+Not currently working on the project.
+
+Just doing maintenance and fixes of braking changes to YT API to keep it working.
+
+### UI
+To apply changes to the UI, please modify the `.ui` files under `res/ui` and then run `scripts/make-ui` to re-generate the `py` files.
+
+Ensure that `pyside6-rcc` are `pyuic6` part of your PATH.
+
+Usually they are provided as part of the `PyQt6` and `PySide6` packages (install them with `pip`).
