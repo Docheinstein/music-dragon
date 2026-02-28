@@ -5,7 +5,6 @@ from music_dragon import workers, APP_DISPLAY_NAME, APP_VERSION
 from music_dragon.log import debug
 from music_dragon.utils import j
 from music_dragon.workers import Worker
-from musicbrainzngs import musicbrainz
 
 def initialize():
     mb.set_useragent(APP_DISPLAY_NAME, APP_VERSION)

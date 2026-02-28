@@ -73,3 +73,4 @@ To apply changes to the UI, please modify the `.ui` files under `res/ui` and the
 Ensure that `pyside6-rcc` are `pyuic6` part of your PATH.
 
 Usually they are provided as part of the `PyQt6` and `PySide6` packages (install them with `pip`).
+
