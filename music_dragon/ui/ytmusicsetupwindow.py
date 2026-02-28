@@ -60,10 +60,10 @@ class YtMusicSetupWindow(QDialog):
         QMessageBox.critical(self, "YtMusic Setup Failed",
                              "Failed to create YtMusic API auth file.\n"
                              f"{self.error}",
-                             QMessageBox.Ok)
+                             QMessageBox.StandardButton.Ok)
 
     def reject(self) -> None:
         QMessageBox.warning(self, "YtMusic Setup Failed",
                             "You won't be able to use YtMusic API if you don't configure it!",
-                            QMessageBox.Ok)
+                            QMessageBox.StandardButton.Ok)
         super().reject()

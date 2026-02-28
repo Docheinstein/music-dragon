@@ -20,7 +20,7 @@ def initialize():
     except Exception as e:
         print(f"ERROR: failed to initialize YTMusic: {e}", file=sys.stderr)
         _yt = None
-# Hack ytmusicapi.get_playist since fails if no header is there
+# Hack ytmusicapi.get_playlist since fails if no header is there
 
 DUMMY_HEADER = {
     "musicDetailHeaderRenderer": {

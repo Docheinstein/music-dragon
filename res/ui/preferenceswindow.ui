@@ -328,8 +328,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>191</width>
-            <height>262</height>
+            <width>582</width>
+            <height>717</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_12">
@@ -453,8 +453,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>383</width>
-            <height>236</height>
+            <width>582</width>
+            <height>717</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_7">
@@ -565,45 +565,143 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>98</width>
-            <height>113</height>
+            <width>582</width>
+            <height>717</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_15">
+           <property name="spacing">
+            <number>12</number>
+           </property>
            <item>
-            <widget class="QLabel" name="label_10">
-             <property name="font">
-              <font>
-               <pointsize>14</pointsize>
-               <bold>true</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Sign in</string>
-             </property>
+            <widget class="QWidget" name="widget_8" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_20">
+              <item>
+               <widget class="QLabel" name="label_10">
+                <property name="font">
+                 <font>
+                  <pointsize>14</pointsize>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Cookies from browser</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="youtubeCookiesFromBrowserCombo">
+                <item>
+                 <property name="text">
+                  <string>Disabled</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Chrome</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Firefox</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Brave</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Edge</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Chromium</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Opera</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="testYoutubeCookiesFromBrowserButton">
+                <property name="text">
+                 <string>Test cookies from selected browser</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_13">
+                <property name="font">
+                 <font>
+                  <pointsize>10</pointsize>
+                  <italic>true</italic>
+                  <bold>false</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select the browser where you are logged into YouTube. Music Dragon will read its cookies to authenticate downloads - this unlocks higher quality audio (256 kbps instead of 128kbps) if you have YouTube Premium and allows download of age-restricted videos. For more details see &lt;a href=&quot;https://github.com/yt-dlp/yt-dlp/wiki/Extractors&quot;&gt;yt-dlp Extractors&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="youtubeEmail">
-             <property name="inputMethodHints">
-              <set>Qt::InputMethodHint::ImhEmailCharactersOnly</set>
-             </property>
-             <property name="placeholderText">
-              <string>Email</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLineEdit" name="youtubePassword">
-             <property name="inputMethodHints">
-              <set>Qt::InputMethodHint::ImhHiddenText|Qt::InputMethodHint::ImhNoAutoUppercase|Qt::InputMethodHint::ImhNoPredictiveText|Qt::InputMethodHint::ImhSensitiveData</set>
-             </property>
-             <property name="echoMode">
-              <enum>QLineEdit::EchoMode::Password</enum>
-             </property>
-             <property name="placeholderText">
-              <string>Password</string>
-             </property>
+            <widget class="QWidget" name="widget_7" native="true">
+             <layout class="QVBoxLayout" name="verticalLayout_19">
+              <item>
+               <widget class="QLabel" name="label_14">
+                <property name="font">
+                 <font>
+                  <pointsize>14</pointsize>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>JavaScript challenges solver</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="youtubeChallengesSolverCombo">
+                <item>
+                 <property name="text">
+                  <string>Deno (default)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Node</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="label_15">
+                <property name="font">
+                 <font>
+                  <pointsize>10</pointsize>
+                  <italic>true</italic>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Select the JavaScript runtime used to solve YouTube JS challanges. For more details see &lt;a href=&quot;https://github.com/yt-dlp/yt-dlp/wiki/EJS&quot;&gt;yt-dlp EJS scripts&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
            <item>

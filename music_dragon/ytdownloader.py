@@ -46,31 +46,7 @@ YDL_DEFAULT_PLAYLIST_OPTS = {
 downloads = {}
 finished_downloads = {}
 
-email = None
-password = None
-
 auto_download = True
-
-def set_credentials(ytemail: str, ytpassword: str):
-    if ytemail and ytpassword:
-        sign_in(ytemail, ytpassword)
-    else:
-        sign_out()
-
-def sign_in(ytemail: str, ytpassword: str):
-    global email, password
-    debug(f"YT Sign in: username={ytemail}, password={'*' * len(ytpassword)}")
-    email = ytemail
-    password = ytpassword
-
-def sign_out():
-    global email, password
-    debug(f"YT Sign out")
-    email = None
-    password = None
-
-def is_signed_in():
-    return True if (email and password) else False
 
 def download_count():
     return len(downloads)
@@ -220,11 +196,6 @@ class TrackDownloaderWorker(Worker):
             'cachedir': False,
             'verbose': music_dragon.log.debug_enabled,
         }
-
-        if is_signed_in():
-            debug("Adding youtube credentials")
-            ydl_opts["username"] = email
-            ydl_opts["password"] = password
 
         # TODO: download speed up?
 

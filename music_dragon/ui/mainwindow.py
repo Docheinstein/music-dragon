@@ -1266,23 +1266,6 @@ class MainWindow(QMainWindow):
 
         error_managed = False
 
-        # if "age" in error_msg:
-        #     debug("Age problem, eventually showing sign in window")
-        #     # Show sign in alert
-        #     if not ytdownloader.is_signed_in():
-        #         error_managed = True
-        #         sign_in_window = YouTubeSignInWindow()
-        #         sign_in_window.exec()
-        #         if ytdownloader.is_signed_in():
-        #             # Now we are signed in, try again
-        #             debug("Now we are signed in, trying again to download song")
-        #             if down["user_data"]["type"] == "official":
-        #                 track_id = down["user_data"]["id"]
-        #                 self.do_download_youtube_track(track_id)
-        #             elif down["user_data"]["type"] == "manual":
-        #                 video_id = down["user_data"]["id"]
-        #                 self.do_download_youtube_track_manual(video_id)
-
         if not error_managed:
             artist = down["artist"]
             album = down["album"]
@@ -1290,7 +1273,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Download failed",
                                 f"Download of {artist} - {album} - {song} failed\n"
                                 f"Reason: {error_msg}",
-                                QMessageBox.Ok)
+                                QMessageBox.StandardButton.Ok)
 
     def update_downloads_count(self):
         queued_count = ytdownloader.download_count()
@@ -1505,7 +1488,7 @@ class MainWindow(QMainWindow):
             print("WARN: invalid youtube url")
             QMessageBox.warning(self, "Invalid URL",
                                 "Invalid YouTube URL",
-                                QMessageBox.Ok)
+                                QMessageBox.StandardButton.Ok)
             return
 
         if video_id:
@@ -1776,7 +1759,7 @@ class MainWindow(QMainWindow):
             print("WARN: invalid youtube url")
             QMessageBox.warning(self, "Invalid URL",
                                 "Invalid YouTube URL",
-                                QMessageBox.Ok)
+                                QMessageBox.StandardButton.Ok)
             return
 
         repository.set_release_group_playlist_id(self.current_release_group_id, playlist_id,

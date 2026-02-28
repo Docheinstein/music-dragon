@@ -39,11 +39,11 @@ class ImagePreviewWindow(QDialog):
                     f.write(self.image)
                 QMessageBox.information(self, "Saved",
                                      "Image has been saved successfully",
-                                     QMessageBox.Ok)
+                                     QMessageBox.StandardButton.Ok)
                 self.close()
             except:
                 print(f"WARN: failed to save image to {filename}")
                 QMessageBox.critical(self, "Save failed",
                                      "Failed to save image to",
-                                     QMessageBox.Ok)
+                                     QMessageBox.StandardButton.Ok)
 
