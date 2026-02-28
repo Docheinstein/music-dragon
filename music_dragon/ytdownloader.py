@@ -2,6 +2,7 @@ import json
 import os.path
 import sys
 from pathlib import Path
+import copy
 
 import eyed3
 import yt_dlp
@@ -21,7 +22,7 @@ MP3_IMAGE_TAG_INDEX_FRONT_COVER = 3
 YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS = 2
 
 YDL_DEFAULT_OPTS = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio*/best',
     'postprocessors': [
         {
             'key': 'FFmpegExtractAudio',
@@ -31,17 +32,30 @@ YDL_DEFAULT_OPTS = {
     ],
     'verbose': music_dragon.log.debug_enabled,
 }
-YDL_DEFAULT_PLAYLIST_OPTS = {
-    'format': 'bestaudio/best',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '320',
-    }],
-    'verbose': music_dragon.log.debug_enabled,
-    'ignoreerrors': True
 
-}
+def make_ytdl_options():
+    # Deep copy the default options and fill it with the custom YouTube preferences.
+    ydl_opts = copy.deepcopy(YDL_DEFAULT_OPTS)
+
+    # cookiesfrombrowser (age restriction).
+    # (https://github.com/yt-dlp/yt-dlp/wiki/Extractors)
+    browser = preferences.get_youtube_cookies_from_browser()
+    if browser:
+        ydl_opts['cookiesfrombrowser'] = (browser,)
+
+    # js_runtimes (YouTube JS challenges).
+    # (https://github.com/yt-dlp/yt-dlp/wiki/EJS)
+    js_runtime = preferences.get_youtube_js_challenges_solver()
+    if js_runtime:
+        js_runtime_opts = {}
+        js_runtime_path = preferences.get_youtube_js_challenges_solver_path()
+        if js_runtime_path:
+            js_runtime_opts['path'] = js_runtime_path
+        ydl_opts['js_runtimes'] = {
+            js_runtime: js_runtime_opts
+        }
+
+    return ydl_opts
 
 downloads = {}
 finished_downloads = {}
@@ -181,21 +195,11 @@ class TrackDownloaderWorker(Worker):
         debug(f"Destination template: '{outtmpl}'")
         # debug(f"Destination [real]: '{output}'")
 
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [
-                {
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '320',
-                }
-            ],
-            'logger': YoutubeDLLogger(),
-            'progress_hooks': [progress_hook],
-            'outtmpl': outtmpl,
-            'cachedir': False,
-            'verbose': music_dragon.log.debug_enabled,
-        }
+        ydl_opts = make_ytdl_options()
+        ydl_opts['logger'] = YoutubeDLLogger()
+        ydl_opts['progress_hooks'] = [progress_hook]
+        ydl_opts['outtmpl'] = outtmpl
+        ydl_opts['cachedir'] = False
 
         # TODO: download speed up?
 
@@ -452,9 +456,9 @@ class TrackInfoFetcherWorker(Worker):
 
         last_error = None
         for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
-            debug(f"Retrieval attempt n. {attempt} for {self.video_id}")
+            debug(f"Info retrieval attempt n. {attempt} for {self.video_id}")
             try:
-                with YoutubeDL(YDL_DEFAULT_OPTS) as ydl:
+                with YoutubeDL(make_ytdl_options()) as ydl:
                     yt_url = ytcommons.youtube_video_id_to_youtube_music_url(self.video_id)
                     debug(f"YOUTUBE_DL: extract_info: '{self.video_id}'")
                     info = ydl.extract_info(yt_url, download=False)
@@ -505,7 +509,9 @@ class PlaylistInfoFetcherWorker(Worker):
         for attempt in range(YOUTUBE_DL_MAX_DOWNLOAD_ATTEMPTS):
             debug(f"Retrieval attempt n. {attempt} for playlist {self.playlist_id}")
             try:
-                with YoutubeDL(YDL_DEFAULT_PLAYLIST_OPTS) as ydl:
+                ydl_opts = make_ytdl_options()
+                ydl_opts['ignoreerrors'] = True
+                with YoutubeDL(ydl_opts) as ydl:
                     yt_url = ytcommons.youtube_playlist_id_to_youtube_url(self.playlist_id)
                     debug(f"YOUTUBE_DL: extract_info: '{self.playlist_id}'")
                     info = ydl.extract_info(yt_url, download=False)

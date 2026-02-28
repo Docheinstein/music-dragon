@@ -119,6 +119,26 @@ def set_localsongs_cache_enabled(enabled: bool):
     _preferences.setValue("cache_localsongs", "1" if enabled else "0")
 
 
+# YouTube
+
+def set_youtube_cookies_from_browser(value: str):
+    _preferences.setValue("youtube_cookies_browser", value)
+
+def get_youtube_cookies_from_browser():
+    return _preferences.value("youtube_cookies_browser", "")
+
+def set_youtube_js_challenges_solver(value: str):
+    _preferences.setValue("youtube_js_challenges_solver", value)
+
+def get_youtube_js_challenges_solver():
+    return _preferences.value("youtube_js_challenges_solver", "node")
+
+def set_youtube_js_challenges_solver_path(value: str):
+    _preferences.setValue("youtube_js_challenges_solver_path", value)
+
+def get_youtube_js_challenges_solver_path():
+    return _preferences.value("youtube_js_challenges_solver_path", "")
+
 # General
 def set_preference(key: str, value):
     _preferences.setValue(key, value)
