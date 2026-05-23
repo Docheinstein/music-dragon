@@ -38,6 +38,7 @@ setup(
         "python-vlc",
         "eyed3",
         "PyQt6",
+        "PySide6",
         "wikidata",
         "requests",
         "levenshtein",
