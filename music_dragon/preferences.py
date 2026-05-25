@@ -140,6 +140,15 @@ def set_youtube_js_challenges_solver_path(value: str):
 def get_youtube_js_challenges_solver_path():
     return _preferences.value("youtube_js_challenges_solver_path", "")
 
+# Lyrics
+
+def set_lyrics_automatic_download_enabled(enabled: bool):
+    _preferences.setValue("lyrics_automatic_download", "1" if enabled else "0")
+
+def is_lyrics_automatic_download_enabled() -> bool:
+    x = _preferences.value("lyrics_automatic_download", "0")
+    return x == "1"
+
 # General
 def set_preference(key: str, value):
     _preferences.setValue(key, value)

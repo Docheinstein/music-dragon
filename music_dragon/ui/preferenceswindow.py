@@ -70,6 +70,7 @@ class PreferencesWindow(QDialog):
         self.ui.youtubeChallengesSolverCombo.setCurrentIndex(
             PreferencesWindow.YT_JS_CHALLENGES_SOLVERS.index(preferences.get_youtube_js_challenges_solver()))
         self.ui.youtubeChallengesSolver.setText(preferences.get_youtube_js_challenges_solver_path())
+        self.ui.downloadLyricsCheck.setChecked(preferences.is_lyrics_automatic_download_enabled())
 
     def save_settings(self):
         preferences.set_directory(self.ui.directory.text())
@@ -94,6 +95,7 @@ class PreferencesWindow(QDialog):
             PreferencesWindow.YT_JS_CHALLENGES_SOLVERS[self.ui.youtubeChallengesSolverCombo.currentIndex()])
         preferences.set_youtube_js_challenges_solver_path(self.ui.youtubeChallengesSolver.text())
 
+        preferences.set_lyrics_automatic_download_enabled(self.ui.downloadLyricsCheck.isChecked())
 
     def on_directory_clicked(self):
         directory_str = self.ui.directory.text()

@@ -2,6 +2,7 @@ import os.path
 import sys
 from pathlib import Path
 import copy
+import requests
 
 import eyed3
 import yt_dlp
@@ -31,6 +32,8 @@ YDL_DEFAULT_OPTS = {
     ],
     'verbose': music_dragon.log.debug_enabled,
 }
+
+LRCLIB_API_URL = "https://lrclib.net/api/search"
 
 def make_ytdl_options():
     # Deep copy the default options and fill it with the custom YouTube preferences.
@@ -96,6 +99,36 @@ def ytdl_download(ytdl, url_list):
     res["_filename"] = ytdl.prepare_filename(res) # as performed internally
 
     return res
+
+
+def download_lyrics(artist, title):
+    response = requests.get(
+        LRCLIB_API_URL,
+        params={
+            "artist_name": artist,
+            "track_name": title,
+        },
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    results = response.json()
+
+    if not results:
+        return None
+
+    # Prefer synced lyrics
+    for result in results:
+        synced_lyrics =  result.get("syncedLyrics")
+        if synced_lyrics:
+            return synced_lyrics
+
+    # Fallback to plain
+    for result in results:
+         plain_lyrics = result.get("plainLyrics")
+         return plain_lyrics
+
 
 class CancelException(Exception):
     def __init__(self):
@@ -221,7 +254,8 @@ class TrackDownloaderWorker(Worker):
                     except Exception as e:
                         debug(f"WARN: ytdl_download dump failed: {e}")
 
-                    output = str(Path(result['_filename']).with_suffix(".mp3").absolute())
+                    output_path = Path(result['_filename']).with_suffix(".mp3").absolute()
+                    output = str(output_path)
                     debug(f"Download destination: {output}")
                     self.output_destination_known.emit(self.video_id, output)
 
@@ -272,6 +306,18 @@ class TrackDownloaderWorker(Worker):
                                 print(f"WARN: failed to apply mp3 tags to {output}: cannot load mp3")
                         except Exception as e:
                             print(f"WARN: failed to apply mp3 tags to {output}: {e}")
+
+                        # Eventually download lyrics
+                        if preferences.is_lyrics_automatic_download_enabled():
+                            try:
+                                lyrics = download_lyrics(artist, song)
+                                if lyrics:
+                                    lrc_path = output_path.with_suffix(".lrc")
+                                    debug(f"Lyrics found: writing to {lrc_path}")
+                                    lrc_path.write_text(lyrics, encoding="utf-8")
+                            except Exception as e:
+                                print(f"WARN: failed to download lyrics for {artist} - {song}: {e}")
+
                 return # download done
             except CancelException as ce:
                 print(f"WARN: cancel request received during attempt n. {attempt} for video {self.video_id}")
